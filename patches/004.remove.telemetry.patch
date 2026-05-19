@@ -1,0 +1,29 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -180,7 +180,7 @@ android {
+         }
+ 
+-        buildConfigField "boolean", "DATA_COLLECTION_DISABLED", "false"
++        buildConfigField "boolean", "DATA_COLLECTION_DISABLED", "true"
+     }
+ }
+ 
+diff --git a/app/src/main/java/org/mozilla/fenix/components/metrics/GleanMetricsService.kt b/app/src/main/java/org/mozilla/fenix/components/metrics/GleanMetricsService.kt
+--- a/app/src/main/java/org/mozilla/fenix/components/metrics/GleanMetricsService.kt
++++ b/app/src/main/java/org/mozilla/fenix/components/metrics/GleanMetricsService.kt
+@@ -20,7 +20,7 @@ class GleanMetricsService(private val context: Context) : MetricsService {
+         }
+     }
+-    override fun start() = if (!BuildConfig.DATA_COLLECTION_DISABLED) {
++    override fun start() = if (BuildConfig.DATA_COLLECTION_DISABLED) {
+         // DO NOTHING
+     } else {
+         Glean.initialize(context)
+@@ -28,7 +28,7 @@ class GleanMetricsService(private val context: Context) : MetricsService {
+         // ...
+     }
+ 
+-    override fun isEnabled(): Boolean = !BuildConfig.DATA_COLLECTION_DISABLED
++    override fun isEnabled(): Boolean = BuildConfig.DATA_COLLECTION_DISABLED
+}
