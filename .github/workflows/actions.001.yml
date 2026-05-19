@@ -1,7 +1,9 @@
 name: Build & Release
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main ]       # Runs automatically when you push to main
+  workflow_dispatch:         # Also allows manual trigger from Actions tab
 
 jobs:
   build:
@@ -31,6 +33,7 @@ jobs:
           docker build -t builder -f Dockerfile .
           docker run --rm -v $PWD:/build builder bash -c "
             cd /build &&
+            ./scripts/get_sources.sh &&
             ./scripts/prebuild.sh &&
             ./download-icons.sh &&
             ./scripts/build.sh release
