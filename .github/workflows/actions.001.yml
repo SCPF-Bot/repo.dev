@@ -1,4 +1,4 @@
-name: Browser (Build + Release)
+name: Custom Browser (Build + Release)
 
 on:
   workflow_dispatch:
@@ -9,13 +9,14 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout your repository (patches, Dockerfile, scripts)
+        uses: actions/checkout@v4
 
-      - name: Create icon download script (to be used inside container)
+      - name: Create icon download script (to be used inside Docker)
         run: |
           cat > download-icons.sh << 'EOF'
           #!/bin/bash
-          # Download Firefox Focus icons into the source tree
+          # Download Firefox Focus icons into the source tree (overwrites default)
           for mipmap in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p app/src/main/res/mipmap-$mipmap
             curl -s -o app/src/main/res/mipmap-$mipmap/ic_launcher.png \
@@ -23,11 +24,11 @@ jobs:
           done
           # Remove conflicting .webp files
           find app/src/main/res -name "ic_launcher.webp" -exec rm {} \;
-          echo "Icons replaced with Focus version"
+          echo "✅ Focus icons downloaded and old .webp files removed"
           EOF
           chmod +x download-icons.sh
 
-      - name: Build with Docker (and inject icon download)
+      - name: Build APK (with icon injection)
         run: |
           docker build -t builder -f Dockerfile .
           docker run --rm -v $PWD:/build builder bash -c "
@@ -36,19 +37,20 @@ jobs:
             ./scripts/build.sh release
           "
 
-      - name: Upload APK to Release
+      - name: Create GitHub Release and upload APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: "Custom Firefox Build ${{ github.run_number }}"
+          name: "Custom Firefox – Build ${{ github.run_number }}"
           body: |
-            One‑click custom build with:
-            - DuckDuckGo default, no alternative engines
-            - Auto‑fill removed
-            - Cookie banner blocker removed
-            - ETP forced Strict
-            - Telemetry disabled
-            - Name: Firefox, Icon: Focus
+            ## One‑click custom build
+            - ✅ DuckDuckGo default (no alternative engines)
+            - ✅ Auto‑fill completely removed
+            - ✅ Cookie banner blocker removed
+            - ✅ Enhanced Tracking Protection forced **Strict**
+            - ✅ Telemetry fully disabled (IronFox style)
+            - ✅ App name: **Firefox**
+            - ✅ App icon: **Firefox Focus** (purple shield)
           files: out/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
