@@ -1,3 +1,39 @@
+## MLBB Draft Assistant
+
+An intelligent **floating overlay** for *Mobile Legends: Bang Bang* that gives you the winning edge during the pick & ban phase.
+
+### How It Works
+
+1. **Detect** the current draft using on‑device OCR (Google ML Kit) or manual hero pickers.  
+2. **Analyze** every possible pick with real‑time meta stats, synergy bonuses, and hard‑counter data from a free public API.  
+3. **Recommend** the top 5 heroes ranked by a weighted scoring algorithm.  
+4. **Display** everything in a sleek, draggable overlay that never interrupts your game.
+
+### Key Features
+
+- 🔍 **Automatic Draft Recognition** – screen capture + OCR instantly identifies picked heroes  
+- 🧠 **Smart Scoring Engine** – evaluates synergy, counters, role balance, and current meta (win / pick / ban rates)  
+- 🎨 **Modern Glassmorphism UI** – built with Jetpack Compose, Material 3, and Lottie animations  
+- ⚙️ **Fully Customizable** – adjust scoring weights, overlay opacity, detection method, and more  
+- 📦 **Zero Cost, 100% Free** – no paid APIs, no subscriptions, all processing on‑device  
+- ⚡ **Battery Friendly** – captures only on demand and releases resources immediately  
+
+### Tech Stack
+
+| Category           | Technology                                      |
+|--------------------|-------------------------------------------------|
+| Language           | Kotlin                                          |
+| UI Toolkit         | Jetpack Compose, Material 3                     |
+| Overlay Engine     | FloatingX                                       |
+| OCR                | Google ML Kit (unbundled, free)                 |
+| Image Loading      | Coil                                            |
+| Animations         | Lottie                                          |
+| Settings           | ComposePreference                               |
+| Data               | ridwaanhall/api‑mobilelegends                   |
+| CI/CD              | GitHub Actions                                  |
+
+---
+
 ## Project Overview
 
 ```
@@ -304,6 +340,8 @@
   8.3.6 A/B test algorithm changes via Firebase App Distribution beta channel
 ```
 
+---
+
 ## Repository Structure
 
 ```
@@ -386,3 +424,10 @@ repo.dev/
 ├── gradlew.bat
 └── settings.gradle.kts
 ```
+
+---
+
+### Disclaimer
+
+This app is **not affiliated with or endorsed by Moonton**. *Mobile Legends: Bang Bang* is a trademark of Moonton.  
+All hero data is sourced from publicly available community APIs.
