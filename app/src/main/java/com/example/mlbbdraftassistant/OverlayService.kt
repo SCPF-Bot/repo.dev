@@ -19,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.ViewModelProvider
 import com.example.mlbbdraftassistant.ui.overlay.DraftViewModel
 import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
 
@@ -49,30 +50,21 @@ class OverlayService : Service() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
 
-        // Create ViewModel manually using application context
-        viewModel = DraftViewModel(applicationContext as MLBBDraftAssistantApp)
+        viewModel = ViewModelProvider.AndroidViewModelFactory(applicationContext as MLBBDraftAssistantApp)
+            .create(DraftViewModel::class.java)
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // Use a ComposeView instead of the old XML layout
         composeView = ComposeView(this).apply {
             setContent {
-                // Observe the ViewModel state and render the manual input UI
                 val state by viewModel.state.collectAsState()
                 OverlayContent(
                     state = state,
-                    onAllySelected = { slot, hero ->
-                        viewModel.setAlly(slot, hero)
-                    },
-                    onEnemySelected = { slot, hero ->
-                        viewModel.setEnemy(slot, hero)
-                    },
-                    onReset = {
-                        viewModel.resetDraft()
-                    },
-                    onLockToggle = {
-                        viewModel.toggleLock()
-                    }
+                    onAllySelected = { slot, hero -> viewModel.setAlly(slot, hero) },
+                    onEnemySelected = { slot, hero -> viewModel.setEnemy(slot, hero) },
+                    onReset = { viewModel.resetDraft() },
+                    onLockToggle = { viewModel.toggleLock() },
+                    onCapture = { viewModel.detectDraft() }
                 )
             }
         }
@@ -148,7 +140,7 @@ class OverlayService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Draft Assistant Active")
-            .setContentText("Manual draft mode")
+            .setContentText("Draft detection ready")
             .setSmallIcon(android.R.drawable.ic_menu_edit)
             .setContentIntent(openPendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
@@ -165,6 +157,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(stopReceiver)
+        viewModel.captureManager.release()
         if (::composeView.isInitialized) {
             windowManager.removeView(composeView)
         }
