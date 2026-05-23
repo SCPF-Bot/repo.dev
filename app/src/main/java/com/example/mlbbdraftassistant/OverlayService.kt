@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -27,6 +28,7 @@ import com.example.mlbbdraftassistant.ui.overlay.DetectionMode
 import com.example.mlbbdraftassistant.ui.overlay.DraftViewModel
 import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
 import com.example.mlbbdraftassistant.ui.theme.MLBBDraftTheme
+import com.example.mlbbdraftassistant.util.PrefKeys
 
 class OverlayService : Service() {
 
@@ -35,6 +37,7 @@ class OverlayService : Service() {
     private lateinit var viewModel: DraftViewModel
     private val stopReceiver = StopReceiver()
     private val draftReceiver = DraftEventReceiver()
+    private var autoCaptureEnabled = false
 
     companion object {
         private const val NOTIFICATION_ID = 1001
@@ -48,11 +51,14 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
 
-        // Stop immediately if overlay permission has been revoked
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
             return
         }
+
+        // Load auto‑capture preference
+        val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
+        autoCaptureEnabled = prefs.getBoolean(PrefKeys.AUTO_CAPTURE, false)
 
         registerReceiver(stopReceiver, IntentFilter(ACTION_STOP), RECEIVER_NOT_EXPORTED)
         registerReceiver(draftReceiver, IntentFilter().apply {
@@ -68,7 +74,6 @@ class OverlayService : Service() {
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // Build Compose-based overlay UI with glassmorphism theme
         composeView = ComposeView(this).apply {
             setContent {
                 MLBBDraftTheme(darkTheme = true) {
@@ -195,12 +200,12 @@ class OverlayService : Service() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 GameAccessibilityService.ACTION_DRAFT_ENTERED -> {
-                    // Optional: auto‑trigger capture
-                    // viewModel.detectDraft()
+                    if (autoCaptureEnabled && viewModel.captureManager.isReady()) {
+                        viewModel.detectDraft()
+                    }
                 }
                 GameAccessibilityService.ACTION_DRAFT_EXITED -> {
-                    // Optional: stop overlay or just reset
-                    // stopSelf()
+                    // Optionally stop or reset; leave as is for now
                 }
             }
         }
