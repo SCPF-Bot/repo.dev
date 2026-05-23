@@ -1,57 +1,60 @@
-name: Build & Release
+# .github/workflows/create-structure.yml
+name: Create Project Directory Structure
 
 on:
-  push:
-    branches: [ main ]       # Runs automatically when you push to main
-  workflow_dispatch:         # Also allows manual trigger from Actions tab
+  workflow_dispatch:
 
 jobs:
-  build:
+  create-structure:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
-
     steps:
-      - name: Checkout your repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create icon download script
+      - name: Create all directories and add .gitkeep placeholders
         run: |
-          cat > download-icons.sh << 'EOF'
-          #!/bin/bash
-          for mipmap in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            mkdir -p app/src/main/res/mipmap-$mipmap
-            curl -s -o app/src/main/res/mipmap-$mipmap/ic_launcher.png \
-              https://raw.githubusercontent.com/mozilla-mobile/focus-android/main/app/src/main/res/mipmap-$mipmap/ic_launcher.png
-          done
-          find app/src/main/res -name "ic_launcher.webp" -exec rm {} \;
-          echo "✅ Firefox Focus icons applied"
-          EOF
-          chmod +x download-icons.sh
+          # Top-level directories
+          mkdir -p .github/workflows
+          mkdir -p .devcontainer
+          mkdir -p docs
 
-      - name: Build APK
+          # App source directories (main)
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/data/model
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/data/remote
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/data/local
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/data/repository
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/domain
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/ui/overlay
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/ui/settings
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/ui/theme
+          mkdir -p app/src/main/java/com/example/mlbbdraftassistant/util
+
+          # App resource directories
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
+          mkdir -p app/src/main/res/mipmap-hdpi
+          mkdir -p app/src/main/res/mipmap-mdpi
+          mkdir -p app/src/main/res/mipmap-xhdpi
+          mkdir -p app/src/main/res/mipmap-xxhdpi
+          mkdir -p app/src/main/res/mipmap-xxxhdpi
+          mkdir -p app/src/main/res/raw
+
+          # Test directories
+          mkdir -p app/src/test/java/com/example/mlbbdraftassistant
+          mkdir -p app/src/androidTest/java/com/example/mlbbdraftassistant
+
+          # Gradle wrapper directory
+          mkdir -p gradle/wrapper
+
+          # Add .gitkeep to every empty directory (Git doesn't track empty folders)
+          find . -type d -empty -exec touch {}/.gitkeep \;
+
+      - name: Commit and push changes
         run: |
-          docker build -t builder -f Dockerfile .
-          docker run --rm -v $PWD:/build builder bash -c "
-            cd /build &&
-            ./scripts/get_sources.sh &&
-            ./scripts/prebuild.sh &&
-            ./download-icons.sh &&
-            ./scripts/build.sh release
-          "
-
-      - name: Create Release and upload APK
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: "Custom Firefox – Build ${{ github.run_number }}"
-          body: |
-            One‑click custom build with:
-            - DuckDuckGo default, no alternative engines
-            - Auto‑fill removed
-            - Cookie banner blocker removed
-            - ETP forced Strict
-            - Telemetry disabled
-            - Name: Firefox, Icon: Focus
-          files: out/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Initialize project directory structure with .gitkeep files" || echo "No changes to commit"
+          git push
