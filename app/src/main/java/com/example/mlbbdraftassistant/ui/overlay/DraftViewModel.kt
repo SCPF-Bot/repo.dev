@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mlbbdraftassistant.MLBBDraftAssistantApp
 import com.example.mlbbdraftassistant.data.model.Hero
+import com.example.mlbbdraftassistant.data.repository.HeroRepositoryImpl
 import com.example.mlbbdraftassistant.domain.Recommendation
 import com.example.mlbbdraftassistant.domain.RecommendationEngine
 import com.example.mlbbdraftassistant.domain.ScoringConfig
@@ -15,11 +16,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class DraftState(
-    val allies: List<Hero> = emptyList(),
-    val enemies: List<Hero> = emptyList(),
+    val allies: List<Hero?> = List(5) { null },
+    val enemies: List<Hero?> = List(5) { null },
     val availableHeroes: List<Hero> = emptyList(),
     val recommendations: List<Recommendation> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val isLocked: Boolean = false
 )
 
 class DraftViewModel(application: Application) : AndroidViewModel(application) {
@@ -31,28 +33,43 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<DraftState> = _state.asStateFlow()
 
     init {
-        // Load hero data and observe changes
         viewModelScope.launch {
-            // Initialize repository (fetch + cache)
-            (repository as com.example.mlbbdraftassistant.data.repository.HeroRepositoryImpl).initialize()
+            (repository as HeroRepositoryImpl).initialize()
             repository.observeHeroes().collect { heroes ->
                 _state.update { it.copy(availableHeroes = heroes) }
             }
         }
     }
 
-    /**
-     * Update the draft with current ally and enemy selections.
-     * Typically called from the overlay UI when the user changes a pick.
-     */
-    fun updateDraft(allies: List<Hero>, enemies: List<Hero>) {
-        _state.update { it.copy(allies = allies, enemies = enemies) }
+    fun setAlly(slot: Int, hero: Hero) {
+        _state.update { current ->
+            val newAllies = current.allies.toMutableList()
+            newAllies[slot] = hero
+            current.copy(allies = newAllies)
+        }
         recompute()
     }
 
-    /**
-     * Force a refresh of hero data from the API.
-     */
+    fun setEnemy(slot: Int, hero: Hero) {
+        _state.update { current ->
+            val newEnemies = current.enemies.toMutableList()
+            newEnemies[slot] = hero
+            current.copy(enemies = newEnemies)
+        }
+        recompute()
+    }
+
+    fun resetDraft() {
+        _state.update {
+            it.copy(allies = List(5) { null }, enemies = List(5) { null }, isLocked = false)
+        }
+        recompute()
+    }
+
+    fun toggleLock() {
+        _state.update { it.copy(isLocked = !it.isLocked) }
+    }
+
     fun refreshHeroData() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
@@ -64,9 +81,11 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
     private fun recompute() {
         val current = _state.value
         if (current.availableHeroes.isEmpty()) return
+        val alliesList = current.allies.filterNotNull()
+        val enemiesList = current.enemies.filterNotNull()
         val recs = engine.recommend(
-            allies = current.allies,
-            enemies = current.enemies,
+            allies = alliesList,
+            enemies = enemiesList,
             availableHeroes = current.availableHeroes
         )
         _state.update { it.copy(recommendations = recs) }
