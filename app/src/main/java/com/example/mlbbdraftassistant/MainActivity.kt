@@ -20,11 +20,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.preference.PreferenceManager
 
 class MainActivity : ComponentActivity() {
 
@@ -32,7 +33,7 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (Settings.canDrawOverlays(this)) {
                 if (hasScreenCapturePermission()) {
-                    startServiceAndFinish()
+                    checkDisclaimerAndProceed()
                 } else {
                     requestScreenCapture()
                 }
@@ -53,7 +54,6 @@ class MainActivity : ComponentActivity() {
     private val screenCaptureLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                // Forward the MediaProjection intent to the service
                 val serviceIntent = Intent(this, OverlayService::class.java).apply {
                     action = OverlayService.ACTION_SET_MEDIA_PROJECTION
                     putExtra("resultCode", result.resultCode)
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                 finish()
             } else {
                 Toast.makeText(this, "Screen capture permission is required for auto-detection", Toast.LENGTH_LONG).show()
-                startServiceAndFinish()
+                checkDisclaimerAndProceed()
             }
         }
 
@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
 
         if (Settings.canDrawOverlays(this)) {
             if (hasScreenCapturePermission()) {
-                startServiceAndFinish()
+                checkDisclaimerAndProceed()
             } else {
                 requestScreenCapture()
             }
@@ -90,7 +90,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun hasScreenCapturePermission(): Boolean {
-        // MediaProjection permission is temporary; we store a flag.
         val prefs = getSharedPreferences("capture_prefs", MODE_PRIVATE)
         return prefs.getBoolean("capture_granted", false)
     }
@@ -110,6 +109,29 @@ class MainActivity : ComponentActivity() {
         screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
     }
 
+    private fun checkDisclaimerAndProceed() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val disclaimerAccepted = prefs.getBoolean("disclaimer_accepted", false)
+
+        if (disclaimerAccepted) {
+            startServiceAndFinish()
+        } else {
+            setContent {
+                MaterialTheme {
+                    Surface {
+                        DisclaimerDialog(
+                            onAccept = {
+                                prefs.edit().putBoolean("disclaimer_accepted", true).apply()
+                                startServiceAndFinish()
+                            },
+                            onDecline = { finish() }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private fun startServiceAndFinish() {
         val intent = Intent(this, OverlayService::class.java)
         startForegroundService(intent)
@@ -122,6 +144,35 @@ class MainActivity : ComponentActivity() {
         }
         startActivity(intent)
     }
+}
+
+@Composable
+fun DisclaimerDialog(onAccept: () -> Unit, onDecline: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = { /* non-dismissable */ },
+        title = {
+            Text("Disclaimer", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Text(
+                "This app is not affiliated with or endorsed by Moonton. " +
+                "Mobile Legends: Bang Bang is a trademark of Moonton.\n\n" +
+                "All hero data comes from publicly available community APIs. " +
+                "This app does not modify or interact with the game in any way.",
+                textAlign = TextAlign.Start
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onAccept) {
+                Text("I Understand")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDecline) {
+                Text("Exit")
+            }
+        }
+    )
 }
 
 @Composable
@@ -144,7 +195,13 @@ fun PermissionDeniedScreen(onOpenSettings: () -> Unit, onCancel: () -> Unit) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text("Permission Denied") },
-            text = { Text("Without overlay permission, the draft assistant cannot work.\n\nEnable it manually:\nSettings → Apps → MLBB Draft Assistant → Display over other apps.") },
+            text = {
+                Text(
+                    "Without overlay permission, the draft assistant cannot work.\n\n" +
+                    "Enable it manually:\n" +
+                    "Settings → Apps → MLBB Draft Assistant → Display over other apps."
+                )
+            },
             confirmButton = {
                 TextButton(onClick = { openDialog.value = false; onOpenSettings() }) { Text("Open Settings") }
             },
