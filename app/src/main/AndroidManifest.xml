@@ -30,7 +30,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Overlay foreground service -->
+        <!-- Overlay foreground service (supports both specialUse and mediaProjection) -->
         <service
             android:name=".OverlayService"
             android:foregroundServiceType="specialUse|mediaProjection"
