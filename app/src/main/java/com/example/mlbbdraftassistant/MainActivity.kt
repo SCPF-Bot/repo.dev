@@ -5,21 +5,23 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
 
@@ -27,8 +29,19 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (Settings.canDrawOverlays(this)) {
                 startOverlayService()
+                finish()
             } else {
-                Toast.makeText(this, "Overlay permission is required for the draft assistant", Toast.LENGTH_LONG).show()
+                // Permission still denied → show a dialog asking to retry
+                setContent {
+                    MaterialTheme {
+                        Surface {
+                            PermissionDeniedScreen(
+                                onOpenSettings = { openAppSettings() },
+                                onCancel = { finish() }
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -65,6 +78,13 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this, OverlayService::class.java)
         startForegroundService(intent)
     }
+
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        startActivity(intent)
+    }
 }
 
 @Composable
@@ -79,15 +99,45 @@ fun PermissionRequestScreen(onRequestPermission: () -> Unit) {
             style = MaterialTheme.typography.headlineMedium
         )
         Text(
-            text = "Display over other apps permission is required",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+            text = "Overlay permission is required for the draft assistant to appear during the game.",
+            style = MaterialTheme.typography.bodyLarge
         )
-        Button(
-            onClick = onRequestPermission,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) {
+        Button(onClick = onRequestPermission) {
             Text("Grant Permission")
         }
+    }
+}
+
+@Composable
+fun PermissionDeniedScreen(onOpenSettings: () -> Unit, onCancel: () -> Unit) {
+    val openDialog = remember { mutableStateOf(true) }
+
+    if (openDialog.value) {
+        AlertDialog(
+            onDismissRequest = { /* non-dismissable */ },
+            title = { Text("Permission Denied") },
+            text = {
+                Text(
+                    "Without overlay permission, the draft assistant cannot work.\n\n" +
+                    "Please enable it manually in:\nSettings → Apps → MLBB Draft Assistant → Display over other apps."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    openDialog.value = false
+                    onOpenSettings()
+                }) {
+                    Text("Open Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    openDialog.value = false
+                    onCancel()
+                }) {
+                    Text("Exit")
+                }
+            }
+        )
     }
 }
