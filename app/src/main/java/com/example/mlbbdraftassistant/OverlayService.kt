@@ -95,6 +95,13 @@ class OverlayService : Service() {
                                 DetectionMode.OCR
                             }
                             viewModel.setDetectionMode(newMode)
+                        },
+                        onOpenCalibration = {
+                            startActivity(
+                                Intent(this@OverlayService, CalibrationActivity::class.java).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
                         }
                     )
                 }
