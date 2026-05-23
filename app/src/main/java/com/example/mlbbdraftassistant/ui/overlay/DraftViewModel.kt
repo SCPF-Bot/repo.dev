@@ -14,6 +14,7 @@ import com.example.mlbbdraftassistant.domain.ScoringConfig
 import com.example.mlbbdraftassistant.util.DraftDetector
 import com.example.mlbbdraftassistant.util.IconDetector
 import com.example.mlbbdraftassistant.util.ScreenCaptureManager
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +48,9 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
         val wm = application.getSystemService(WindowManager::class.java)
         DisplayMetrics().also { wm.defaultDisplay.getRealMetrics(it) }
     }
+
+    // Detection guard: only one detection at a time
+    private var detectJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -100,13 +104,18 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Perform automatic draft detection using the selected mode.
+     * Only one detection runs at a time; subsequent calls are ignored.
      */
     fun detectDraft() {
         if (!captureManager.isReady()) {
             _state.update { it.copy(detectionError = "Screen capture not ready. Grant permission first.") }
             return
         }
-        viewModelScope.launch {
+        if (detectJob?.isActive == true) {
+            // Already detecting – ignore
+            return
+        }
+        detectJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true, detectionError = null) }
             try {
                 val result = when (_state.value.detectionMode) {
@@ -145,5 +154,13 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
             availableHeroes = current.availableHeroes
         )
         _state.update { it.copy(recommendations = recs) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Cancel any ongoing detection
+        detectJob?.cancel()
+        // Release screen capture resources
+        captureManager.release()
     }
 }
