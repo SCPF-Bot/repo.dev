@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,7 +44,8 @@ fun OverlayContent(
     onLockToggle: () -> Unit,
     onCapture: () -> Unit,
     onToggleDetectionMode: () -> Unit,
-    onOpenCalibration: () -> Unit
+    onOpenCalibration: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(true) }
     val context = LocalContext.current
@@ -118,6 +120,10 @@ fun OverlayContent(
                     )
                     IconButton(onClick = onToggleDetectionMode) {
                         Icon(Icons.Default.CameraAlt, contentDescription = "Toggle Mode")
+                    }
+                    // Settings button
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Tune, contentDescription = "Settings")
                     }
                     // Calibration button
                     IconButton(onClick = onOpenCalibration) {
