@@ -10,11 +10,11 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
-import android.widget.TextView
 import androidx.core.app.NotificationCompat
 
 class OverlayService : Service() {
@@ -31,6 +31,13 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Stop immediately if overlay permission has been revoked
+        if (!Settings.canDrawOverlays(this)) {
+            stopSelf()
+            return
+        }
+
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
 
