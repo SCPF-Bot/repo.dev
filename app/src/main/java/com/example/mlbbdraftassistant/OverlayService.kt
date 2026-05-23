@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ViewModelProvider
+import com.example.mlbbdraftassistant.ui.overlay.DetectionMode
 import com.example.mlbbdraftassistant.ui.overlay.DraftViewModel
 import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
 
@@ -69,7 +70,15 @@ class OverlayService : Service() {
                     onEnemySelected = { slot, hero -> viewModel.setEnemy(slot, hero) },
                     onReset = { viewModel.resetDraft() },
                     onLockToggle = { viewModel.toggleLock() },
-                    onCapture = { viewModel.detectDraft() }
+                    onCapture = { viewModel.detectDraft() },
+                    onToggleDetectionMode = {
+                        val newMode = if (state.detectionMode == DetectionMode.OCR) {
+                            DetectionMode.ICON
+                        } else {
+                            DetectionMode.OCR
+                        }
+                        viewModel.setDetectionMode(newMode)
+                    }
                 )
             }
         }
