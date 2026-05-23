@@ -25,9 +25,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.airbnb.lottie.compose.*
@@ -69,7 +67,7 @@ fun OverlayContent(
             if (topRec != null) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(topRec.hero.hero_image)
+                        .data(topRec.hero.hero_image ?: "")
                         .crossfade(true)
                         .build(),
                     contentDescription = topRec.hero.hero_name,
@@ -282,6 +280,7 @@ fun CaptureButton(
 @Composable
 fun RecommendationItem(rec: Recommendation) {
     var showDetails by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -299,7 +298,10 @@ fun RecommendationItem(rec: Recommendation) {
             ) {
                 // Hero icon
                 AsyncImage(
-                    model = rec.hero.hero_image,
+                    model = ImageRequest.Builder(context)
+                        .data(rec.hero.hero_image ?: "")
+                        .crossfade(true)
+                        .build(),
                     contentDescription = rec.hero.hero_name,
                     modifier = Modifier
                         .size(40.dp)
