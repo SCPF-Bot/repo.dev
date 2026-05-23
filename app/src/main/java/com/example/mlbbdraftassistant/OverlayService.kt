@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ViewModelProvider
+import com.example.mlbbdraftassistant.service.GameAccessibilityService
 import com.example.mlbbdraftassistant.ui.overlay.DetectionMode
 import com.example.mlbbdraftassistant.ui.overlay.DraftViewModel
 import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
@@ -33,6 +34,7 @@ class OverlayService : Service() {
     private lateinit var composeView: ComposeView
     private lateinit var viewModel: DraftViewModel
     private val stopReceiver = StopReceiver()
+    private val draftReceiver = DraftEventReceiver()
 
     companion object {
         private const val NOTIFICATION_ID = 1001
@@ -53,6 +55,11 @@ class OverlayService : Service() {
         }
 
         registerReceiver(stopReceiver, IntentFilter(ACTION_STOP), RECEIVER_NOT_EXPORTED)
+        registerReceiver(draftReceiver, IntentFilter().apply {
+            addAction(GameAccessibilityService.ACTION_DRAFT_ENTERED)
+            addAction(GameAccessibilityService.ACTION_DRAFT_EXITED)
+        }, RECEIVER_NOT_EXPORTED)
+
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
 
@@ -184,9 +191,25 @@ class OverlayService : Service() {
         }
     }
 
+    private inner class DraftEventReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                GameAccessibilityService.ACTION_DRAFT_ENTERED -> {
+                    // Optional: auto‑trigger capture
+                    // viewModel.detectDraft()
+                }
+                GameAccessibilityService.ACTION_DRAFT_EXITED -> {
+                    // Optional: stop overlay or just reset
+                    // stopSelf()
+                }
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(stopReceiver)
+        unregisterReceiver(draftReceiver)
         viewModel.captureManager.release()
         if (::composeView.isInitialized) {
             windowManager.removeView(composeView)
