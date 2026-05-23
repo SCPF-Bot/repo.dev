@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import com.example.mlbbdraftassistant.util.CropRegions
 import com.example.mlbbdraftassistant.util.PrefKeys
 import me.zhanghai.compose.preference.ProvidePreferenceLocals
@@ -29,6 +32,8 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 ProvidePreferenceLocals {
+                    var showDisclaimer by remember { mutableStateOf(false) }
+
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
 
                         // ── General ──
@@ -47,9 +52,7 @@ class SettingsActivity : ComponentActivity() {
                             key = PrefKeys.DETECTION_MODE,
                             defaultValue = "ocr",
                             values = listOf("ocr", "icon", "manual"),
-                            title = { value ->
-                                Text("Detection method: ${value.uppercase()}")
-                            },
+                            title = { value -> Text("Detection method: ${value.uppercase()}") },
                             summary = { value ->
                                 Text(
                                     when (value) {
@@ -146,10 +149,33 @@ class SettingsActivity : ComponentActivity() {
                             title = { Text("About") }
                         }
 
+                        // Tappable disclaimer that shows a dialog
                         preference(
                             key = "disclaimer",
                             title = { Text("Disclaimer") },
-                            summary = { Text("This app is not affiliated with or endorsed by Moonton. Mobile Legends: Bang Bang is a trademark of Moonton.") }
+                            summary = { Text("This app is not affiliated with or endorsed by Moonton.") },
+                            onClick = { showDisclaimer = true }
+                        )
+                    }
+
+                    // Full disclaimer dialog
+                    if (showDisclaimer) {
+                        AlertDialog(
+                            onDismissRequest = { showDisclaimer = false },
+                            title = { Text("Disclaimer", fontWeight = FontWeight.Bold) },
+                            text = {
+                                Text(
+                                    "This app is not affiliated with or endorsed by Moonton. " +
+                                    "Mobile Legends: Bang Bang is a trademark of Moonton.\n\n" +
+                                    "All hero data comes from publicly available community APIs. " +
+                                    "This app does not modify or interact with the game in any way."
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showDisclaimer = false }) {
+                                    Text("Close")
+                                }
+                            }
                         )
                     }
                 }
