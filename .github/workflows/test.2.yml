@@ -1,0 +1,46 @@
+name: Unpack Fixed Repository Code
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Target branch to update'
+        required: true
+        default: 'main'
+
+jobs:
+  unpack-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Install 7z
+        run: sudo apt-get update && sudo apt-get install -y p7zip-full
+
+      - name: Extract archive to root
+        run: |
+          # Extract with full paths, overwriting all existing files
+          7z x repo.dev-main.7z -o./ -aoa
+
+          # Remove the archive so it isn't part of the final state
+          rm -f repo.dev-main.7z
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Apply fixed repository code from repo.dev-main.7z"
+            git push
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
