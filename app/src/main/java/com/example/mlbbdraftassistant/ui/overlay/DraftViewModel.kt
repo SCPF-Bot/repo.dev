@@ -5,6 +5,7 @@ import android.util.DisplayMetrics
 import android.view.WindowManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.preference.PreferenceManager
 import com.example.mlbbdraftassistant.MLBBDraftAssistantApp
 import com.example.mlbbdraftassistant.data.model.Hero
 import com.example.mlbbdraftassistant.data.repository.HeroRepositoryImpl
@@ -13,6 +14,7 @@ import com.example.mlbbdraftassistant.domain.RecommendationEngine
 import com.example.mlbbdraftassistant.domain.ScoringConfig
 import com.example.mlbbdraftassistant.util.DraftDetector
 import com.example.mlbbdraftassistant.util.IconDetector
+import com.example.mlbbdraftassistant.util.PrefKeys
 import com.example.mlbbdraftassistant.util.ScreenCaptureManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,15 +35,33 @@ data class DraftState(
     val detectionMode: DetectionMode = DetectionMode.OCR
 )
 
-enum class DetectionMode { OCR, ICON }
+enum class DetectionMode { OCR, ICON, MANUAL }
 
 class DraftViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = (application as MLBBDraftAssistantApp).repository
-    private val engine = RecommendationEngine(ScoringConfig.DEFAULT)
+    private val prefs = PreferenceManager.getDefaultSharedPreferences(application)
+
+    // Build scoring config from preferences
+    private var scoringConfig = ScoringConfig(
+        synergyWeight = prefs.getFloat(PrefKeys.WEIGHT_SYNERGY, 0.30f),
+        counterWeight = prefs.getFloat(PrefKeys.WEIGHT_COUNTER, 0.40f),
+        roleWeight = prefs.getFloat(PrefKeys.WEIGHT_ROLE, 0.10f),
+        metaWeight = prefs.getFloat(PrefKeys.WEIGHT_META, 0.20f)
+    )
+    private var engine = RecommendationEngine(scoringConfig)
+
     val captureManager = ScreenCaptureManager()
 
-    private val _state = MutableStateFlow(DraftState())
+    private val _state = MutableStateFlow(
+        DraftState(
+            detectionMode = when (prefs.getString(PrefKeys.DETECTION_MODE, "ocr")) {
+                "icon" -> DetectionMode.ICON
+                "manual" -> DetectionMode.MANUAL
+                else -> DetectionMode.OCR
+            }
+        )
+    )
     val state: StateFlow<DraftState> = _state.asStateFlow()
 
     private val metrics: DisplayMetrics by lazy {
@@ -49,7 +69,6 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
         DisplayMetrics().also { wm.defaultDisplay.getRealMetrics(it) }
     }
 
-    // Detection guard: only one detection at a time
     private var detectJob: Job? = null
 
     init {
@@ -102,41 +121,44 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Perform automatic draft detection using the selected mode.
-     * Only one detection runs at a time; subsequent calls are ignored.
-     */
     fun detectDraft() {
+        val currentMode = _state.value.detectionMode
+        if (currentMode == DetectionMode.MANUAL) {
+            _state.update { it.copy(detectionError = "Manual mode — no automatic detection.") }
+            return
+        }
         if (!captureManager.isReady()) {
             _state.update { it.copy(detectionError = "Screen capture not ready. Grant permission first.") }
             return
         }
         if (detectJob?.isActive == true) {
-            // Already detecting – ignore
             return
         }
         detectJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true, detectionError = null) }
             try {
-                val result = when (_state.value.detectionMode) {
+                val result = when (currentMode) {
                     DetectionMode.OCR -> {
-                        val detector = DraftDetector(captureManager, metrics)
-                        detector.detect(_state.value.availableHeroes)
+                        DraftDetector(captureManager, metrics).detect(_state.value.availableHeroes)
                     }
                     DetectionMode.ICON -> {
                         val context = getApplication<MLBBDraftAssistantApp>()
-                        val iconDetector = IconDetector(context, captureManager, metrics)
-                        iconDetector.detect(_state.value.availableHeroes)
+                        IconDetector(context, captureManager, metrics).detect(_state.value.availableHeroes)
+                    }
+                    DetectionMode.MANUAL -> {
+                        null // unreachable
                     }
                 }
-                _state.update { current ->
-                    current.copy(
-                        allies = result.allies,
-                        enemies = result.enemies,
-                        isLoading = false
-                    )
+                if (result != null) {
+                    _state.update { current ->
+                        current.copy(
+                            allies = result.allies,
+                            enemies = result.enemies,
+                            isLoading = false
+                        )
+                    }
+                    recompute()
                 }
-                recompute()
             } catch (e: Exception) {
                 _state.update { it.copy(isLoading = false, detectionError = "Detection failed: ${e.message}") }
             }
@@ -158,9 +180,7 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
-        // Cancel any ongoing detection
         detectJob?.cancel()
-        // Release screen capture resources
         captureManager.release()
     }
 }
