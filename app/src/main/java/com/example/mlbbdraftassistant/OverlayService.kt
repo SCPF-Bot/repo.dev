@@ -14,15 +14,19 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
-import android.view.LayoutInflater
-import android.view.View
 import android.view.WindowManager
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
+import com.example.mlbbdraftassistant.ui.overlay.DraftViewModel
+import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
 
 class OverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
-    private lateinit var floatingView: View
+    private lateinit var composeView: ComposeView
+    private lateinit var viewModel: DraftViewModel
     private val stopReceiver = StopReceiver()
 
     companion object {
@@ -36,22 +40,42 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
 
-        // Stop immediately if overlay permission has been revoked
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
             return
         }
 
-        // Register receiver for the stop action from notification
         registerReceiver(stopReceiver, IntentFilter(ACTION_STOP), RECEIVER_NOT_EXPORTED)
-
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
 
+        // Create ViewModel manually using application context
+        viewModel = DraftViewModel(applicationContext as MLBBDraftAssistantApp)
+
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // Inflate a simple floating view (will be replaced later with Compose + FloatingX)
-        floatingView = LayoutInflater.from(this).inflate(R.layout.floating_view, null)
+        // Use a ComposeView instead of the old XML layout
+        composeView = ComposeView(this).apply {
+            setContent {
+                // Observe the ViewModel state and render the manual input UI
+                val state by viewModel.state.collectAsState()
+                OverlayContent(
+                    state = state,
+                    onAllySelected = { slot, hero ->
+                        viewModel.setAlly(slot, hero)
+                    },
+                    onEnemySelected = { slot, hero ->
+                        viewModel.setEnemy(slot, hero)
+                    },
+                    onReset = {
+                        viewModel.resetDraft()
+                    },
+                    onLockToggle = {
+                        viewModel.toggleLock()
+                    }
+                )
+            }
+        }
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -67,13 +91,11 @@ class OverlayService : Service() {
         params.x = 100
         params.y = 200
 
-        windowManager.addView(floatingView, params)
-
-        // Simple drag functionality
-        enableDrag(floatingView, params)
+        windowManager.addView(composeView, params)
+        enableDrag(composeView, params)
     }
 
-    private fun enableDrag(view: View, params: WindowManager.LayoutParams) {
+    private fun enableDrag(view: android.view.View, params: WindowManager.LayoutParams) {
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
@@ -119,18 +141,15 @@ class OverlayService : Service() {
             this, 0, openIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-
-        // Stop action
         val stopIntent = Intent(ACTION_STOP)
         val stopPendingIntent = PendingIntent.getBroadcast(
             this, 0, stopIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Draft Assistant Active")
-            .setContentText("Tap to open settings")
-            .setSmallIcon(android.R.drawable.ic_menu_edit) // replace with real icon later
+            .setContentText("Manual draft mode")
+            .setSmallIcon(android.R.drawable.ic_menu_edit)
             .setContentIntent(openPendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
             .setOngoing(true)
@@ -146,8 +165,8 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(stopReceiver)
-        if (::floatingView.isInitialized) {
-            windowManager.removeView(floatingView)
+        if (::composeView.isInitialized) {
+            windowManager.removeView(composeView)
         }
     }
 }
