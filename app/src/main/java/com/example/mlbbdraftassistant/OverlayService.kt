@@ -25,6 +25,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.mlbbdraftassistant.ui.overlay.DetectionMode
 import com.example.mlbbdraftassistant.ui.overlay.DraftViewModel
 import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
+import com.example.mlbbdraftassistant.ui.theme.MLBBDraftTheme
 
 class OverlayService : Service() {
 
@@ -60,26 +61,28 @@ class OverlayService : Service() {
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // Build Compose-based overlay UI
+        // Build Compose-based overlay UI with glassmorphism theme
         composeView = ComposeView(this).apply {
             setContent {
-                val state by viewModel.state.collectAsState()
-                OverlayContent(
-                    state = state,
-                    onAllySelected = { slot, hero -> viewModel.setAlly(slot, hero) },
-                    onEnemySelected = { slot, hero -> viewModel.setEnemy(slot, hero) },
-                    onReset = { viewModel.resetDraft() },
-                    onLockToggle = { viewModel.toggleLock() },
-                    onCapture = { viewModel.detectDraft() },
-                    onToggleDetectionMode = {
-                        val newMode = if (state.detectionMode == DetectionMode.OCR) {
-                            DetectionMode.ICON
-                        } else {
-                            DetectionMode.OCR
+                MLBBDraftTheme(darkTheme = true) {
+                    val state by viewModel.state.collectAsState()
+                    OverlayContent(
+                        state = state,
+                        onAllySelected = { slot, hero -> viewModel.setAlly(slot, hero) },
+                        onEnemySelected = { slot, hero -> viewModel.setEnemy(slot, hero) },
+                        onReset = { viewModel.resetDraft() },
+                        onLockToggle = { viewModel.toggleLock() },
+                        onCapture = { viewModel.detectDraft() },
+                        onToggleDetectionMode = {
+                            val newMode = if (state.detectionMode == DetectionMode.OCR) {
+                                DetectionMode.ICON
+                            } else {
+                                DetectionMode.OCR
+                            }
+                            viewModel.setDetectionMode(newMode)
                         }
-                        viewModel.setDetectionMode(newMode)
-                    }
-                )
+                    )
+                }
             }
         }
 
