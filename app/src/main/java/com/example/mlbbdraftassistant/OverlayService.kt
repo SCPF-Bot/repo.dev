@@ -51,6 +51,7 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
 
+        // Stop immediately if overlay permission has been revoked
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
             return
@@ -74,12 +75,14 @@ class OverlayService : Service() {
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
+        // Build Compose-based overlay UI with glassmorphism theme
         composeView = ComposeView(this).apply {
             setContent {
                 MLBBDraftTheme(darkTheme = true) {
                     val state by viewModel.state.collectAsState()
                     OverlayContent(
                         state = state,
+                        autoCaptureEnabled = autoCaptureEnabled,
                         onAllySelected = { slot, hero -> viewModel.setAlly(slot, hero) },
                         onEnemySelected = { slot, hero -> viewModel.setEnemy(slot, hero) },
                         onReset = { viewModel.resetDraft() },
@@ -205,7 +208,7 @@ class OverlayService : Service() {
                     }
                 }
                 GameAccessibilityService.ACTION_DRAFT_EXITED -> {
-                    // Optionally stop or reset; leave as is for now
+                    // Optionally stop or reset; left empty for now
                 }
             }
         }
