@@ -1,9 +1,14 @@
 package com.example.mlbbdraftassistant.ui.overlay
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,36 +24,55 @@ fun OverlayContent(
     onAllySelected: (slot: Int, hero: Hero) -> Unit,
     onEnemySelected: (slot: Int, hero: Hero) -> Unit,
     onReset: () -> Unit,
-    onLockToggle: () -> Unit
+    onLockToggle: () -> Unit,
+    onCapture: () -> Unit
 ) {
-    // Collapsible container for the full overlay
-    var expanded by remember { mutableStateOf(true) } // start expanded
+    var expanded by remember { mutableStateOf(true) }
 
     Column(
         modifier = Modifier
             .background(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                 shape = MaterialTheme.shapes.medium
             )
             .padding(8.dp)
     ) {
-        // Header with collapse/expand toggle
+        // Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Draft Picks", style = MaterialTheme.typography.titleMedium)
-            IconButton(onClick = { expanded = !expanded }) {
-                Icon(
-                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = "Toggle"
-                )
+            Row {
+                // Capture button for OCR
+                IconButton(onClick = onCapture, enabled = !state.isLoading) {
+                    if (state.isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.CameraAlt, contentDescription = "Detect Draft")
+                    }
+                }
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = "Toggle"
+                    )
+                }
             }
         }
 
+        // Error display
+        if (state.detectionError != null) {
+            Text(
+                state.detectionError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+
         if (expanded) {
-            // --- Ally picks ---
             Text("Your Team", style = MaterialTheme.typography.labelMedium)
             for (slot in 0..4) {
                 HeroDropdown(
@@ -61,7 +85,6 @@ fun OverlayContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- Enemy picks ---
             Text("Enemy Team", style = MaterialTheme.typography.labelMedium)
             for (slot in 0..4) {
                 HeroDropdown(
@@ -74,10 +97,7 @@ fun OverlayContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Reset & Lock buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onReset, modifier = Modifier.weight(1f)) {
                     Text("Reset")
                 }
@@ -96,11 +116,11 @@ fun OverlayContent(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // --- Recommendations (always visible, scrollable) ---
+        // Recommendations
         Text("Top Recommendations", style = MaterialTheme.typography.titleMedium)
         if (state.recommendations.isEmpty()) {
             Text(
-                "Select heroes to see suggestions",
+                "Select heroes or tap Detect to see suggestions",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -142,7 +162,6 @@ fun HeroDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            // Filter heroes based on search text
             val filtered = availableHeroes.filter {
                 it.hero_name.contains(searchText, ignoreCase = true)
             }
