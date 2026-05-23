@@ -31,13 +31,11 @@ jobs:
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses
 
-      - name: Generate Gradle wrapper jar using Docker
+      - name: Download Gradle wrapper jar
         run: |
-          docker run --rm \
-            -v "${{ github.workspace }}":/project \
-            -w /project \
-            gradle:9.2.1-jdk17 \
-            gradle wrapper --gradle-version 9.2.1
+          mkdir -p gradle/wrapper
+          curl -L -o gradle/wrapper/gradle-wrapper.jar \
+            "https://repo1.maven.org/maven2/org/gradle/gradle-wrapper/9.2.1/gradle-wrapper-9.2.1.jar"
 
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
