@@ -3,6 +3,7 @@ package com.example.mlbbdraftassistant.util
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.DisplayMetrics
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -12,10 +13,12 @@ class IconDetector(
     private val metrics: DisplayMetrics
 ) {
     suspend fun detect(allHeroes: List<com.example.mlbbdraftassistant.data.model.Hero>): DetectedDraft =
-        suspendCancellableCoroutine { continuation ->
-            try {
-                val bitmap = captureManager.captureScreen(metrics)
-                // Helper is not a suspend function; we keep the callback approach
+        coroutineScope {
+            // Capture screen first (suspend function, works inside coroutineScope)
+            val bitmap = captureManager.captureScreen(metrics)
+
+            // Then wrap the callback‑based ObjectDetectorHelper in a suspendCancellableCoroutine
+            suspendCancellableCoroutine { continuation ->
                 val helper = ObjectDetectorHelper(context) { detections ->
                     if (continuation.isActive) {
                         val result = mapDetectionsToDraft(detections, allHeroes)
@@ -28,11 +31,6 @@ class IconDetector(
                 continuation.invokeOnCancellation {
                     helper.close()
                 }
-            } catch (e: Exception) {
-                continuation.resume(DetectedDraft(
-                    allies = emptyList(),
-                    enemies = emptyList()
-                ))
             }
         }
 
