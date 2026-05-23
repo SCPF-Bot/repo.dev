@@ -53,13 +53,9 @@ class IconDetector(
             val targetSlot = slotInfo.slot.coerceIn(0, 4)
 
             if (slotInfo.isAlly) {
-                if (allies[targetSlot] == null) {
-                    allies[targetSlot] = matchedHero
-                }
+                if (allies[targetSlot] == null) allies[targetSlot] = matchedHero
             } else {
-                if (enemies[targetSlot] == null) {
-                    enemies[targetSlot] = matchedHero
-                }
+                if (enemies[targetSlot] == null) enemies[targetSlot] = matchedHero
             }
         }
 
