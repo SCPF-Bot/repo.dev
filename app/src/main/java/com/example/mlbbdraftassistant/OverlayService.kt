@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -21,10 +23,12 @@ class OverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatingView: View
+    private val stopReceiver = StopReceiver()
 
     companion object {
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "overlay_channel"
+        const val ACTION_STOP = "com.example.mlbbdraftassistant.STOP_SERVICE"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -37,6 +41,9 @@ class OverlayService : Service() {
             stopSelf()
             return
         }
+
+        // Register receiver for the stop action from notification
+        registerReceiver(stopReceiver, IntentFilter(ACTION_STOP), RECEIVER_NOT_EXPORTED)
 
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -107,9 +114,16 @@ class OverlayService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
+        val openIntent = Intent(this, MainActivity::class.java)
+        val openPendingIntent = PendingIntent.getActivity(
+            this, 0, openIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Stop action
+        val stopIntent = Intent(ACTION_STOP)
+        val stopPendingIntent = PendingIntent.getBroadcast(
+            this, 0, stopIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -117,13 +131,21 @@ class OverlayService : Service() {
             .setContentTitle("Draft Assistant Active")
             .setContentText("Tap to open settings")
             .setSmallIcon(android.R.drawable.ic_menu_edit) // replace with real icon later
-            .setContentIntent(pendingIntent)
+            .setContentIntent(openPendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
             .setOngoing(true)
             .build()
     }
 
+    private inner class StopReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            stopSelf()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(stopReceiver)
         if (::floatingView.isInitialized) {
             windowManager.removeView(floatingView)
         }
