@@ -1,8 +1,0 @@
-diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
---- a/app/src/main/res/values/strings.xml
-+++ b/app/src/main/res/values/strings.xml
-@@ -1,4 +1,4 @@
- <resources>
--    <string name="app_name">IronFox</string>
-+    <string name="app_name">Firefox</string>
- </resources>
