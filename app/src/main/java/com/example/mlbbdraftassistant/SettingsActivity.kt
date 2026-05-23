@@ -5,24 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import me.zhanghai.compose.preference.*
 import com.example.mlbbdraftassistant.util.CropRegions
 import com.example.mlbbdraftassistant.util.PrefKeys
-import me.zhanghai.compose.preference.ProvidePreferenceLocals
-import me.zhanghai.compose.preference.listPreference
-import me.zhanghai.compose.preference.preference
-import me.zhanghai.compose.preference.preferenceCategory
-import me.zhanghai.compose.preference.sliderPreference
-import me.zhanghai.compose.preference.switchPreference
-import me.zhanghai.compose.preference.textFieldPreference
 
 class SettingsActivity : ComponentActivity() {
 
@@ -32,14 +20,12 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 ProvidePreferenceLocals {
-                    var showDisclaimer by remember { mutableStateOf(false) }
-
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
 
-                        // ── General ──
-                        preferenceCategory(key = "cat_general") {
+                        preferenceCategory(
+                            key = "cat_general",
                             title = { Text("General") }
-                        }
+                        )
 
                         sliderPreference(
                             key = PrefKeys.OVERLAY_OPACITY,
@@ -63,7 +49,7 @@ class SettingsActivity : ComponentActivity() {
                                     }
                                 )
                             },
-                            type = me.zhanghai.compose.preference.ListPreferenceType.ALERT_DIALOG
+                            type = ListPreferenceType.ALERT_DIALOG
                         )
 
                         textFieldPreference(
@@ -74,10 +60,10 @@ class SettingsActivity : ComponentActivity() {
                             valueToText = { it }
                         )
 
-                        // ── Accessibility ──
-                        preferenceCategory(key = "cat_accessibility") {
+                        preferenceCategory(
+                            key = "cat_accessibility",
                             title = { Text("Accessibility") }
-                        }
+                        )
 
                         switchPreference(
                             key = PrefKeys.AUTO_START,
@@ -93,10 +79,10 @@ class SettingsActivity : ComponentActivity() {
                             summary = { Text("Automatically run detection when a draft starts") }
                         )
 
-                        // ── Calibration ──
-                        preferenceCategory(key = "cat_calibration") {
+                        preferenceCategory(
+                            key = "cat_calibration",
                             title = { Text("Calibration") }
-                        }
+                        )
 
                         preference(
                             key = "reset_calibration",
@@ -111,10 +97,10 @@ class SettingsActivity : ComponentActivity() {
                             }
                         )
 
-                        // ── Scoring weights ──
-                        preferenceCategory(key = "cat_scoring") {
+                        preferenceCategory(
+                            key = "cat_scoring",
                             title = { Text("Scoring weights") }
-                        }
+                        )
 
                         sliderPreference(
                             key = PrefKeys.WEIGHT_SYNERGY,
@@ -144,39 +130,37 @@ class SettingsActivity : ComponentActivity() {
                             valueRange = 0f..1f
                         )
 
-                        // ── About ──
-                        preferenceCategory(key = "cat_about") {
+                        preferenceCategory(
+                            key = "cat_about",
                             title = { Text("About") }
-                        }
+                        )
 
-                        // Tappable disclaimer that shows a dialog
+                        var showDisclaimer by remember { mutableStateOf(false) }
+
                         preference(
                             key = "disclaimer",
                             title = { Text("Disclaimer") },
                             summary = { Text("This app is not affiliated with or endorsed by Moonton.") },
                             onClick = { showDisclaimer = true }
                         )
-                    }
 
-                    // Full disclaimer dialog
-                    if (showDisclaimer) {
-                        AlertDialog(
-                            onDismissRequest = { showDisclaimer = false },
-                            title = { Text("Disclaimer", fontWeight = FontWeight.Bold) },
-                            text = {
-                                Text(
-                                    "This app is not affiliated with or endorsed by Moonton. " +
-                                    "Mobile Legends: Bang Bang is a trademark of Moonton.\n\n" +
-                                    "All hero data comes from publicly available community APIs. " +
-                                    "This app does not modify or interact with the game in any way."
-                                )
-                            },
-                            confirmButton = {
-                                TextButton(onClick = { showDisclaimer = false }) {
-                                    Text("Close")
+                        if (showDisclaimer) {
+                            AlertDialog(
+                                onDismissRequest = { showDisclaimer = false },
+                                title = { Text("Disclaimer") },
+                                text = {
+                                    Text(
+                                        "This app is not affiliated with or endorsed by Moonton. " +
+                                        "Mobile Legends: Bang Bang is a trademark of Moonton.\n\n" +
+                                        "All hero data comes from publicly available community APIs. " +
+                                        "This app does not modify or interact with the game in any way."
+                                    )
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = { showDisclaimer = false }) { Text("Close") }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
