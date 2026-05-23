@@ -35,6 +35,7 @@ import com.example.mlbbdraftassistant.domain.Recommendation
 @Composable
 fun OverlayContent(
     state: DraftState,
+    autoCaptureEnabled: Boolean,
     onAllySelected: (slot: Int, hero: Hero) -> Unit,
     onEnemySelected: (slot: Int, hero: Hero) -> Unit,
     onReset: () -> Unit,
@@ -45,7 +46,7 @@ fun OverlayContent(
     var expanded by remember { mutableStateOf(true) }
     val context = LocalContext.current
 
-    // ----- Collapsed bubble (when !expanded) -----
+    // ----- Collapsed bubble -----
     AnimatedVisibility(visible = !expanded, enter = fadeIn(), exit = fadeOut()) {
         Box(
             modifier = Modifier
@@ -62,7 +63,6 @@ fun OverlayContent(
                 .clickable { expanded = true },
             contentAlignment = Alignment.Center
         ) {
-            // Show top recommendation icon or generic icon
             val topRec = state.recommendations.firstOrNull()
             if (topRec != null) {
                 AsyncImage(
@@ -97,7 +97,7 @@ fun OverlayContent(
                 )
                 .padding(12.dp)
         ) {
-            // Header row
+            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -109,7 +109,6 @@ fun OverlayContent(
                     fontWeight = FontWeight.Bold
                 )
                 Row {
-                    // Detection mode toggle
                     Text(
                         text = if (state.detectionMode == DetectionMode.OCR) "OCR" else "Icon",
                         style = MaterialTheme.typography.labelSmall,
@@ -126,14 +125,14 @@ fun OverlayContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Capture button with Lottie pulse when ready, loading animation when capturing
+            // Capture button with Lottie and auto‑capture badge
             CaptureButton(
                 isLoading = state.isLoading,
                 isReady = state.isCaptureReady,
+                autoCapture = autoCaptureEnabled,
                 onClick = onCapture
             )
 
-            // Error text
             if (state.detectionError != null) {
                 Text(
                     text = state.detectionError,
@@ -143,7 +142,7 @@ fun OverlayContent(
                 )
             }
 
-            // Draft slots (collapsible section)
+            // Draft slots
             var showSlots by remember { mutableStateOf(false) }
             TextButton(onClick = { showSlots = !showSlots }) {
                 Text(if (showSlots) "Hide Picks ▲" else "Show Picks ▼")
@@ -198,7 +197,6 @@ fun OverlayContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Recommendations list
             Text(
                 "Top Recommendations",
                 style = MaterialTheme.typography.titleSmall,
@@ -224,11 +222,12 @@ fun OverlayContent(
     }
 }
 
-// ------- Capture Button with Lottie animations -------
+// ------- Capture Button with auto‑capture badge -------
 @Composable
 fun CaptureButton(
     isLoading: Boolean,
     isReady: Boolean,
+    autoCapture: Boolean,
     onClick: () -> Unit
 ) {
     val idleAnimation by rememberLottieComposition(
@@ -238,45 +237,70 @@ fun CaptureButton(
         LottieCompositionSpec.RawRes(R.raw.loading_animation)
     )
 
-    IconButton(
-        onClick = onClick,
-        enabled = !isLoading,
+    Box(
         modifier = Modifier
             .size(56.dp)
-            .align(Alignment.CenterHorizontally)
-            .background(
-                if (isReady) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                else Color.Transparent,
-                CircleShape
-            )
+            .align(Alignment.CenterHorizontally),
+        contentAlignment = Alignment.Center
     ) {
-        when {
-            isLoading -> {
-                LottieAnimation(
-                    composition = loadingAnimation,
-                    iterations = LottieConstants.IterateForever,
-                    modifier = Modifier.size(32.dp)
+        IconButton(
+            onClick = onClick,
+            enabled = !isLoading,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    if (isReady) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                    else Color.Transparent,
+                    CircleShape
                 )
+        ) {
+            when {
+                isLoading -> {
+                    LottieAnimation(
+                        composition = loadingAnimation,
+                        iterations = LottieConstants.IterateForever,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                isReady -> {
+                    LottieAnimation(
+                        composition = idleAnimation,
+                        iterations = LottieConstants.IterateForever,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                else -> {
+                    Icon(
+                        Icons.Default.CameraAlt,
+                        contentDescription = "Detect",
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
             }
-            isReady -> {
-                LottieAnimation(
-                    composition = idleAnimation,
-                    iterations = LottieConstants.IterateForever,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-            else -> {
-                Icon(
-                    Icons.Default.CameraAlt,
-                    contentDescription = "Detect",
-                    modifier = Modifier.size(32.dp)
+        }
+
+        // Auto‑capture badge
+        if (autoCapture) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "A",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
     }
 }
 
-// ------- Recommendation Item (with expandable breakdown) -------
+// ------- Recommendation Item (unchanged) -------
 @Composable
 fun RecommendationItem(rec: Recommendation) {
     var showDetails by remember { mutableStateOf(false) }
@@ -296,7 +320,6 @@ fun RecommendationItem(rec: Recommendation) {
                     .clickable { showDetails = !showDetails },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Hero icon
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(rec.hero.hero_image ?: "")
@@ -321,7 +344,6 @@ fun RecommendationItem(rec: Recommendation) {
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
-                // Expand icon
                 Icon(
                     if (showDetails) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = "Details",
@@ -329,7 +351,6 @@ fun RecommendationItem(rec: Recommendation) {
                 )
             }
 
-            // Brief reason (always visible)
             Text(
                 rec.reason,
                 style = MaterialTheme.typography.bodySmall,
@@ -337,7 +358,6 @@ fun RecommendationItem(rec: Recommendation) {
                 modifier = Modifier.padding(top = 4.dp)
             )
 
-            // Expanded breakdown
             AnimatedVisibility(visible = showDetails, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     DetailRow("Synergy", rec.synergyScore)
@@ -373,7 +393,7 @@ fun DetailRow(label: String, score: Float) {
     }
 }
 
-// ------- Hero Dropdown (unchanged, but included for completeness) -------
+// ------- Hero Dropdown (unchanged) -------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HeroDropdown(
