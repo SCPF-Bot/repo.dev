@@ -32,16 +32,19 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
     }
 
     composeOptions {
         kotlinCompilerExtensionVersion = "2.3.0"
+    }
+}
+
+// Replace the deprecated kotlinOptions with the new compilerOptions DSL
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
