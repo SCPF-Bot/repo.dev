@@ -1,7 +1,6 @@
 package com.example.mlbbdraftassistant.util
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.util.DisplayMetrics
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -12,27 +11,26 @@ class IconDetector(
     private val captureManager: ScreenCaptureManager,
     private val metrics: DisplayMetrics
 ) {
-    suspend fun detect(allHeroes: List<com.example.mlbbdraftassistant.data.model.Hero>): DetectedDraft =
-        coroutineScope {
-            // Capture screen first (suspend function, works inside coroutineScope)
-            val bitmap = captureManager.captureScreen(metrics)
+    suspend fun detect(
+        allHeroes: List<com.example.mlbbdraftassistant.data.model.Hero>
+    ): DetectedDraft = coroutineScope {
+        val bitmap = captureManager.captureScreen(metrics)
 
-            // Then wrap the callback‑based ObjectDetectorHelper in a suspendCancellableCoroutine
-            suspendCancellableCoroutine { continuation ->
-                val helper = ObjectDetectorHelper(context) { detections ->
-                    if (continuation.isActive) {
-                        val result = mapDetectionsToDraft(detections, allHeroes)
-                        helper.close()
-                        continuation.resume(result)
-                    }
-                }
-                helper.detect(bitmap)
-
-                continuation.invokeOnCancellation {
+        suspendCancellableCoroutine { continuation ->
+            val helper = ObjectDetectorHelper(context) { detections ->
+                if (continuation.isActive) {
+                    val result = mapDetectionsToDraft(detections, allHeroes)
                     helper.close()
+                    continuation.resume(result)
                 }
             }
+            helper.detect(bitmap)
+
+            continuation.invokeOnCancellation {
+                helper.close()
+            }
         }
+    }
 
     private fun mapDetectionsToDraft(
         detections: List<Detection>,
@@ -46,8 +44,11 @@ class IconDetector(
         for (detection in detections) {
             val slotInfo = slotMapper.mapBoundingBox(detection.boundingBox) ?: continue
 
-            val matchedHero = allHeroes.find { it.hero_name.equals(detection.label, ignoreCase = true) }
-                ?: allHeroes.find { it.normalizedName == detection.label.lowercase().replace(Regex("[^a-z0-9]"), "") }
+            val matchedHero = allHeroes.find {
+                it.hero_name.equals(detection.label, ignoreCase = true)
+            } ?: allHeroes.find {
+                it.normalizedName == detection.label.lowercase().replace(Regex("[^a-z0-9]"), "")
+            }
 
             val targetSlot = slotInfo.slot.coerceIn(0, 4)
 
