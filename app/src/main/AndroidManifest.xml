@@ -33,7 +33,7 @@
         <!-- Overlay foreground service -->
         <service
             android:name=".OverlayService"
-            android:foregroundServiceType="specialUse"
+            android:foregroundServiceType="specialUse|mediaProjection"
             android:exported="false" />
     </application>
 
