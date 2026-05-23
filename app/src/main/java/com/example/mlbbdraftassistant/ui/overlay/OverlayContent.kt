@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,7 +42,8 @@ fun OverlayContent(
     onReset: () -> Unit,
     onLockToggle: () -> Unit,
     onCapture: () -> Unit,
-    onToggleDetectionMode: () -> Unit
+    onToggleDetectionMode: () -> Unit,
+    onOpenCalibration: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(true) }
     val context = LocalContext.current
@@ -116,6 +118,10 @@ fun OverlayContent(
                     )
                     IconButton(onClick = onToggleDetectionMode) {
                         Icon(Icons.Default.CameraAlt, contentDescription = "Toggle Mode")
+                    }
+                    // Calibration button
+                    IconButton(onClick = onOpenCalibration) {
+                        Icon(Icons.Default.Settings, contentDescription = "Calibrate")
                     }
                     IconButton(onClick = { expanded = false }) {
                         Icon(Icons.Default.Close, contentDescription = "Collapse")
@@ -300,7 +306,7 @@ fun CaptureButton(
     }
 }
 
-// ------- Recommendation Item (unchanged) -------
+// ------- Recommendation Item (with expandable breakdown) -------
 @Composable
 fun RecommendationItem(rec: Recommendation) {
     var showDetails by remember { mutableStateOf(false) }
@@ -393,7 +399,7 @@ fun DetailRow(label: String, score: Float) {
     }
 }
 
-// ------- Hero Dropdown (unchanged) -------
+// ------- Hero Dropdown -------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HeroDropdown(
