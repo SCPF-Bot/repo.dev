@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -39,13 +40,11 @@ class OverlayService : Service(), ViewModelStoreOwner {
     private val stopReceiver = StopReceiver()
     private val draftReceiver = DraftEventReceiver()
     private var autoCaptureEnabled = false
+    private lateinit var layoutParams: WindowManager.LayoutParams
 
-    // ViewModelStoreOwner implementation
+    // ViewModelStoreOwner
     private val viewModelStore = ViewModelStore()
-
-    override val viewModelStoreOwner: ViewModelStore
-        get() = this
-
+    override val viewModelStoreOwner: ViewModelStore get() = this
     override fun getViewModelStore(): ViewModelStore = viewModelStore
 
     companion object {
@@ -60,13 +59,11 @@ class OverlayService : Service(), ViewModelStoreOwner {
     override fun onCreate() {
         super.onCreate()
 
-        // Stop immediately if overlay permission has been revoked
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
             return
         }
 
-        // Load auto‑capture preference
         val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
         autoCaptureEnabled = prefs.getBoolean(PrefKeys.AUTO_CAPTURE, false)
 
@@ -79,12 +76,10 @@ class OverlayService : Service(), ViewModelStoreOwner {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
 
-        // Create ViewModel using the service as the ViewModelStoreOwner
         viewModel = ViewModelProvider(this).get(DraftViewModel::class.java)
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // Build Compose-based overlay UI with glassmorphism theme
         composeView = ComposeView(this).apply {
             setContent {
                 MLBBDraftTheme(darkTheme = true) {
@@ -111,13 +106,22 @@ class OverlayService : Service(), ViewModelStoreOwner {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 }
                             )
+                        },
+                        onOpenSettings = {
+                            startActivity(
+                                Intent(this@OverlayService, SettingsActivity::class.java).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
                         }
                     )
                 }
             }
         }
 
-        val params = WindowManager.LayoutParams(
+        val opacity = prefs.getFloat(PrefKeys.OVERLAY_OPACITY, 0.85f)
+
+        layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -126,13 +130,15 @@ class OverlayService : Service(), ViewModelStoreOwner {
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
-        )
-        params.gravity = Gravity.TOP or Gravity.START
-        params.x = 100
-        params.y = 200
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 100
+            y = 200
+            alpha = opacity
+        }
 
-        windowManager.addView(composeView, params)
-        enableDrag(composeView, params)
+        windowManager.addView(composeView, layoutParams)
+        enableDrag(composeView, layoutParams)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -223,9 +229,7 @@ class OverlayService : Service(), ViewModelStoreOwner {
                         viewModel.detectDraft()
                     }
                 }
-                GameAccessibilityService.ACTION_DRAFT_EXITED -> {
-                    // Optionally stop or reset; left empty for now
-                }
+                GameAccessibilityService.ACTION_DRAFT_EXITED -> { }
             }
         }
     }
@@ -234,7 +238,6 @@ class OverlayService : Service(), ViewModelStoreOwner {
         super.onDestroy()
         unregisterReceiver(stopReceiver)
         unregisterReceiver(draftReceiver)
-        // Clear ViewModelStore to cancel all ViewModel coroutines
         viewModelStore.clear()
         if (::composeView.isInitialized) {
             windowManager.removeView(composeView)
