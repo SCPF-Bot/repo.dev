@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.airbnb.lottie.compose.*
+import com.example.mlbbdraftassistant.R
 import com.example.mlbbdraftassistant.data.model.Hero
 import com.example.mlbbdraftassistant.domain.Recommendation
 
@@ -120,11 +121,9 @@ fun OverlayContent(
                     IconButton(onClick = onToggleDetectionMode) {
                         Icon(Icons.Default.CameraAlt, contentDescription = "Toggle Mode")
                     }
-                    // Settings button
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Tune, contentDescription = "Settings")
                     }
-                    // Calibration button
                     IconButton(onClick = onOpenCalibration) {
                         Icon(Icons.Default.Settings, contentDescription = "Calibrate")
                     }
@@ -136,7 +135,7 @@ fun OverlayContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Capture button with Lottie and auto‑capture badge
+            // Capture button
             CaptureButton(
                 isLoading = state.isLoading,
                 isReady = state.isCaptureReady,
@@ -233,7 +232,6 @@ fun OverlayContent(
     }
 }
 
-// ------- Capture Button with auto‑capture badge -------
 @Composable
 fun CaptureButton(
     isLoading: Boolean,
@@ -290,7 +288,6 @@ fun CaptureButton(
             }
         }
 
-        // Auto‑capture badge
         if (autoCapture) {
             Box(
                 modifier = Modifier
@@ -311,7 +308,6 @@ fun CaptureButton(
     }
 }
 
-// ------- Recommendation Item -------
 @Composable
 fun RecommendationItem(rec: Recommendation) {
     var showDetails by remember { mutableStateOf(false) }
@@ -403,7 +399,6 @@ fun DetailRow(label: String, score: Float) {
     }
 }
 
-// ------- Hero Dropdown -------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HeroDropdown(
