@@ -33,7 +33,7 @@ import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
 import com.example.mlbbdraftassistant.ui.theme.MLBBDraftTheme
 import com.example.mlbbdraftassistant.util.PrefKeys
 
-class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnSharedPreferenceChangeListener {
+class OverlayService : Service(), ViewModelStoreOwner {
 
     private lateinit var windowManager: WindowManager
     private lateinit var composeView: ComposeView
@@ -44,10 +44,9 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
     private lateinit var layoutParams: WindowManager.LayoutParams
     private lateinit var sharedPrefs: SharedPreferences
 
-    // ViewModelStoreOwner
-    private val viewModelStore = ViewModelStore()
-    override val viewModelStoreOwner: ViewModelStore get() = this
-    override fun getViewModelStore(): ViewModelStore = viewModelStore
+    // ── ViewModelStoreOwner implementation ──
+    private val store = ViewModelStore()
+    override fun getViewModelStore(): ViewModelStore = store
 
     companion object {
         private const val NOTIFICATION_ID = 1001
@@ -66,9 +65,8 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
             return
         }
 
-        // Use default SharedPreferences (same as SettingsActivity)
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this)
-        sharedPrefs.registerOnSharedPreferenceChangeListener(this)
+        sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
 
         autoCaptureEnabled = sharedPrefs.getBoolean(PrefKeys.AUTO_CAPTURE, false)
 
@@ -98,26 +96,18 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
                         onLockToggle = { viewModel.toggleLock() },
                         onCapture = { viewModel.detectDraft() },
                         onToggleDetectionMode = {
-                            val newMode = if (state.detectionMode == DetectionMode.OCR) {
-                                DetectionMode.ICON
-                            } else {
-                                DetectionMode.OCR
-                            }
+                            val newMode = if (state.detectionMode == DetectionMode.OCR) DetectionMode.ICON else DetectionMode.OCR
                             viewModel.setDetectionMode(newMode)
                         },
                         onOpenCalibration = {
-                            startActivity(
-                                Intent(this@OverlayService, CalibrationActivity::class.java).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                            )
+                            startActivity(Intent(this@OverlayService, CalibrationActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
                         },
                         onOpenSettings = {
-                            startActivity(
-                                Intent(this@OverlayService, SettingsActivity::class.java).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                            )
+                            startActivity(Intent(this@OverlayService, SettingsActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
                         }
                     )
                 }
@@ -125,7 +115,6 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
         }
 
         val opacity = sharedPrefs.getFloat(PrefKeys.OVERLAY_OPACITY, 0.85f)
-
         layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -146,27 +135,12 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
         enableDrag(composeView, layoutParams)
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_SET_MEDIA_PROJECTION) {
-            val resultCode = intent.getIntExtra("resultCode", Activity.RESULT_CANCELED)
-            val data = intent.getParcelableExtra<Intent>("data")
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                val manager = getSystemService(MediaProjectionManager::class.java)
-                val projection = manager.getMediaProjection(resultCode, data)
-                viewModel.captureManager.setMediaProjection(projection)
-            }
-        }
-        return START_STICKY
-    }
-
-    override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
+    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
         when (key) {
             PrefKeys.OVERLAY_OPACITY -> {
                 val newOpacity = prefs?.getFloat(key, 0.85f) ?: 0.85f
                 layoutParams.alpha = newOpacity
-                if (::composeView.isInitialized) {
-                    windowManager.updateViewLayout(composeView, layoutParams)
-                }
+                if (::composeView.isInitialized) windowManager.updateViewLayout(composeView, layoutParams)
             }
             PrefKeys.AUTO_CAPTURE -> {
                 autoCaptureEnabled = prefs?.getBoolean(key, false) ?: false
@@ -184,19 +158,26 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
         }
     }
 
-    private fun enableDrag(view: android.view.View, params: WindowManager.LayoutParams) {
-        var initialX = 0
-        var initialY = 0
-        var initialTouchX = 0f
-        var initialTouchY = 0f
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_SET_MEDIA_PROJECTION) {
+            val resultCode = intent.getIntExtra("resultCode", Activity.RESULT_CANCELED)
+            val data = intent.getParcelableExtra<Intent>("data")
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                val manager = getSystemService(MediaProjectionManager::class.java)
+                val projection = manager.getMediaProjection(resultCode, data)
+                viewModel.captureManager.setMediaProjection(projection)
+            }
+        }
+        return START_STICKY
+    }
 
+    private fun enableDrag(view: android.view.View, params: WindowManager.LayoutParams) {
+        var initialX = 0; var initialY = 0; var initialTouchX = 0f; var initialTouchY = 0f
         view.setOnTouchListener { _, event ->
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    initialX = params.x
-                    initialY = params.y
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
+                    initialX = params.x; initialY = params.y
+                    initialTouchX = event.rawX; initialTouchY = event.rawY
                     true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
@@ -212,11 +193,7 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Overlay Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
+            val channel = NotificationChannel(CHANNEL_ID, "Overlay Service", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Keeps the MLBB Draft Assistant overlay running"
             }
             val manager = getSystemService(NotificationManager::class.java)
@@ -226,15 +203,9 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
 
     private fun buildNotification(): Notification {
         val openIntent = Intent(this, MainActivity::class.java)
-        val openPendingIntent = PendingIntent.getActivity(
-            this, 0, openIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val openPendingIntent = PendingIntent.getActivity(this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stopIntent = Intent(ACTION_STOP)
-        val stopPendingIntent = PendingIntent.getBroadcast(
-            this, 0, stopIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val stopPendingIntent = PendingIntent.getBroadcast(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Draft Assistant Active")
             .setContentText("Draft detection ready")
@@ -246,18 +217,14 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
     }
 
     private inner class StopReceiver : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            stopSelf()
-        }
+        override fun onReceive(context: Context?, intent: Intent?) { stopSelf() }
     }
 
     private inner class DraftEventReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 GameAccessibilityService.ACTION_DRAFT_ENTERED -> {
-                    if (autoCaptureEnabled && viewModel.captureManager.isReady()) {
-                        viewModel.detectDraft()
-                    }
+                    if (autoCaptureEnabled && viewModel.captureManager.isReady()) viewModel.detectDraft()
                 }
                 GameAccessibilityService.ACTION_DRAFT_EXITED -> { }
             }
@@ -266,12 +233,10 @@ class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnShare
 
     override fun onDestroy() {
         super.onDestroy()
-        sharedPrefs.unregisterOnSharedPreferenceChangeListener(this)
+        sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         unregisterReceiver(stopReceiver)
         unregisterReceiver(draftReceiver)
-        viewModelStore.clear()
-        if (::composeView.isInitialized) {
-            windowManager.removeView(composeView)
-        }
+        store.clear()
+        if (::composeView.isInitialized) windowManager.removeView(composeView)
     }
 }
