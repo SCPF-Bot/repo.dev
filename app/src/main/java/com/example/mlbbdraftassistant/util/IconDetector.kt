@@ -15,6 +15,7 @@ class IconDetector(
         suspendCancellableCoroutine { continuation ->
             try {
                 val bitmap = captureManager.captureScreen(metrics)
+                // Helper is not a suspend function; we keep the callback approach
                 val helper = ObjectDetectorHelper(context) { detections ->
                     if (continuation.isActive) {
                         val result = mapDetectionsToDraft(detections, allHeroes)
@@ -39,7 +40,6 @@ class IconDetector(
         detections: List<Detection>,
         allHeroes: List<com.example.mlbbdraftassistant.data.model.Hero>
     ): DetectedDraft {
-        // Initialize empty slots
         val allies = MutableList<com.example.mlbbdraftassistant.data.model.Hero?>(5) { null }
         val enemies = MutableList<com.example.mlbbdraftassistant.data.model.Hero?>(5) { null }
 
@@ -48,7 +48,6 @@ class IconDetector(
         for (detection in detections) {
             val slotInfo = slotMapper.mapBoundingBox(detection.boundingBox) ?: continue
 
-            // Convert label to hero
             val matchedHero = allHeroes.find { it.hero_name.equals(detection.label, ignoreCase = true) }
                 ?: allHeroes.find { it.normalizedName == detection.label.lowercase().replace(Regex("[^a-z0-9]"), "") }
 
