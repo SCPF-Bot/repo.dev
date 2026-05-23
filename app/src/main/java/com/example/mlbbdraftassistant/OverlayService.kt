@@ -10,7 +10,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -23,6 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
 import com.example.mlbbdraftassistant.service.GameAccessibilityService
 import com.example.mlbbdraftassistant.ui.overlay.DetectionMode
 import com.example.mlbbdraftassistant.ui.overlay.DraftViewModel
@@ -30,7 +31,7 @@ import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
 import com.example.mlbbdraftassistant.ui.theme.MLBBDraftTheme
 import com.example.mlbbdraftassistant.util.PrefKeys
 
-class OverlayService : Service() {
+class OverlayService : Service(), ViewModelStoreOwner {
 
     private lateinit var windowManager: WindowManager
     private lateinit var composeView: ComposeView
@@ -38,6 +39,14 @@ class OverlayService : Service() {
     private val stopReceiver = StopReceiver()
     private val draftReceiver = DraftEventReceiver()
     private var autoCaptureEnabled = false
+
+    // ViewModelStoreOwner implementation
+    private val viewModelStore = ViewModelStore()
+
+    override val viewModelStoreOwner: ViewModelStore
+        get() = this
+
+    override fun getViewModelStore(): ViewModelStore = viewModelStore
 
     companion object {
         private const val NOTIFICATION_ID = 1001
@@ -70,8 +79,8 @@ class OverlayService : Service() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
 
-        viewModel = ViewModelProvider.AndroidViewModelFactory(applicationContext as MLBBDraftAssistantApp)
-            .create(DraftViewModel::class.java)
+        // Create ViewModel using the service as the ViewModelStoreOwner
+        viewModel = ViewModelProvider(this).get(DraftViewModel::class.java)
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -225,7 +234,8 @@ class OverlayService : Service() {
         super.onDestroy()
         unregisterReceiver(stopReceiver)
         unregisterReceiver(draftReceiver)
-        viewModel.captureManager.release()
+        // Clear ViewModelStore to cancel all ViewModel coroutines
+        viewModelStore.clear()
         if (::composeView.isInitialized) {
             windowManager.removeView(composeView)
         }
