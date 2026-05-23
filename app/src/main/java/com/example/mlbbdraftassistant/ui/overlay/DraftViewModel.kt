@@ -12,6 +12,7 @@ import com.example.mlbbdraftassistant.domain.Recommendation
 import com.example.mlbbdraftassistant.domain.RecommendationEngine
 import com.example.mlbbdraftassistant.domain.ScoringConfig
 import com.example.mlbbdraftassistant.util.DraftDetector
+import com.example.mlbbdraftassistant.util.IconDetector
 import com.example.mlbbdraftassistant.util.ScreenCaptureManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,8 +28,11 @@ data class DraftState(
     val isLoading: Boolean = false,
     val isLocked: Boolean = false,
     val isCaptureReady: Boolean = false,
-    val detectionError: String? = null
+    val detectionError: String? = null,
+    val detectionMode: DetectionMode = DetectionMode.OCR
 )
+
+enum class DetectionMode { OCR, ICON }
 
 class DraftViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -82,6 +86,10 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(isLocked = !it.isLocked) }
     }
 
+    fun setDetectionMode(mode: DetectionMode) {
+        _state.update { it.copy(detectionMode = mode) }
+    }
+
     fun refreshHeroData() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
@@ -91,7 +99,7 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Perform automatic OCR‑based draft detection.
+     * Perform automatic draft detection using the selected mode.
      */
     fun detectDraft() {
         if (!captureManager.isReady()) {
@@ -101,8 +109,17 @@ class DraftViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, detectionError = null) }
             try {
-                val detector = DraftDetector(captureManager, metrics)
-                val result = detector.detect(_state.value.availableHeroes)
+                val result = when (_state.value.detectionMode) {
+                    DetectionMode.OCR -> {
+                        val detector = DraftDetector(captureManager, metrics)
+                        detector.detect(_state.value.availableHeroes)
+                    }
+                    DetectionMode.ICON -> {
+                        val context = getApplication<MLBBDraftAssistantApp>()
+                        val iconDetector = IconDetector(context, captureManager, metrics)
+                        iconDetector.detect(_state.value.availableHeroes)
+                    }
+                }
                 _state.update { current ->
                     current.copy(
                         allies = result.allies,
