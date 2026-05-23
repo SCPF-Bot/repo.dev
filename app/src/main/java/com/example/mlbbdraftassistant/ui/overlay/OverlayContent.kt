@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +26,8 @@ fun OverlayContent(
     onEnemySelected: (slot: Int, hero: Hero) -> Unit,
     onReset: () -> Unit,
     onLockToggle: () -> Unit,
-    onCapture: () -> Unit
+    onCapture: () -> Unit,
+    onToggleDetectionMode: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(true) }
 
@@ -45,7 +47,16 @@ fun OverlayContent(
         ) {
             Text("Draft Picks", style = MaterialTheme.typography.titleMedium)
             Row {
-                // Capture button for OCR
+                // Detection mode toggle
+                Text(
+                    text = if (state.detectionMode == DetectionMode.OCR) "OCR" else "Icon",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.align(Alignment.CenterVertically)
+                )
+                IconButton(onClick = onToggleDetectionMode) {
+                    Icon(Icons.Default.Settings, contentDescription = "Toggle Mode")
+                }
+                // Capture button
                 IconButton(onClick = onCapture, enabled = !state.isLoading) {
                     if (state.isLoading) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
