@@ -1,6 +1,10 @@
 name: Build APK
 
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -26,6 +30,14 @@ jobs:
 
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses
+
+      - name: Generate Gradle wrapper jar using Docker
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/project \
+            -w /project \
+            gradle:9.2.1-jdk17 \
+            gradle wrapper --gradle-version 9.2.1
 
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
