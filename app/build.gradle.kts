@@ -66,6 +66,7 @@ dependencies {
 
     // Material 3 settings (ComposePreference)
     implementation("me.zhanghai.compose.preference:preference:2.2.0")
+implementation("androidx.compose.material:material-icons-extended")
 
     // Image loading (Coil 3)
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
