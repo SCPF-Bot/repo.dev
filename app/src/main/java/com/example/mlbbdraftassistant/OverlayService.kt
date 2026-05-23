@@ -25,6 +25,7 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.preference.PreferenceManager
 import com.example.mlbbdraftassistant.service.GameAccessibilityService
 import com.example.mlbbdraftassistant.ui.overlay.DetectionMode
 import com.example.mlbbdraftassistant.ui.overlay.DraftViewModel
@@ -32,7 +33,7 @@ import com.example.mlbbdraftassistant.ui.overlay.OverlayContent
 import com.example.mlbbdraftassistant.ui.theme.MLBBDraftTheme
 import com.example.mlbbdraftassistant.util.PrefKeys
 
-class OverlayService : Service(), ViewModelStoreOwner {
+class OverlayService : Service(), ViewModelStoreOwner, SharedPreferences.OnSharedPreferenceChangeListener {
 
     private lateinit var windowManager: WindowManager
     private lateinit var composeView: ComposeView
@@ -41,6 +42,7 @@ class OverlayService : Service(), ViewModelStoreOwner {
     private val draftReceiver = DraftEventReceiver()
     private var autoCaptureEnabled = false
     private lateinit var layoutParams: WindowManager.LayoutParams
+    private lateinit var sharedPrefs: SharedPreferences
 
     // ViewModelStoreOwner
     private val viewModelStore = ViewModelStore()
@@ -64,8 +66,11 @@ class OverlayService : Service(), ViewModelStoreOwner {
             return
         }
 
-        val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
-        autoCaptureEnabled = prefs.getBoolean(PrefKeys.AUTO_CAPTURE, false)
+        // Use default SharedPreferences (same as SettingsActivity)
+        sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this)
+        sharedPrefs.registerOnSharedPreferenceChangeListener(this)
+
+        autoCaptureEnabled = sharedPrefs.getBoolean(PrefKeys.AUTO_CAPTURE, false)
 
         registerReceiver(stopReceiver, IntentFilter(ACTION_STOP), RECEIVER_NOT_EXPORTED)
         registerReceiver(draftReceiver, IntentFilter().apply {
@@ -119,7 +124,7 @@ class OverlayService : Service(), ViewModelStoreOwner {
             }
         }
 
-        val opacity = prefs.getFloat(PrefKeys.OVERLAY_OPACITY, 0.85f)
+        val opacity = sharedPrefs.getFloat(PrefKeys.OVERLAY_OPACITY, 0.85f)
 
         layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -152,6 +157,31 @@ class OverlayService : Service(), ViewModelStoreOwner {
             }
         }
         return START_STICKY
+    }
+
+    override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
+        when (key) {
+            PrefKeys.OVERLAY_OPACITY -> {
+                val newOpacity = prefs?.getFloat(key, 0.85f) ?: 0.85f
+                layoutParams.alpha = newOpacity
+                if (::composeView.isInitialized) {
+                    windowManager.updateViewLayout(composeView, layoutParams)
+                }
+            }
+            PrefKeys.AUTO_CAPTURE -> {
+                autoCaptureEnabled = prefs?.getBoolean(key, false) ?: false
+            }
+            PrefKeys.DETECTION_MODE -> {
+                val mode = prefs?.getString(key, "ocr") ?: "ocr"
+                viewModel.setDetectionMode(
+                    when (mode) {
+                        "icon" -> DetectionMode.ICON
+                        "manual" -> DetectionMode.MANUAL
+                        else -> DetectionMode.OCR
+                    }
+                )
+            }
+        }
     }
 
     private fun enableDrag(view: android.view.View, params: WindowManager.LayoutParams) {
@@ -236,6 +266,7 @@ class OverlayService : Service(), ViewModelStoreOwner {
 
     override fun onDestroy() {
         super.onDestroy()
+        sharedPrefs.unregisterOnSharedPreferenceChangeListener(this)
         unregisterReceiver(stopReceiver)
         unregisterReceiver(draftReceiver)
         viewModelStore.clear()
