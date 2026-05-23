@@ -80,6 +80,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
 
+    // TensorFlow Lite Support (for ObjectDetectorHelper)
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
