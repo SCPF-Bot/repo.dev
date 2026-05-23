@@ -72,7 +72,6 @@ fun OverlayContent(
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(topRec.hero.hero_image ?: "")
-                        .crossfade(true)
                         .build(),
                     contentDescription = topRec.hero.hero_name,
                     modifier = Modifier
@@ -312,7 +311,7 @@ fun CaptureButton(
     }
 }
 
-// ------- Recommendation Item (with expandable breakdown) -------
+// ------- Recommendation Item -------
 @Composable
 fun RecommendationItem(rec: Recommendation) {
     var showDetails by remember { mutableStateOf(false) }
@@ -335,7 +334,6 @@ fun RecommendationItem(rec: Recommendation) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(rec.hero.hero_image ?: "")
-                        .crossfade(true)
                         .build(),
                     contentDescription = rec.hero.hero_name,
                     modifier = Modifier
