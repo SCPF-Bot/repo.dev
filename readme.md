@@ -1,5 +1,6 @@
+## Project Overview
+
 ```
-Project Process:
 1.1 Create GitHub repository with Android project structure
   1.1.1 Choose repository name and set public/private visibility
   1.1.2 Add Android .gitignore template from GitHub
@@ -301,4 +302,87 @@ Project Process:
   8.3.4 Regularly pull updated hero data; adjust scoring weights based on meta shifts
   8.3.5 Optional anonymous analytics to track detection success rate
   8.3.6 A/B test algorithm changes via Firebase App Distribution beta channel
+```
+
+## Repository Structure
+
+```
+repo.dev/
+├── .github/
+│   └── workflows/
+│       └── build.yml
+├── .devcontainer/
+│   └── devcontainer.json
+├── app/
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/com/example/mlbbdraftassistant/
+│   │   │   │   ├── MainActivity.kt
+│   │   │   │   ├── OverlayService.kt
+│   │   │   │   ├── data/
+│   │   │   │   │   ├── model/
+│   │   │   │   │   │   ├── Hero.kt
+│   │   │   │   │   │   ├── Counter.kt
+│   │   │   │   │   │   ├── Synergy.kt
+│   │   │   │   │   │   └── MetaStats.kt
+│   │   │   │   │   ├── remote/
+│   │   │   │   │   │   └── HeroApi.kt
+│   │   │   │   │   ├── local/
+│   │   │   │   │   │   ├── HeroDao.kt
+│   │   │   │   │   │   └── AppDatabase.kt
+│   │   │   │   │   └── repository/
+│   │   │   │   │       └── HeroRepository.kt
+│   │   │   │   ├── domain/
+│   │   │   │   │   ├── RecommendationEngine.kt
+│   │   │   │   │   └── ScoringConfig.kt
+│   │   │   │   ├── ui/
+│   │   │   │   │   ├── overlay/
+│   │   │   │   │   │   ├── OverlayContent.kt
+│   │   │   │   │   │   └── OverlayViewModel.kt
+│   │   │   │   │   ├── settings/
+│   │   │   │   │   │   └── SettingsActivity.kt
+│   │   │   │   │   └── theme/
+│   │   │   │   │       └── Theme.kt
+│   │   │   │   └── util/
+│   │   │   │       ├── CsvParser.kt
+│   │   │   │       ├── FuzzyMatcher.kt
+│   │   │   │       └── ScreenCaptureHelper.kt
+│   │   │   ├── res/
+│   │   │   │   ├── layout/
+│   │   │   │   │   └── (empty, Compose uses setContent)
+│   │   │   │   ├── values/
+│   │   │   │   │   ├── strings.xml
+│   │   │   │   │   └── themes.xml
+│   │   │   │   ├── drawable/
+│   │   │   │   │   └── ic_launcher_foreground.xml
+│   │   │   │   ├── mipmap-anydpi-v26/
+│   │   │   │   ├── mipmap-hdpi/
+│   │   │   │   ├── mipmap-mdpi/
+│   │   │   │   ├── mipmap-xhdpi/
+│   │   │   │   ├── mipmap-xxhdpi/
+│   │   │   │   ├── mipmap-xxxhdpi/
+│   │   │   │   └── raw/
+│   │   │   │       ├── loading_animation.json
+│   │   │   │       └── pulse_animation.json
+│   │   │   └── AndroidManifest.xml
+│   │   ├── test/
+│   │   │   └── java/com/example/mlbbdraftassistant/
+│   │   │       ├── RecommendationEngineTest.kt
+│   │   │       └── HeroRepositoryTest.kt
+│   │   └── androidTest/
+│   │       └── java/com/example/mlbbdraftassistant/
+│   │           └── ExampleInstrumentedTest.kt
+│   ├── build.gradle.kts
+│   └── proguard-rules.pro
+├── gradle/
+│   └── wrapper/
+│       └── gradle-wrapper.properties
+├── docs/
+├── .gitignore
+├── README.md
+├── build.gradle.kts
+├── gradle.properties
+├── gradlew
+├── gradlew.bat
+└── settings.gradle.kts
 ```
