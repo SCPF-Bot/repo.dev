@@ -22,10 +22,7 @@ jobs:
 
       - name: Extract archive to root
         run: |
-          # Extract with full paths, overwriting all existing files
           7z x repo.dev-main.7z -o./ -aoa
-
-          # Remove the archive so it isn't part of the final state
           rm -f repo.dev-main.7z
 
       - name: Configure Git
@@ -43,4 +40,4 @@ jobs:
             git push
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ACTIONS_PAT }}
