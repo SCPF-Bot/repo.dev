@@ -30,6 +30,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Settings Activity -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
         <!-- Overlay foreground service (supports both specialUse and mediaProjection) -->
         <service
             android:name=".OverlayService"
