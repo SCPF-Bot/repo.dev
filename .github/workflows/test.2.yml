@@ -1,5 +1,5 @@
 # .github/workflows/extract-7z.yml
-name: Extract 7z Archives
+name: Extract 7z Archives and Create PR
 
 on:
   workflow_dispatch:
@@ -8,11 +8,12 @@ on:
 
 permissions:
   contents: write
-  workflows: write          # <-- add this line
+  pull-requests: write
 
 jobs:
-  extract:
+  extract-and-pr:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,12 +32,23 @@ jobs:
           done
         working-directory: ${{ github.workspace }}
 
-      - name: Commit and push changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          if ! git diff --staged --quiet; then
-            git commit -m "Extract .7z archives [skip ci]"
-            git push origin main
-          fi
+      # Optional: delete the .7z files after extraction – uncomment if needed
+      # - name: Delete extracted .7z files
+      #   run: rm -f *.7z .*.7z
+      #   working-directory: ${{ github.workspace }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Extract .7z archives"
+          branch: extract-7z-${{ github.run_id }}
+          base: main
+          title: "Extract .7z archives"
+          body: |
+            This PR extracts all `.7z` files found in the repository root (including hidden ones like `.*.7z`).
+            
+            - Extracted with `7z x -aoa` (overwrites existing files).
+            - After merging, the extracted content will be available in `main`.
+          delete-branch: true
+          labels: automated
