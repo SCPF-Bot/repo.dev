@@ -1,0 +1,19 @@
+{
+  "name": "Android Build",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17"
+    },
+    "ghcr.io/akhildevelops/devcontainer-features/android-sdk:0": {}
+  },
+  "postCreateCommand": "echo 'sdk.dir=/usr/local/lib/android/sdk' > local.properties && chmod +x gradlew",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "redhat.java",
+        "vscjava.vscode-gradle"
+      ]
+    }
+  }
+}
