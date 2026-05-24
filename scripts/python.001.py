@@ -18,8 +18,9 @@ REPO_FULL_NAME = os.environ.get("REPO_FULL_NAME")
 BASE_BRANCH = os.environ.get("BASE_BRANCH", "main")
 WORKSPACE = os.environ.get("GITHUB_WORKSPACE") or os.getcwd()
 NEW_BRANCH = "deepseek-systemic-review"
-MODEL = "deepseek-chat"          # or "deepseek-reasoner"
+MODEL = "deepseek-reasoner"
 TEMPERATURE = 0.2
+ENABLE_SEARCH = True
 
 
 SYSTEM_PROMPT_FULL = """You are an expert Android Kotlin engineer. For every file you review, you will output the **complete corrected file content**.
@@ -27,6 +28,7 @@ If the file is already perfect, output the original content unchanged.
 Always prefix the output with `=== FULL FILE: path/to/file.kt ===` on its own line, then the entire file content.
 Do not output diffs or explanations outside of that block.
 Focus on fixing bugs, improving logic, optimizing performance, and adhering to 2026 Android/Kotlin best practices.
+Use your reasoning capabilities and, if needed, search for up‑to‑date information to ensure correctness.
 """
 
 
@@ -91,7 +93,8 @@ def phase1_analysis(client: OpenAI, files: List[str]) -> str:
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,
-            max_tokens=1000
+            max_tokens=1000,
+            extra_body={"enable_search": ENABLE_SEARCH}
         )
         return resp.choices[0].message.content
     except Exception as e:
@@ -118,7 +121,8 @@ messages=[
 {"role": "user", "content": user_prompt}
 ],
 temperature=TEMPERATURE,
-max_tokens=6000
+max_tokens=6000,
+extra_body={"enable_search": ENABLE_SEARCH}
 )
 result = resp.choices[0].message.content
 marker = f"=== FULL FILE: {rel_path} ==="
