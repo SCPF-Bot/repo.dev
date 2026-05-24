@@ -26,12 +26,9 @@ jobs:
           pip uninstall -y google-generativeai google-genai || true
           pip install google-genai PyGithub
 
-      - name: Verify installation
-        run: python -c "from google import genai; print('google-genai OK')"
-
       - name: Run systematic review and fix generation
         env:
-          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_FULL_NAME: ${{ github.repository }}
           BASE_BRANCH: ${{ github.ref_name }}
