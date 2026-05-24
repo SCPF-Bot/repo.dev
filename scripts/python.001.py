@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from google import genai
+import google.generativeai as genai
 from github import Github, GithubException
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -16,7 +16,7 @@ BASE_BRANCH = os.environ.get("BASE_BRANCH", "main")
 WORKSPACE = os.environ.get("GITHUB_WORKSPACE") or os.getcwd()
 NEW_BRANCH = "gemini-systemic-review"
 
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-2.0-flash"   # fallback, will be overridden if discovered
 TEMPERATURE = 0.2
 MAX_OUTPUT_TOKENS = 4096
 
@@ -55,17 +55,17 @@ def write_file_content(rel_path: str, content: str):
     with open(full_path, 'w', encoding='utf-8') as f:
         f.write(content)
 
-def get_available_model(client) -> str:
-    """Return the first available generateContent model, fallback to MODEL_NAME."""
+def get_available_model() -> str:
+    """Return the first available generateContent model."""
     try:
-        for model in client.models.list():
-            if "generateContent" in model.supported_actions:
-                return model.name
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                return m.name
     except Exception:
         pass
-    return MODEL_NAME
+    return "gemini-2.0-flash"
 
-def review_and_fix_file(client, rel_path: str, content: str) -> Tuple[Optional[str], Optional[str]]:
+def review_and_fix_file(rel_path: str, content: str, model_name: str) -> Tuple[Optional[str], Optional[str]]:
     user_prompt = f"""Provide the complete corrected version of the following file:
 File: {rel_path}
 Current content:
@@ -76,14 +76,14 @@ Output exactly as:
 <new file content>
 """
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=[SYSTEM_PROMPT, user_prompt],
-            config={
+        model = genai.GenerativeModel(
+            model_name,
+            generation_config={
                 "temperature": TEMPERATURE,
                 "max_output_tokens": MAX_OUTPUT_TOKENS,
             }
         )
+        response = model.generate_content([SYSTEM_PROMPT, user_prompt])
         result = response.text
         marker = f"=== FULL FILE: {rel_path} ==="
         if marker in result:
@@ -125,13 +125,11 @@ def main():
         print("ERROR: GEMINI_API_KEY environment variable not set")
         sys.exit(1)
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GEMINI_API_KEY)
 
-    # Optionally verify model availability
-    available_model = get_available_model(client)
-    if available_model != MODEL_NAME:
-        print(f"Note: Using model {available_model} instead of {MODEL_NAME}")
-        # You could set global MODEL_NAME = available_model, but we keep original for consistency
+    # Discover available model
+    model_name = get_available_model()
+    print(f"Using model: {model_name}")
 
     print("Discovering source files...")
     files = find_source_files(WORKSPACE)
@@ -143,7 +141,7 @@ def main():
         content = read_file_content(rel_path)
         if content is None:
             continue
-        new_content, error = review_and_fix_file(client, rel_path, content)
+        new_content, error = review_and_fix_file(rel_path, content, model_name)
         if error:
             print(f"  Error: {error}")
             continue
