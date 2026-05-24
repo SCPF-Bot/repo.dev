@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-# Try to import the new google-genai package, fallback to the old one
+# Try new google-genai package, fallback to legacy
 try:
     from google import genai
     from google.genai import types
@@ -31,7 +31,7 @@ NEW_BRANCH = "gemini-systemic-review"
 MODEL_NAME = "gemini-2.5-flash"
 TEMPERATURE = 0.1
 MAX_OUTPUT_TOKENS = 2048
-BASE_DELAY_BETWEEN_FILES = 12   # seconds (respects 5 RPM free tier)
+BASE_DELAY_BETWEEN_FILES = 12   # 5 requests/minute = 12s between files
 
 SYSTEM_PROMPT = """You are an expert Android Kotlin engineer. For every file you review, output the complete corrected file content.
 If the file is perfect, output the original content unchanged.
@@ -126,14 +126,12 @@ Output exactly as:
             is_retryable = False
             retry_after = None
 
-            # Rate limit detection
             if "429" in error_str or "ResourceExhausted" in error_str or "quota" in error_str.lower():
                 is_retryable = True
                 delay_match = re.search(r'retry_delay[\s]*[\:][\s]*(\d+)', error_str)
                 if delay_match:
                     retry_after = int(delay_match.group(1))
 
-            # Also retry on server errors
             if hasattr(e, 'code') and 500 <= e.code < 600:
                 is_retryable = True
 
