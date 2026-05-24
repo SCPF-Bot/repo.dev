@@ -28,10 +28,12 @@ BASE_BRANCH = os.environ.get("BASE_BRANCH", "main")
 WORKSPACE = os.environ.get("GITHUB_WORKSPACE") or os.getcwd()
 NEW_BRANCH = "gemini-systemic-review"
 
-MODEL_NAME = "gemini-2.5-flash"
+# Use model with high free‑tier daily quota (1500 requests/day)
+MODEL_NAME = "gemini-2.0-flash"
 TEMPERATURE = 0.1
 MAX_OUTPUT_TOKENS = 2048
-BASE_DELAY_BETWEEN_FILES = 12   # 5 requests/minute = 12s between files
+# Base delay between files – 12s keeps under 5 RPM free limit (60/5 = 12s)
+BASE_DELAY_BETWEEN_FILES = 12
 
 SYSTEM_PROMPT = """You are an expert Android Kotlin engineer. For every file you review, output the complete corrected file content.
 If the file is perfect, output the original content unchanged.
@@ -126,18 +128,31 @@ Output exactly as:
             is_retryable = False
             retry_after = None
 
+            # Check for daily quota exhaustion – should not retry
+            if "quotaValue: '20'" in error_str or "quotaValue: '0'" in error_str or "daily quota" in error_str:
+                return None, f"Daily quota exhausted for {MODEL_NAME}. Cannot proceed."
+
+            # Rate limit (429) or resource exhausted
             if "429" in error_str or "ResourceExhausted" in error_str or "quota" in error_str.lower():
                 is_retryable = True
-                delay_match = re.search(r'retry_delay[\s]*[\:][\s]*(\d+)', error_str)
+                # Extract retryDelay if provided
+                delay_match = re.search(r'retryDelay[\s]*[\:][\s]*(\d+)', error_str)
                 if delay_match:
                     retry_after = int(delay_match.group(1))
+                else:
+                    # Also try looking for "retry_delay" pattern
+                    delay_match = re.search(r'retry_delay[\s]*[\:][\s]*(\d+)', error_str)
+                    if delay_match:
+                        retry_after = int(delay_match.group(1))
 
+            # Server errors (5xx) are also retryable
             if hasattr(e, 'code') and 500 <= e.code < 600:
                 is_retryable = True
 
             if not is_retryable:
                 return None, error_str
 
+            # Use server-provided delay if available, otherwise exponential backoff
             if retry_after:
                 delay = retry_after
             else:
@@ -182,6 +197,7 @@ def main():
         print("ERROR: GEMINI_API_KEY environment variable not set")
         sys.exit(1)
 
+    print(f"Using model: {MODEL_NAME} (free tier: 1,500 requests/day)")
     print("Discovering source files...")
     files = find_source_files(WORKSPACE)
     print(f"Found {len(files)} files.")
@@ -196,6 +212,10 @@ def main():
         new_content, error = review_and_fix_file(rel_path, content)
         if error:
             print(f"  Error: {error}")
+            # Stop if daily quota exhausted
+            if "Daily quota exhausted" in error:
+                print("Stopping review due to quota exhaustion.")
+                sys.exit(1)
             continue
         if new_content is None:
             print("  No response, skipping")
