@@ -49,6 +49,11 @@ dependencies {
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
 
+    // FIX: added androidx.preference so PreferenceManager is on the classpath.
+    // The me.zhanghai.compose.preference library only provides Compose UI components;
+    // it does NOT bundle the AndroidX preference runtime (PreferenceManager, etc.).
+    implementation("androidx.preference:preference-ktx:1.2.1")
+
     // Jetpack Compose (Bill of Materials)
     implementation(platform("androidx.compose:compose-bom:2026.04.01"))
     implementation("androidx.compose.ui:ui")
@@ -65,7 +70,7 @@ dependencies {
     // Lottie animations
     implementation("com.airbnb.android:lottie-compose:6.7.1")
 
-    // Material 3 settings (ComposePreference)
+    // Material 3 settings (Compose preference UI only)
     implementation("me.zhanghai.compose.preference:preference:2.2.0")
 
     // Image loading (Coil 3)
@@ -81,9 +86,7 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
-    // FIX: added TensorFlow Lite core — required for Interpreter class.
-    // Previously only the support library was declared, which does not pull in
-    // the core interpreter as a guaranteed transitive dependency.
+    // TensorFlow Lite (core interpreter + support library)
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
 

@@ -44,9 +44,15 @@ class OverlayService : Service(), ViewModelStoreOwner {
     private lateinit var layoutParams: WindowManager.LayoutParams
     private lateinit var sharedPrefs: SharedPreferences
 
-    // ── ViewModelStoreOwner implementation ──
+    // FIX: androidx.lifecycle 2.8+ changed ViewModelStoreOwner from a function
+    // interface (getViewModelStore()) to a property interface (val viewModelStore).
+    // The old `override fun getViewModelStore()` override compiles to nothing because
+    // there is no longer a function to override, causing two compiler errors:
+    //   1. Class is not abstract and does not implement abstract member: val viewModelStore
+    //   2. 'getViewModelStore' overrides nothing
+    // Fix: declare it as a property override instead.
     private val store = ViewModelStore()
-    override fun getViewModelStore(): ViewModelStore = store
+    override val viewModelStore: ViewModelStore get() = store
 
     companion object {
         private const val NOTIFICATION_ID = 1001
@@ -121,7 +127,7 @@ class OverlayService : Service(), ViewModelStoreOwner {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
-                WindowManager.LayoutParams.TYPE_PHONE,
+                @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -149,9 +155,9 @@ class OverlayService : Service(), ViewModelStoreOwner {
                 val mode = prefs?.getString(key, "ocr") ?: "ocr"
                 viewModel.setDetectionMode(
                     when (mode) {
-                        "icon" -> DetectionMode.ICON
+                        "icon"   -> DetectionMode.ICON
                         "manual" -> DetectionMode.MANUAL
-                        else -> DetectionMode.OCR
+                        else     -> DetectionMode.OCR
                     }
                 )
             }
@@ -226,7 +232,7 @@ class OverlayService : Service(), ViewModelStoreOwner {
                 GameAccessibilityService.ACTION_DRAFT_ENTERED -> {
                     if (autoCaptureEnabled && viewModel.captureManager.isReady()) viewModel.detectDraft()
                 }
-                GameAccessibilityService.ACTION_DRAFT_EXITED -> { }
+                GameAccessibilityService.ACTION_DRAFT_EXITED -> { /* future: auto-reset */ }
             }
         }
     }

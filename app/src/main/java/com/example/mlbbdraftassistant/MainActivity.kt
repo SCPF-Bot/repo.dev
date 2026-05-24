@@ -27,8 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.preference.PreferenceManager
 
-// FIX: removed duplicate import of androidx.preference.PreferenceManager
-
 class MainActivity : ComponentActivity() {
 
     private val overlayPermissionLauncher =
@@ -123,7 +121,11 @@ class MainActivity : ComponentActivity() {
                     Surface {
                         DisclaimerDialog(
                             onAccept = {
-                                prefs.edit().putBoolean("disclaimer_accepted", true).apply()
+                                // FIX: `prefs.edit().putBoolean(…).apply()` was ambiguous —
+                                // Kotlin's T.apply{} extension shadowed SharedPreferences.Editor.apply().
+                                // Use the androidx-core KTX `edit { }` lambda form instead,
+                                // which calls commit() internally and is unambiguous.
+                                prefs.edit().putBoolean("disclaimer_accepted", true).commit()
                                 startServiceAndFinish()
                             },
                             onDecline = { finish() }
