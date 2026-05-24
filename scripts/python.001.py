@@ -18,9 +18,10 @@ REPO_FULL_NAME = os.environ.get("REPO_FULL_NAME")
 BASE_BRANCH = os.environ.get("BASE_BRANCH", "main")
 WORKSPACE = os.environ.get("GITHUB_WORKSPACE") or os.getcwd()
 NEW_BRANCH = "deepseek-systemic-review"
-MODEL = "deepseek-reasoner"
+MODEL = "deepseek-v4-flash"
 TEMPERATURE = 0.2
 ENABLE_SEARCH = True
+ENABLE_THINKING = True
 
 
 SYSTEM_PROMPT_FULL = """You are an expert Android Kotlin engineer. For every file you review, you will output the **complete corrected file content**.
@@ -85,6 +86,11 @@ def phase1_analysis(client: OpenAI, files: List[str]) -> str:
 
 {summary}
 """
+    extra = {}
+    if ENABLE_SEARCH:
+        extra["enable_search"] = True
+    if ENABLE_THINKING:
+        extra["thinking"] = {"type": "enabled"}
     try:
         resp = client.chat.completions.create(
             model=MODEL,
@@ -94,7 +100,7 @@ def phase1_analysis(client: OpenAI, files: List[str]) -> str:
             ],
             temperature=0.3,
             max_tokens=1000,
-            extra_body={"enable_search": ENABLE_SEARCH}
+            extra_body=extra
         )
         return resp.choices[0].message.content
     except Exception as e:
@@ -111,6 +117,11 @@ Output exactly as:
 === FULL FILE: {rel_path} ===
 <new file content>
 """
+    extra = {}
+    if ENABLE_SEARCH:
+        extra["enable_search"] = True
+    if ENABLE_THINKING:
+        extra["thinking"] = {"type": "enabled"}
     try:
         resp = client.chat.completions.create(
             model=MODEL,
@@ -120,7 +131,7 @@ Output exactly as:
             ],
             temperature=TEMPERATURE,
             max_tokens=6000,
-            extra_body={"enable_search": ENABLE_SEARCH}
+            extra_body=extra
         )
         result = resp.choices[0].message.content
         marker = f"=== FULL FILE: {rel_path} ==="
