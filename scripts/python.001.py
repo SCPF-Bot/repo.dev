@@ -1,11 +1,24 @@
 #!/usr/bin/env python3
-import os, sys, subprocess, time, random, re
+import os
+import sys
+import subprocess
+import time
+import random
+import re
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from google import genai
-from google.genai import types
-from google.api_core import exceptions
+# Try to import the new google-genai package, fallback to the old one
+try:
+    from google import genai
+    from google.genai import types
+    USE_NEW_PACKAGE = True
+    print("Using google-genai (new package)")
+except ImportError:
+    import google.generativeai as genai
+    USE_NEW_PACKAGE = False
+    print("Using google-generativeai (legacy package)")
+
 from github import Github, GithubException
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -18,6 +31,7 @@ NEW_BRANCH = "gemini-systemic-review"
 MODEL_NAME = "gemini-2.5-flash"
 TEMPERATURE = 0.1
 MAX_OUTPUT_TOKENS = 2048
+BASE_DELAY_BETWEEN_FILES = 12   # seconds (respects 5 RPM free tier)
 
 SYSTEM_PROMPT = """You are an expert Android Kotlin engineer. For every file you review, output the complete corrected file content.
 If the file is perfect, output the original content unchanged.
@@ -54,11 +68,7 @@ def write_file_content(rel_path: str, content: str):
     with open(full_path, 'w', encoding='utf-8') as f:
         f.write(content)
 
-def review_and_fix_file(client, rel_path: str, content: str) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Send a file to Gemini for review and fixes.
-    Implements retry logic with exponential backoff and jitter for rate limit errors.
-    """
+def review_and_fix_file(rel_path: str, content: str) -> Tuple[Optional[str], Optional[str]]:
     user_prompt = f"""Provide the complete corrected version of the following file:
 File: {rel_path}
 Current content:
@@ -68,28 +78,40 @@ Output exactly as:
 === FULL FILE: {rel_path} ===
 <new file content>
 """
-    # Retry settings
     max_retries = 5
-    base_delay = 2      # Initial delay in seconds
-    max_delay = 60      # Maximum delay between retries
-    jitter = 0.5        # Random jitter factor
-    
+    base_delay = 2
+    max_delay = 60
+    jitter = 0.5
+
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model=MODEL_NAME,
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT,
-                    temperature=TEMPERATURE,
-                    max_output_tokens=MAX_OUTPUT_TOKENS,
+            if USE_NEW_PACKAGE:
+                client = genai.Client(api_key=GEMINI_API_KEY)
+                response = client.models.generate_content(
+                    model=MODEL_NAME,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT,
+                        temperature=TEMPERATURE,
+                        max_output_tokens=MAX_OUTPUT_TOKENS,
+                    )
                 )
-            )
-            if not response.candidates:
-                return None, "No response candidates returned"
-            result = response.text
+                result = response.text
+            else:
+                genai.configure(api_key=GEMINI_API_KEY)
+                model = genai.GenerativeModel(
+                    MODEL_NAME,
+                    generation_config={
+                        "temperature": TEMPERATURE,
+                        "max_output_tokens": MAX_OUTPUT_TOKENS,
+                    }
+                )
+                response = model.generate_content([SYSTEM_PROMPT, user_prompt])
+                result = response.text
+
             if not result:
                 return None, "Empty response text"
+
             marker = f"=== FULL FILE: {rel_path} ==="
             if marker in result:
                 new_content = result.split(marker, 1)[1].strip()
@@ -98,55 +120,39 @@ Output exactly as:
                 return new_content, None
             else:
                 return None, "Marker not found in response"
+
         except Exception as e:
-            # Check if this is a retryable error (rate limit or server error)
+            error_str = str(e)
             is_retryable = False
             retry_after = None
-            
-            # Handle API exceptions
-            if hasattr(e, 'code') and e.code == 429:
+
+            # Rate limit detection
+            if "429" in error_str or "ResourceExhausted" in error_str or "quota" in error_str.lower():
                 is_retryable = True
-                # Try to extract retry delay from error details if available
-                error_msg = str(e)
-                # Look for "retry_delay" pattern in the error message
-                delay_match = re.search(r'retry_delay[\s]*[\:][\s]*(\d+)', error_msg)
+                delay_match = re.search(r'retry_delay[\s]*[\:][\s]*(\d+)', error_str)
                 if delay_match:
                     retry_after = int(delay_match.group(1))
-            
-            # Handle Google API specific exceptions
-            if isinstance(e, exceptions.ResourceExhausted):
-                is_retryable = True
-                # Check for retry info in the exception metadata
-                if hasattr(e, 'metadata') and e.metadata:
-                    for item in e.metadata:
-                        if 'retry_delay' in str(item).lower():
-                            match = re.search(r'(\d+)', str(item))
-                            if match:
-                                retry_after = int(match.group(1))
-                                break
-            
-            # Also retry on server errors (5xx) which are typically transient
+
+            # Also retry on server errors
             if hasattr(e, 'code') and 500 <= e.code < 600:
                 is_retryable = True
-            
+
             if not is_retryable:
-                return None, str(e)
-            
-            # Calculate delay using exponential backoff with jitter
+                return None, error_str
+
             if retry_after:
                 delay = retry_after
             else:
                 delay = min(base_delay * (2 ** attempt), max_delay)
-                # Add jitter (± jitter * delay)
-                jitter_amount = random.uniform(-jitter * delay, jitter * delay)
-                delay = max(0.5, delay + jitter_amount)
-            
+                delay += random.uniform(-jitter * delay, jitter * delay)
+                delay = max(0.5, delay)
+
             if attempt < max_retries - 1:
-                print(f"  Rate limited (attempt {attempt + 1}/{max_retries}). Waiting {delay:.1f}s before retry...")
+                print(f"  Rate limited (attempt {attempt+1}/{max_retries}). Waiting {delay:.1f}s...")
                 time.sleep(delay)
             else:
-                return None, f"Rate limit persisted after {max_retries} retries: {str(e)}"
-    
+                return None, f"Rate limit persisted after {max_retries} retries: {error_str}"
+
     return None, "Max retries exceeded"
 
 def git_commit_and_push():
@@ -178,25 +184,18 @@ def main():
         print("ERROR: GEMINI_API_KEY environment variable not set")
         sys.exit(1)
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
-
     print("Discovering source files...")
     files = find_source_files(WORKSPACE)
     print(f"Found {len(files)} files.")
 
     changes_made = 0
-    # Add a delay between files to respect rate limits (max 5 per minute)
-    # 12 seconds delay = 5 requests per minute (60/5 = 12)
-    base_delay_between_files = 12
-    
     for idx, rel_path in enumerate(files, 1):
         print(f"[{idx}/{len(files)}] Reviewing {rel_path}...")
-        
         content = read_file_content(rel_path)
         if content is None:
             continue
-        
-        new_content, error = review_and_fix_file(client, rel_path, content)
+
+        new_content, error = review_and_fix_file(rel_path, content)
         if error:
             print(f"  Error: {error}")
             continue
@@ -209,12 +208,10 @@ def main():
             changes_made += 1
         else:
             print("  No changes needed")
-        
-        # Add delay between files to stay within rate limits
-        # Skip delay for the last file
+
         if idx < len(files):
-            print(f"  Waiting {base_delay_between_files}s to respect rate limits...")
-            time.sleep(base_delay_between_files)
+            print(f"  Waiting {BASE_DELAY_BETWEEN_FILES}s to respect rate limits...")
+            time.sleep(BASE_DELAY_BETWEEN_FILES)
 
     if changes_made == 0:
         print("No changes were generated. Exiting without creating PR.")
