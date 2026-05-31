@@ -1,28 +1,31 @@
-name: Extract and Push Tar
+name: Extract and Push 7z
 
 on:
-  workflow_dispatch:  # Manual trigger – avoids recursive push loops
+  workflow_dispatch:  # Manual trigger to avoid recursive loops
 
 jobs:
   extract-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # Required to push to main branch
+      contents: write   # Required to push to main
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract mlbb-assistant.tar
-        run: tar -xf mlbb-assistant.tar
+      - name: Install p7zip
+        run: sudo apt-get update && sudo apt-get install -y p7zip-full
 
-      - name: Remove the tar file (optional)
-        run: rm -f mlbb-assistant.tar
+      - name: Extract mlbb-assistant.7z
+        run: 7z x mlbb-assistant.7z -aoa   # -aoa overwrites existing files
+
+      - name: Remove the .7z file (optional)
+        run: rm -f mlbb-assistant.7z
 
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git diff --quiet && git diff --staged --quiet || git commit -m "Extract mlbb-assistant.tar and push contents"
+          git diff --quiet && git diff --staged --quiet || git commit -m "Extract mlbb-assistant.7z and push contents"
           git push origin main
