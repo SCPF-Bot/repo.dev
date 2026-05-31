@@ -1,13 +1,14 @@
 name: Extract and Push 7z
 
 on:
-  workflow_dispatch:  # Manual trigger to avoid recursive loops
+  workflow_dispatch:
 
 jobs:
   extract-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # Required to push to main
+      contents: write   # Needed to push code
+      workflows: write  # Needed to push changes to .github/workflows/*.yml
 
     steps:
       - name: Checkout repository
@@ -17,9 +18,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y p7zip-full
 
       - name: Extract mlbb-assistant.7z
-        run: 7z x mlbb-assistant.7z -aoa   # -aoa overwrites existing files
+        run: 7z x mlbb-assistant.7z -aoa
 
-      - name: Remove the .7z file (optional)
+      - name: Remove the .7z file
         run: rm -f mlbb-assistant.7z
 
       - name: Commit and push changes
