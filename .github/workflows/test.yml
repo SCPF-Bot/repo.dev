@@ -1,0 +1,28 @@
+name: Extract and Push Tar
+
+on:
+  workflow_dispatch:  # Manual trigger – avoids recursive push loops
+
+jobs:
+  extract-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # Required to push to main branch
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract mlbb-assistant.tar
+        run: tar -xf mlbb-assistant.tar
+
+      - name: Remove the tar file (optional)
+        run: rm -f mlbb-assistant.tar
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --quiet && git diff --staged --quiet || git commit -m "Extract mlbb-assistant.tar and push contents"
+          git push origin main
