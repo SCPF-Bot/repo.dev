@@ -1,4 +1,4 @@
-name: Extract and Push 7z
+name: Extract and Push 7z (skip .github)
 
 on:
   workflow_dispatch:
@@ -7,8 +7,7 @@ jobs:
   extract-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # Needed to push code
-      workflows: write  # Needed to push changes to .github/workflows/*.yml
+      contents: write   # Still needed to push changes
 
     steps:
       - name: Checkout repository
@@ -17,8 +16,8 @@ jobs:
       - name: Install p7zip
         run: sudo apt-get update && sudo apt-get install -y p7zip-full
 
-      - name: Extract mlbb-assistant.7z
-        run: 7z x mlbb-assistant.7z -aoa
+      - name: Extract mlbb-assistant.7z (excluding .github folder)
+        run: 7z x mlbb-assistant.7z -aoa -x!.github -x!.github/*
 
       - name: Remove the .7z file
         run: rm -f mlbb-assistant.7z
@@ -28,5 +27,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git diff --quiet && git diff --staged --quiet || git commit -m "Extract mlbb-assistant.7z and push contents"
+          git diff --quiet && git diff --staged --quiet || git commit -m "Extract mlbb-assistant.7z (skip .github) and push contents"
           git push origin main
