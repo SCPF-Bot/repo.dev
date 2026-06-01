@@ -12,11 +12,8 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
     }
-    versionCatalogs {
-        create("libs") {
-            from(files("gradle/libs.versions.toml"))
-        }
-    }
+    // gradle/libs.versions.toml is loaded automatically by Gradle 8.2+ as the
+    // default "libs" version catalog. No explicit from() call needed.
 }
 
 rootProject.name = "MLBBAssistant"
