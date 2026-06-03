@@ -1,0 +1,3466 @@
+{
+  "patch": "2.1.70",
+  "season": 40,
+  "updated_at": 1748736000,
+  "hero_count": 133,
+  "source": "mlbbhub.com — Patch 2.1.70, Season 40 (June 2026)",
+  "heroes": [
+    {
+      "id": 1,
+      "name": "Aamon",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.513,
+      "pick_rate": 0.062,
+      "ban_rate": 0.12,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        80,
+        72,
+        94
+      ],
+      "synergies": [
+        116,
+        10
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 2,
+      "name": "Akai",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.508,
+      "pick_rate": 0.055,
+      "ban_rate": 0.06,
+      "counters": [
+        38,
+        79,
+        74
+      ],
+      "countered_by": [
+        35,
+        70,
+        123
+      ],
+      "synergies": [
+        46,
+        65,
+        128
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 3,
+      "name": "Aldous",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.499,
+      "pick_rate": 0.04,
+      "ban_rate": 0.04,
+      "counters": [
+        76,
+        22,
+        92
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        67,
+        116,
+        10
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 4,
+      "name": "Alice",
+      "role": "TANK",
+      "secondary_role": "MAGE",
+      "win_rate": 0.503,
+      "pick_rate": 0.048,
+      "ban_rate": 0.08,
+      "counters": [
+        58,
+        17,
+        19
+      ],
+      "countered_by": [
+        54,
+        70,
+        123
+      ],
+      "synergies": [
+        46,
+        128,
+        129
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 5,
+      "name": "Alpha",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.468,
+      "pick_rate": 0.035,
+      "ban_rate": 0.03,
+      "counters": [
+        76,
+        92,
+        22
+      ],
+      "countered_by": [
+        27,
+        49,
+        101
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 6,
+      "name": "Alucard",
+      "role": "FIGHTER",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.499,
+      "pick_rate": 0.058,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        101,
+        107,
+        27
+      ],
+      "synergies": [
+        116,
+        67,
+        90
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 7,
+      "name": "Angela",
+      "role": "SUPPORT",
+      "secondary_role": null,
+      "win_rate": 0.491,
+      "pick_rate": 0.072,
+      "ban_rate": 0.14,
+      "counters": [
+        79,
+        74,
+        38
+      ],
+      "countered_by": [
+        95,
+        56,
+        113
+      ],
+      "synergies": [
+        79,
+        74,
+        122
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 8,
+      "name": "Argus",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.531,
+      "pick_rate": 0.045,
+      "ban_rate": 0.07,
+      "counters": [
+        76,
+        30,
+        22
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        40,
+        36
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 9,
+      "name": "Arlott",
+      "role": "FIGHTER",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.477,
+      "pick_rate": 0.038,
+      "ban_rate": 0.06,
+      "counters": [
+        76,
+        92,
+        18
+      ],
+      "countered_by": [
+        27,
+        107,
+        49
+      ],
+      "synergies": [
+        116,
+        36,
+        85
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 10,
+      "name": "Atlas",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.518,
+      "pick_rate": 0.082,
+      "ban_rate": 0.15,
+      "counters": [
+        38,
+        79,
+        74
+      ],
+      "countered_by": [
+        27,
+        91,
+        72
+      ],
+      "synergies": [
+        46,
+        102,
+        128
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 11,
+      "name": "Aulus",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.515,
+      "pick_rate": 0.042,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 12,
+      "name": "Aurora",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.48,
+      "pick_rate": 0.025,
+      "ban_rate": 0.04,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 13,
+      "name": "Badang",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.507,
+      "pick_rate": 0.038,
+      "ban_rate": 0.04,
+      "counters": [
+        76,
+        22,
+        92
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        46,
+        128
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 14,
+      "name": "Balmond",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.43,
+      "pick_rate": 0.022,
+      "ban_rate": 0.02,
+      "counters": [
+        76,
+        92,
+        22
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        10,
+        67
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 15,
+      "name": "Bane",
+      "role": "FIGHTER",
+      "secondary_role": "MAGE",
+      "win_rate": 0.508,
+      "pick_rate": 0.03,
+      "ban_rate": 0.03,
+      "counters": [
+        58,
+        17,
+        19
+      ],
+      "countered_by": [
+        27,
+        101,
+        123
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 16,
+      "name": "Barats",
+      "role": "TANK",
+      "secondary_role": "FIGHTER",
+      "win_rate": 0.495,
+      "pick_rate": 0.035,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        30,
+        22
+      ],
+      "countered_by": [
+        70,
+        123,
+        54
+      ],
+      "synergies": [
+        46,
+        128,
+        10
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 17,
+      "name": "Baxia",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.509,
+      "pick_rate": 0.058,
+      "ban_rate": 0.08,
+      "counters": [
+        38,
+        55,
+        79
+      ],
+      "countered_by": [
+        35,
+        4,
+        15
+      ],
+      "synergies": [
+        46,
+        65,
+        128
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 18,
+      "name": "Beatrix",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.501,
+      "pick_rate": 0.075,
+      "ban_rate": 0.12,
+      "counters": [
+        92,
+        51,
+        30
+      ],
+      "countered_by": [
+        80,
+        95,
+        72
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 19,
+      "name": "Belerick",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.512,
+      "pick_rate": 0.04,
+      "ban_rate": 0.06,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        35,
+        4,
+        54
+      ],
+      "synergies": [
+        46,
+        128,
+        36
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 20,
+      "name": "Benedetta",
+      "role": "ASSASSIN",
+      "secondary_role": "FIGHTER",
+      "win_rate": 0.524,
+      "pick_rate": 0.068,
+      "ban_rate": 0.14,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        91,
+        72,
+        94
+      ],
+      "synergies": [
+        10,
+        116,
+        128
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 21,
+      "name": "Brody",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.509,
+      "pick_rate": 0.068,
+      "ban_rate": 0.09,
+      "counters": [
+        92,
+        51,
+        18
+      ],
+      "countered_by": [
+        80,
+        95,
+        56
+      ],
+      "synergies": [
+        10,
+        67,
+        116
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 22,
+      "name": "Bruno",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.478,
+      "pick_rate": 0.028,
+      "ban_rate": 0.04,
+      "counters": [
+        92,
+        51,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 23,
+      "name": "Carmilla",
+      "role": "SUPPORT",
+      "secondary_role": "TANK",
+      "win_rate": 0.517,
+      "pick_rate": 0.042,
+      "ban_rate": 0.08,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        123,
+        54,
+        96
+      ],
+      "synergies": [
+        36,
+        40,
+        116
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 24,
+      "name": "Cecilion",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.493,
+      "pick_rate": 0.038,
+      "ban_rate": 0.05,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        23
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 25,
+      "name": "Chang'e",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.488,
+      "pick_rate": 0.032,
+      "ban_rate": 0.04,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        108
+      ],
+      "synergies": [
+        116,
+        10,
+        80
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 26,
+      "name": "Chip",
+      "role": "SUPPORT",
+      "secondary_role": "TANK",
+      "win_rate": 0.481,
+      "pick_rate": 0.03,
+      "ban_rate": 0.04,
+      "counters": [
+        38,
+        79,
+        74
+      ],
+      "countered_by": [
+        35,
+        70,
+        123
+      ],
+      "synergies": [
+        46,
+        128,
+        36
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 27,
+      "name": "Chou",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.452,
+      "pick_rate": 0.062,
+      "ban_rate": 0.08,
+      "counters": [
+        74,
+        50,
+        55
+      ],
+      "countered_by": [
+        107,
+        94,
+        10
+      ],
+      "synergies": [
+        46,
+        65,
+        128
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 28,
+      "name": "Cici",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.479,
+      "pick_rate": 0.035,
+      "ban_rate": 0.04,
+      "counters": [
+        76,
+        92,
+        22
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 29,
+      "name": "Claude",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.496,
+      "pick_rate": 0.045,
+      "ban_rate": 0.05,
+      "counters": [
+        92,
+        51,
+        18
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 30,
+      "name": "Clint",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.507,
+      "pick_rate": 0.052,
+      "ban_rate": 0.07,
+      "counters": [
+        92,
+        51,
+        18
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 31,
+      "name": "Cyclops",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.509,
+      "pick_rate": 0.04,
+      "ban_rate": 0.06,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        72
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 32,
+      "name": "Diggie",
+      "role": "SUPPORT",
+      "secondary_role": null,
+      "win_rate": 0.537,
+      "pick_rate": 0.008,
+      "ban_rate": 0.55,
+      "counters": [
+        116,
+        10,
+        72
+      ],
+      "countered_by": [
+        108,
+        1,
+        50
+      ],
+      "synergies": [
+        122,
+        38,
+        79
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 33,
+      "name": "Dyrroth",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.486,
+      "pick_rate": 0.04,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 34,
+      "name": "Edith",
+      "role": "TANK",
+      "secondary_role": "MARKSMAN",
+      "win_rate": 0.51,
+      "pick_rate": 0.045,
+      "ban_rate": 0.07,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        70,
+        123,
+        54
+      ],
+      "synergies": [
+        46,
+        128,
+        36
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 35,
+      "name": "Esmeralda",
+      "role": "TANK",
+      "secondary_role": "MAGE",
+      "win_rate": 0.431,
+      "pick_rate": 0.035,
+      "ban_rate": 0.06,
+      "counters": [
+        123,
+        54,
+        70
+      ],
+      "countered_by": [
+        17,
+        19,
+        4
+      ],
+      "synergies": [
+        46,
+        128,
+        129
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 36,
+      "name": "Estes",
+      "role": "SUPPORT",
+      "secondary_role": null,
+      "win_rate": 0.526,
+      "pick_rate": 0.01,
+      "ban_rate": 0.54,
+      "counters": [
+        42,
+        112,
+        57
+      ],
+      "countered_by": [
+        56,
+        95,
+        113
+      ],
+      "synergies": [
+        45,
+        87,
+        42
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 37,
+      "name": "Eudora",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.489,
+      "pick_rate": 0.045,
+      "ban_rate": 0.05,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        116
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 38,
+      "name": "Fanny",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.431,
+      "pick_rate": 0.042,
+      "ban_rate": 0.08,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        72,
+        91,
+        2
+      ],
+      "synergies": [
+        116,
+        85,
+        67
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 39,
+      "name": "Faramis",
+      "role": "SUPPORT",
+      "secondary_role": "MAGE",
+      "win_rate": 0.498,
+      "pick_rate": 0.022,
+      "ban_rate": 0.03,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        1,
+        95,
+        108
+      ],
+      "synergies": [
+        116,
+        10,
+        57
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 40,
+      "name": "Floryn",
+      "role": "SUPPORT",
+      "secondary_role": null,
+      "win_rate": 0.533,
+      "pick_rate": 0.048,
+      "ban_rate": 0.18,
+      "counters": [
+        42,
+        112,
+        57
+      ],
+      "countered_by": [
+        56,
+        95,
+        113
+      ],
+      "synergies": [
+        45,
+        87,
+        112
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 41,
+      "name": "Franco",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.448,
+      "pick_rate": 0.035,
+      "ban_rate": 0.04,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        27,
+        32,
+        94
+      ],
+      "synergies": [
+        46,
+        65,
+        128
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 42,
+      "name": "Fredrinn",
+      "role": "FIGHTER",
+      "secondary_role": "TANK",
+      "win_rate": 0.511,
+      "pick_rate": 0.062,
+      "ban_rate": 0.1,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        54,
+        70,
+        123
+      ],
+      "synergies": [
+        36,
+        40,
+        85
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 43,
+      "name": "Freya",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.509,
+      "pick_rate": 0.075,
+      "ban_rate": 0.38,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        36,
+        40,
+        116
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 44,
+      "name": "Gatotkaca",
+      "role": "TANK",
+      "secondary_role": "FIGHTER",
+      "win_rate": 0.475,
+      "pick_rate": 0.025,
+      "ban_rate": 0.04,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        35,
+        70,
+        123
+      ],
+      "synergies": [
+        46,
+        128,
+        36
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 45,
+      "name": "Gloo",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.555,
+      "pick_rate": 0.008,
+      "ban_rate": 0.69,
+      "counters": [
+        49,
+        57,
+        43
+      ],
+      "countered_by": [
+        70,
+        123,
+        54
+      ],
+      "synergies": [
+        46,
+        128,
+        36
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 46,
+      "name": "Gord",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.548,
+      "pick_rate": 0.015,
+      "ban_rate": 0.22,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 47,
+      "name": "Granger",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.425,
+      "pick_rate": 0.025,
+      "ban_rate": 0.03,
+      "counters": [
+        92,
+        51,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 48,
+      "name": "Grock",
+      "role": "TANK",
+      "secondary_role": "FIGHTER",
+      "win_rate": 0.481,
+      "pick_rate": 0.038,
+      "ban_rate": 0.06,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        35,
+        70,
+        123
+      ],
+      "synergies": [
+        46,
+        128,
+        10
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 49,
+      "name": "Guinevere",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.508,
+      "pick_rate": 0.012,
+      "ban_rate": 0.34,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        46,
+        128,
+        36
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 50,
+      "name": "Gusion",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.496,
+      "pick_rate": 0.065,
+      "ban_rate": 0.18,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 51,
+      "name": "Hanabi",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.545,
+      "pick_rate": 0.033,
+      "ban_rate": 0.12,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        72,
+        91
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 52,
+      "name": "Hanzo",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.507,
+      "pick_rate": 0.032,
+      "ban_rate": 0.06,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        1,
+        95,
+        108
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 53,
+      "name": "Harith",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.486,
+      "pick_rate": 0.048,
+      "ban_rate": 0.08,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        67
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 54,
+      "name": "Harley",
+      "role": "ASSASSIN",
+      "secondary_role": "MAGE",
+      "win_rate": 0.528,
+      "pick_rate": 0.055,
+      "ban_rate": 0.22,
+      "counters": [
+        4,
+        58,
+        17
+      ],
+      "countered_by": [
+        27,
+        91,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        128
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 55,
+      "name": "Hayabusa",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.483,
+      "pick_rate": 0.062,
+      "ban_rate": 0.15,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 56,
+      "name": "Helcurt",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.498,
+      "pick_rate": 0.008,
+      "ban_rate": 0.3,
+      "counters": [
+        36,
+        40,
+        7
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        46
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 57,
+      "name": "Hilda",
+      "role": "FIGHTER",
+      "secondary_role": "TANK",
+      "win_rate": 0.532,
+      "pick_rate": 0.045,
+      "ban_rate": 0.14,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        36,
+        40,
+        85
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 58,
+      "name": "Hylos",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.487,
+      "pick_rate": 0.022,
+      "ban_rate": 0.04,
+      "counters": [
+        54,
+        70,
+        35
+      ],
+      "countered_by": [
+        17,
+        4,
+        19
+      ],
+      "synergies": [
+        46,
+        128,
+        36
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 59,
+      "name": "Irithel",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.518,
+      "pick_rate": 0.035,
+      "ban_rate": 0.05,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 60,
+      "name": "Ixia",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.501,
+      "pick_rate": 0.042,
+      "ban_rate": 0.07,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 61,
+      "name": "Jawhead",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.482,
+      "pick_rate": 0.03,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        10,
+        67
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 62,
+      "name": "Johnson",
+      "role": "TANK",
+      "secondary_role": "SUPPORT",
+      "win_rate": 0.506,
+      "pick_rate": 0.042,
+      "ban_rate": 0.07,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        35,
+        70,
+        123
+      ],
+      "synergies": [
+        46,
+        65,
+        128
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 63,
+      "name": "Joy",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.487,
+      "pick_rate": 0.04,
+      "ban_rate": 0.08,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        72,
+        91,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        128
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 64,
+      "name": "Julian",
+      "role": "ASSASSIN",
+      "secondary_role": "FIGHTER",
+      "win_rate": 0.502,
+      "pick_rate": 0.048,
+      "ban_rate": 0.1,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 65,
+      "name": "Kadita",
+      "role": "MAGE",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.516,
+      "pick_rate": 0.055,
+      "ban_rate": 0.12,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        67,
+        116,
+        10
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 66,
+      "name": "Kagura",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.503,
+      "pick_rate": 0.058,
+      "ban_rate": 0.1,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        67
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 67,
+      "name": "Kaja",
+      "role": "SUPPORT",
+      "secondary_role": "FIGHTER",
+      "win_rate": 0.542,
+      "pick_rate": 0.045,
+      "ban_rate": 0.22,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        32,
+        94,
+        85
+      ],
+      "synergies": [
+        46,
+        65,
+        128
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 68,
+      "name": "Kalea",
+      "role": "SUPPORT",
+      "secondary_role": "FIGHTER",
+      "win_rate": 0.463,
+      "pick_rate": 0.02,
+      "ban_rate": 0.03,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        56,
+        95,
+        113
+      ],
+      "synergies": [
+        36,
+        40,
+        116
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 69,
+      "name": "Karina",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.462,
+      "pick_rate": 0.038,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 70,
+      "name": "Karrie",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.5,
+      "pick_rate": 0.045,
+      "ban_rate": 0.09,
+      "counters": [
+        45,
+        16,
+        58
+      ],
+      "countered_by": [
+        80,
+        56,
+        72
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 71,
+      "name": "Khaleed",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.527,
+      "pick_rate": 0.048,
+      "ban_rate": 0.1,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 72,
+      "name": "Khufra",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.535,
+      "pick_rate": 0.072,
+      "ban_rate": 0.28,
+      "counters": [
+        79,
+        38,
+        74
+      ],
+      "countered_by": [
+        32,
+        91,
+        35
+      ],
+      "synergies": [
+        46,
+        65,
+        128
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 73,
+      "name": "Kimmy",
+      "role": "MARKSMAN",
+      "secondary_role": "MAGE",
+      "win_rate": 0.476,
+      "pick_rate": 0.03,
+      "ban_rate": 0.04,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 74,
+      "name": "Lancelot",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.434,
+      "pick_rate": 0.058,
+      "ban_rate": 0.1,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        72,
+        91,
+        80
+      ],
+      "synergies": [
+        116,
+        10,
+        7
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 75,
+      "name": "Lapu-Lapu",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.488,
+      "pick_rate": 0.04,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 76,
+      "name": "Layla",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.483,
+      "pick_rate": 0.055,
+      "ban_rate": 0.04,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        1,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 77,
+      "name": "Leomord",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.528,
+      "pick_rate": 0.048,
+      "ban_rate": 0.12,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 78,
+      "name": "Lesley",
+      "role": "MARKSMAN",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.469,
+      "pick_rate": 0.038,
+      "ban_rate": 0.06,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        72
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 79,
+      "name": "Ling",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.453,
+      "pick_rate": 0.052,
+      "ban_rate": 0.18,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        72,
+        91,
+        2
+      ],
+      "synergies": [
+        116,
+        10,
+        7
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 80,
+      "name": "Lolita",
+      "role": "SUPPORT",
+      "secondary_role": "TANK",
+      "win_rate": 0.551,
+      "pick_rate": 0.038,
+      "ban_rate": 0.15,
+      "counters": [
+        18,
+        51,
+        21
+      ],
+      "countered_by": [
+        56,
+        113,
+        95
+      ],
+      "synergies": [
+        18,
+        51,
+        21
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 81,
+      "name": "Lukas",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.5,
+      "pick_rate": 0.035,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 82,
+      "name": "Lunox",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.484,
+      "pick_rate": 0.038,
+      "ban_rate": 0.07,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 83,
+      "name": "Luo Yi",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.47,
+      "pick_rate": 0.025,
+      "ban_rate": 0.04,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        72
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 84,
+      "name": "Lylia",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.489,
+      "pick_rate": 0.03,
+      "ban_rate": 0.05,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 85,
+      "name": "Marcel",
+      "role": "SUPPORT",
+      "secondary_role": null,
+      "win_rate": 0.541,
+      "pick_rate": 0.02,
+      "ban_rate": 0.68,
+      "counters": [
+        79,
+        74,
+        38
+      ],
+      "countered_by": [
+        56,
+        95,
+        113
+      ],
+      "synergies": [
+        79,
+        74,
+        122
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 86,
+      "name": "Martis",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.468,
+      "pick_rate": 0.03,
+      "ban_rate": 0.04,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 87,
+      "name": "Masha",
+      "role": "FIGHTER",
+      "secondary_role": "TANK",
+      "win_rate": 0.562,
+      "pick_rate": 0.005,
+      "ban_rate": 0.08,
+      "counters": [
+        45,
+        19,
+        58
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        36,
+        40,
+        116
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 88,
+      "name": "Mathilda",
+      "role": "SUPPORT",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.434,
+      "pick_rate": 0.048,
+      "ban_rate": 0.1,
+      "counters": [
+        79,
+        74,
+        38
+      ],
+      "countered_by": [
+        56,
+        95,
+        113
+      ],
+      "synergies": [
+        79,
+        74,
+        122
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 89,
+      "name": "Melissa",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.517,
+      "pick_rate": 0.052,
+      "ban_rate": 0.1,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        56,
+        95,
+        80
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 90,
+      "name": "Minotaur",
+      "role": "TANK",
+      "secondary_role": "SUPPORT",
+      "win_rate": 0.527,
+      "pick_rate": 0.042,
+      "ban_rate": 0.09,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        35,
+        70,
+        123
+      ],
+      "synergies": [
+        46,
+        92,
+        51
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 91,
+      "name": "Minsitthar",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.524,
+      "pick_rate": 0.038,
+      "ban_rate": 0.14,
+      "counters": [
+        79,
+        38,
+        74
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        46
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 92,
+      "name": "Miya",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.516,
+      "pick_rate": 0.075,
+      "ban_rate": 0.1,
+      "counters": [
+        18,
+        51,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        72
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 93,
+      "name": "Moskov",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.504,
+      "pick_rate": 0.01,
+      "ban_rate": 0.05,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 94,
+      "name": "Nana",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.482,
+      "pick_rate": 0.048,
+      "ban_rate": 0.06,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 95,
+      "name": "Natalia",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.507,
+      "pick_rate": 0.003,
+      "ban_rate": 0.12,
+      "counters": [
+        36,
+        7,
+        40
+      ],
+      "countered_by": [
+        27,
+        94,
+        85
+      ],
+      "synergies": [
+        116,
+        10,
+        46
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 96,
+      "name": "Natan",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.508,
+      "pick_rate": 0.04,
+      "ban_rate": 0.07,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 97,
+      "name": "Nolan",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.476,
+      "pick_rate": 0.03,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        72,
+        91,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 98,
+      "name": "Novaria",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.476,
+      "pick_rate": 0.025,
+      "ban_rate": 0.04,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 99,
+      "name": "Obsidia",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.501,
+      "pick_rate": 0.038,
+      "ban_rate": 0.06,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 100,
+      "name": "Odette",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.508,
+      "pick_rate": 0.04,
+      "ban_rate": 0.07,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        72
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 101,
+      "name": "Paquito",
+      "role": "FIGHTER",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.48,
+      "pick_rate": 0.045,
+      "ban_rate": 0.1,
+      "counters": [
+        6,
+        33,
+        127
+      ],
+      "countered_by": [
+        27,
+        107,
+        49
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 102,
+      "name": "Pharsa",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.476,
+      "pick_rate": 0.038,
+      "ban_rate": 0.06,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 103,
+      "name": "Phoveus",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.512,
+      "pick_rate": 0.038,
+      "ban_rate": 0.07,
+      "counters": [
+        79,
+        38,
+        74
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 104,
+      "name": "Popol and Kupa",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.526,
+      "pick_rate": 0.045,
+      "ban_rate": 0.1,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        80,
+        56,
+        95
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 105,
+      "name": "Rafaela",
+      "role": "SUPPORT",
+      "secondary_role": null,
+      "win_rate": 0.518,
+      "pick_rate": 0.038,
+      "ban_rate": 0.07,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        56,
+        95,
+        113
+      ],
+      "synergies": [
+        36,
+        40,
+        116
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 106,
+      "name": "Roger",
+      "role": "FIGHTER",
+      "secondary_role": "MARKSMAN",
+      "win_rate": 0.49,
+      "pick_rate": 0.038,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 107,
+      "name": "Ruby",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.509,
+      "pick_rate": 0.048,
+      "ban_rate": 0.08,
+      "counters": [
+        74,
+        55,
+        50
+      ],
+      "countered_by": [
+        27,
+        101,
+        49
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 108,
+      "name": "Saber",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.495,
+      "pick_rate": 0.012,
+      "ban_rate": 0.14,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        67
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 109,
+      "name": "Selena",
+      "role": "ASSASSIN",
+      "secondary_role": "MAGE",
+      "win_rate": 0.483,
+      "pick_rate": 0.045,
+      "ban_rate": 0.09,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 110,
+      "name": "Silvanna",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.528,
+      "pick_rate": 0.048,
+      "ban_rate": 0.12,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 111,
+      "name": "Sora",
+      "role": "FIGHTER",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.486,
+      "pick_rate": 0.008,
+      "ban_rate": 0.55,
+      "counters": [
+        49,
+        57,
+        43
+      ],
+      "countered_by": [
+        27,
+        107,
+        91
+      ],
+      "synergies": [
+        116,
+        36,
+        46
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 112,
+      "name": "Sun",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.54,
+      "pick_rate": 0.04,
+      "ban_rate": 0.18,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        36,
+        40,
+        85
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 113,
+      "name": "Suyou",
+      "role": "ASSASSIN",
+      "secondary_role": "FIGHTER",
+      "win_rate": 0.509,
+      "pick_rate": 0.052,
+      "ban_rate": 0.16,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        27,
+        107,
+        94
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 114,
+      "name": "Terizla",
+      "role": "FIGHTER",
+      "secondary_role": "TANK",
+      "win_rate": 0.528,
+      "pick_rate": 0.048,
+      "ban_rate": 0.12,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 115,
+      "name": "Thamuz",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.501,
+      "pick_rate": 0.04,
+      "ban_rate": 0.07,
+      "counters": [
+        35,
+        58,
+        17
+      ],
+      "countered_by": [
+        27,
+        101,
+        123
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 116,
+      "name": "Tigreal",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.472,
+      "pick_rate": 0.062,
+      "ban_rate": 0.08,
+      "counters": [
+        38,
+        74,
+        79
+      ],
+      "countered_by": [
+        27,
+        32,
+        94
+      ],
+      "synergies": [
+        46,
+        65,
+        128
+      ],
+      "lane": "ROAM",
+      "image_url": ""
+    },
+    {
+      "id": 117,
+      "name": "Uranus",
+      "role": "TANK",
+      "secondary_role": null,
+      "win_rate": 0.516,
+      "pick_rate": 0.035,
+      "ban_rate": 0.07,
+      "counters": [
+        54,
+        70,
+        123
+      ],
+      "countered_by": [
+        17,
+        4,
+        19
+      ],
+      "synergies": [
+        46,
+        128,
+        36
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 118,
+      "name": "Vale",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.506,
+      "pick_rate": 0.042,
+      "ban_rate": 0.08,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        10,
+        116,
+        72
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 119,
+      "name": "Valentina",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.438,
+      "pick_rate": 0.028,
+      "ban_rate": 0.07,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 120,
+      "name": "Valir",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.529,
+      "pick_rate": 0.04,
+      "ban_rate": 0.1,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 121,
+      "name": "Vexana",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.505,
+      "pick_rate": 0.03,
+      "ban_rate": 0.05,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 122,
+      "name": "Wanwan",
+      "role": "MARKSMAN",
+      "secondary_role": null,
+      "win_rate": 0.479,
+      "pick_rate": 0.055,
+      "ban_rate": 0.16,
+      "counters": [
+        92,
+        18,
+        30
+      ],
+      "countered_by": [
+        72,
+        91,
+        80
+      ],
+      "synergies": [
+        7,
+        85,
+        32
+      ],
+      "lane": "GOLD",
+      "image_url": ""
+    },
+    {
+      "id": 123,
+      "name": "X.Borg",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.496,
+      "pick_rate": 0.042,
+      "ban_rate": 0.07,
+      "counters": [
+        35,
+        23,
+        19
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 124,
+      "name": "Xavier",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.49,
+      "pick_rate": 0.005,
+      "ban_rate": 0.04,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 125,
+      "name": "Yi Sun-shin",
+      "role": "ASSASSIN",
+      "secondary_role": "MARKSMAN",
+      "win_rate": 0.495,
+      "pick_rate": 0.042,
+      "ban_rate": 0.09,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        72,
+        91,
+        80
+      ],
+      "synergies": [
+        116,
+        10,
+        67
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    },
+    {
+      "id": 126,
+      "name": "Yin",
+      "role": "FIGHTER",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.481,
+      "pick_rate": 0.006,
+      "ban_rate": 0.05,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 127,
+      "name": "Yu Zhong",
+      "role": "FIGHTER",
+      "secondary_role": null,
+      "win_rate": 0.493,
+      "pick_rate": 0.048,
+      "ban_rate": 0.09,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        101,
+        107,
+        27
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 128,
+      "name": "Yve",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.514,
+      "pick_rate": 0.001,
+      "ban_rate": 0.08,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        10,
+        116,
+        72
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 129,
+      "name": "Zetian",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.519,
+      "pick_rate": 0.038,
+      "ban_rate": 0.12,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        10,
+        116,
+        67
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 130,
+      "name": "Zhask",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.514,
+      "pick_rate": 0.035,
+      "ban_rate": 0.07,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 131,
+      "name": "Zhuxin",
+      "role": "MAGE",
+      "secondary_role": null,
+      "win_rate": 0.509,
+      "pick_rate": 0.038,
+      "ban_rate": 0.1,
+      "counters": [
+        92,
+        30,
+        22
+      ],
+      "countered_by": [
+        1,
+        95,
+        54
+      ],
+      "synergies": [
+        10,
+        116,
+        72
+      ],
+      "lane": "MID",
+      "image_url": ""
+    },
+    {
+      "id": 132,
+      "name": "Zilong",
+      "role": "FIGHTER",
+      "secondary_role": "ASSASSIN",
+      "win_rate": 0.47,
+      "pick_rate": 0.038,
+      "ban_rate": 0.04,
+      "counters": [
+        76,
+        92,
+        30
+      ],
+      "countered_by": [
+        27,
+        107,
+        101
+      ],
+      "synergies": [
+        116,
+        36,
+        40
+      ],
+      "lane": "EXP",
+      "image_url": ""
+    },
+    {
+      "id": 133,
+      "name": "Hirara",
+      "role": "ASSASSIN",
+      "secondary_role": null,
+      "win_rate": 0.5,
+      "pick_rate": 0.0,
+      "ban_rate": 0.0,
+      "counters": [
+        76,
+        37,
+        12
+      ],
+      "countered_by": [
+        72,
+        91,
+        80
+      ],
+      "synergies": [
+        116,
+        10,
+        90
+      ],
+      "lane": "JUNGLE",
+      "image_url": ""
+    }
+  ]
+}
