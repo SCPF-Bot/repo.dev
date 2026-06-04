@@ -1,4 +1,4 @@
-name: Full Repository AI Refactor
+name: AI Full Repository Refactor (3-Pass)
 
 on:
   workflow_dispatch:
@@ -9,164 +9,111 @@ permissions:
   models: read
 
 jobs:
-  full_refactor:
+  job1_ascending:
     runs-on: ubuntu-latest
+    outputs:
+      temp_branch: ${{ steps.branch.outputs.temp_branch }}
     steps:
-      - name: Checkout main branch
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Apply deterministic fixes (ktlintFormat)
+      - name: Create or checkout temporary branch
+        id: branch
         run: |
-          ./gradlew ktlintFormat || echo "ktlintFormat not configured – skipping"
-
-      - name: Improve all code & config files with GitHub Models
+          TEMP_BRANCH="refactor-temp-${{ github.run_id }}"
+          echo "temp_branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
+          git clone --branch main ${{ github.server_url }}/${{ github.repository }} repo
+          cd repo
+          git checkout -b $TEMP_BRANCH || git checkout $TEMP_BRANCH
+          echo "REPO_PATH=$(pwd)" >> $GITHUB_ENV
+      - name: Set up JDK 17
+        run: |
+          cd repo
+          # Assuming Java setup; adjust if needed
+          sudo apt update && sudo apt install -y openjdk-17-jdk
+      - name: Run Python script (ascending order)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORDER: ascending
         run: |
-          echo "🤖 Starting AI batch refactor for all code/text files..."
+          cd repo
+          python3 .github/workflows/python.code.001.py
+      - name: Push changes to temporary branch
+        run: |
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --staged --quiet || git commit -m "Pass 1: ascending order changes"
+          git push origin ${{ steps.branch.outputs.temp_branch }} --force
 
-          mkdir -p scripts
-          cat << 'EOF' > scripts/ai_batch_edit.py
-          import os
-          import sys
-          import time
-          import random
-          import requests
-          from pathlib import Path
+  job2_descending:
+    needs: job1_ascending
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout temporary branch from previous job
+        run: |
+          git clone --branch ${{ needs.job1_ascending.outputs.temp_branch }} ${{ github.server_url }}/${{ github.repository }} repo
+          echo "REPO_PATH=$(pwd)/repo" >> $GITHUB_ENV
+      - name: Set up JDK 17
+        run: |
+          cd repo
+          sudo apt update && sudo apt install -y openjdk-17-jdk
+      - name: Run Python script (descending order)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORDER: descending
+        run: |
+          cd repo
+          python3 .github/workflows/python.code.001.py
+      - name: Push changes to temporary branch
+        run: |
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --staged --quiet || git commit -m "Pass 2: descending order changes"
+          git push origin ${{ needs.job1_ascending.outputs.temp_branch }} --force
 
-          API_URL = "https://models.github.ai/inference/chat/completions"
-          MODEL_NAME = "gpt-4o"
-          MAX_TOKENS = 16000
-          TEMPERATURE = 0.1
-
-          GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-          if not GITHUB_TOKEN:
-              print("❌ GITHUB_TOKEN not found", file=sys.stderr)
-              sys.exit(1)
-
-          headers = {
-              "Authorization": f"Bearer {GITHUB_TOKEN}",
-              "Content-Type": "application/json"
-          }
-
-          # System prompt for general code/text improvement
-          system_prompt = {
-              "role": "system",
-              "content": (
-                  "You are an expert developer. Improve the provided content for correctness, performance, readability, and maintainability. "
-                  "Fix bugs, update deprecated syntax, and follow language best practices. "
-                  "Return ONLY the improved content – no explanations, no extra text."
-              )
-          }
-
-          def improve_file(file_path, retries=3):
-              with open(file_path, "r", encoding="utf-8") as f:
-                  original = f.read()
-
-              payload = {
-                  "model": MODEL_NAME,
-                  "messages": [
-                      system_prompt,
-                      {"role": "user", "content": original}
-                  ],
-                  "max_tokens": MAX_TOKENS,
-                  "temperature": TEMPERATURE
-              }
-
-              for attempt in range(retries):
-                  try:
-                      resp = requests.post(API_URL, headers=headers, json=payload)
-                      if resp.status_code == 429:
-                          wait = (2 ** attempt) + random.uniform(0, 1)
-                          print(f"⚠️ Rate limited on {file_path}. Retrying in {wait:.2f}s...")
-                          time.sleep(wait)
-                          continue
-                      resp.raise_for_status()
-                      data = resp.json()
-                      improved = data["choices"][0]["message"]["content"]
-
-                      if improved and improved != original:
-                          with open(file_path, "w", encoding="utf-8") as f:
-                              f.write(improved)
-                          print(f"✅ Updated: {file_path}")
-                      else:
-                          print(f"⏭️  No change: {file_path}")
-                      return True
-
-                  except Exception as e:
-                      print(f"❌ Error on attempt {attempt+1} for {file_path}: {e}", file=sys.stderr)
-                      if attempt == retries - 1:
-                          return False
-                      time.sleep(2 ** attempt)
-              return False
-
-          # Define the file extensions we want to process (all non‑media, code/text files)
-          extensions = [
-              "*.kt", "*.kts", "*.java", "*.gradle", "*.aidl",
-              "*.xml", "*.properties", "*.pro", ".gitignore"
-          ]
-
-          target_files = []
-          for ext in extensions:
-              # Special case for .gitignore (no extension, exact filename)
-              if ext == ".gitignore":
-                  gitignore = Path(".gitignore")
-                  if gitignore.exists():
-                      target_files.append(gitignore)
-              else:
-                  target_files.extend(Path(".").rglob(ext))
-
-          # Remove duplicates (if any) and sort for consistent order
-          target_files = sorted(set(target_files))
-
-          print(f"📁 Found {len(target_files)} target files")
-
-          for i, file in enumerate(target_files):
-              print(f"Processing ({i+1}/{len(target_files)}): {file}")
-              improve_file(file)
-              delay = 6 + random.uniform(0, 2)
-              print(f"Sleeping for {delay:.2f}s before next file...")
-              time.sleep(delay)
-
-          print("🎉 AI batch edit finished.")
-          EOF
-
-          python3 scripts/ai_batch_edit.py
-        continue-on-error: true
-
+  job3_ascending_and_pr:
+    needs: job2_descending
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout temporary branch
+        run: |
+          git clone --branch ${{ needs.job1_ascending.outputs.temp_branch }} ${{ github.server_url }}/${{ github.repository }} repo
+          echo "REPO_PATH=$(pwd)/repo" >> $GITHUB_ENV
+      - name: Set up JDK 17
+        run: |
+          cd repo
+          sudo apt update && sudo apt install -y openjdk-17-jdk
+      - name: Run Python script (ascending order again)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORDER: ascending
+        run: |
+          cd repo
+          python3 .github/workflows/python.code.001.py
+      - name: Push final changes and create Pull Request
+        run: |
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --staged --quiet || git commit -m "Pass 3: final ascending order changes"
+          git push origin ${{ needs.job1_ascending.outputs.temp_branch }}
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "🤖 AI Refactor: Automated improvements across all code/config files"
-          title: "🤖 AI Refactor: Automated Code & Config Enhancements"
+          commit-message: "🤖 AI Refactor: 3-pass automated improvements"
+          title: "🤖 AI Refactor: 3-Pass Code Enhancements (Ascending → Descending → Ascending)"
           body: |
-            This pull request was generated automatically by a GitHub workflow.
+            This PR was generated by a 3‑pass AI workflow:
+            - **Pass 1**: Files processed in ascending order (alphabetical)
+            - **Pass 2**: Files processed in descending order (reverse alphabetical)
+            - **Pass 3**: Files processed in ascending order again
 
-            **Changes include:**
-            - Rule‑based formatting and linting (e.g., `ktlintFormat`).
-            - AI‑powered improvements applied to every code/text file in the repository:
-              - Kotlin (`.kt`, `.kts`)
-              - Java (`.java`)
-              - Gradle scripts (`.gradle`)
-              - AIDL (`.aidl`)
-              - XML layouts & resources (`.xml`)
-              - Properties files (`.properties`)
-              - ProGuard rules (`.pro`)
-              - `.gitignore`
+            This approach allows later passes to adapt to changes made in earlier passes, improving cross‑file consistency.
 
-            **Please review the changes carefully before merging.**  
-            If any changes are not desired, you can close this PR and revert the branch.
-          branch: "ai-refactor"
-          branch-suffix: timestamp
+            Please review carefully before merging.
+          branch: ${{ needs.job1_ascending.outputs.temp_branch }}
           base: main
           delete-branch: true
