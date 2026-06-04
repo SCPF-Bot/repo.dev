@@ -5,6 +5,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  models: read   # required for GitHub Models API
 
 jobs:
   job1_ollama_review:
@@ -40,8 +41,10 @@ jobs:
         run: ollama pull qwen2.5-coder:1.5b
 
       - name: Run full code review and auto-fix with Ollama
+        env:
+          AI_REVIEW_PROVIDER: ollama
+          AI_REVIEW_MODEL: qwen2.5-coder:1.5b
         run: |
-          echo "AI_REVIEW_PROVIDER=ollama" >> .env.local
           npx ai-review-pipeline --full --fix --recursive \
             --extensions .kt,.java,.xml,.gradle,.kts,.properties \
             --exclude ".gitignore"
@@ -72,14 +75,12 @@ jobs:
         with:
           node-version: 20
 
-      - name: Configure GitHub Models (Claude 3.5 Sonnet)
-        run: |
-          echo "AI_REVIEW_PROVIDER=custom" >> .env.local
-          echo "AI_REVIEW_BASE_URL=https://models.inference.ai.azure.com" >> .env.local
-          echo "AI_REVIEW_API_KEY=${{ secrets.GITHUB_TOKEN }}" >> .env.local
-          echo "AI_REVIEW_MODEL=claude-3-5-sonnet-20241022" >> .env.local
-
       - name: Run full code review and auto-fix with GitHub Models
+        env:
+          AI_REVIEW_PROVIDER: custom
+          AI_REVIEW_BASE_URL: https://models.inference.ai.azure.com
+          AI_REVIEW_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+          AI_REVIEW_MODEL: claude-3-5-sonnet-20241022
         run: |
           npx ai-review-pipeline --full --fix --recursive \
             --extensions .kt,.java,.xml,.gradle,.kts,.properties \
@@ -114,7 +115,7 @@ jobs:
           body: |
             This pull request was created automatically after two rounds of AI code review on the whole codebase.
 
-            Round 1 - Ollama (Qwen2.5-Coder local model):
+            Round 1 - Ollama (Qwen2.5-Coder 1.5B local model):
             - Freed disk space, installed Ollama, pulled a small model.
             - Reviewed and fixed all Kotlin, Java, XML, Gradle, and properties files.
             - Changes saved to branch ai-fix-ollama.
