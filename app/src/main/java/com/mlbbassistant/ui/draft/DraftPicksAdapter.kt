@@ -1,5 +1,6 @@
 package com.mlbbassistant.ui.draft
 
+import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
@@ -11,8 +12,7 @@ import com.mlbbassistant.data.model.Hero
 import com.mlbbassistant.databinding.ItemPickChipBinding
 
 /**
- * Displays a flat horizontal list of (Hero, isAlly) pairs.
- * Tapping the close icon on a chip calls [onRemove].
+ * Horizontal strip of picked heroes. Tapping the close icon calls [onRemove].
  */
 class DraftPicksAdapter(
     private val onRemove: (Hero, isAlly: Boolean) -> Unit
@@ -36,8 +36,12 @@ class DraftPicksAdapter(
 
         fun bind(hero: Hero, isAlly: Boolean) {
             binding.chip.text = hero.name
-            val colorRes = if (isAlly) R.color.ally_pick_color else R.color.enemy_pick_color
-            binding.chip.setChipBackgroundColorResource(colorRes)
+            val colorInt = ContextCompat.getColor(
+                binding.root.context,
+                if (isAlly) R.color.ally_pick_color else R.color.enemy_pick_color
+            )
+            // Chip.chipBackgroundColor expects a ColorStateList
+            binding.chip.chipBackgroundColor = ColorStateList.valueOf(colorInt)
             binding.chip.setOnCloseIconClickListener { onRemove(hero, isAlly) }
         }
     }

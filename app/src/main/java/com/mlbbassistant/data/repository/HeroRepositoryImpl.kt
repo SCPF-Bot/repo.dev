@@ -6,7 +6,6 @@ import com.mlbbassistant.core.Resource
 import com.mlbbassistant.data.api.dto.toEntity
 import com.mlbbassistant.data.db.dao.HeroDao
 import com.mlbbassistant.data.db.dao.MetaSnapshotDao
-import com.mlbbassistant.data.db.entity.HeroEntity
 import com.mlbbassistant.data.model.Hero
 import com.mlbbassistant.data.model.HeroRole
 import com.mlbbassistant.di.NetworkModule
@@ -28,33 +27,22 @@ class HeroRepositoryImpl @Inject constructor(
     private val gson: Gson
 ) : HeroRepository {
 
-    companion object {
-        private const val TAG = "HeroRepository"
-    }
+    companion object { private const val TAG = "HeroRepository" }
 
     override fun observeHeroes(): Flow<List<Hero>> =
         heroDao.observeAll()
             .map { list -> list.map { it.toDomain() } }
-            .catch { e ->
-                Log.e(TAG, "observeHeroes DB error", e)
-                emit(emptyList())
-            }
+            .catch { e -> Log.e(TAG, "observeHeroes error", e); emit(emptyList()) }
 
     override fun observeByRole(role: HeroRole): Flow<List<Hero>> =
         heroDao.observeByRole(role.name)
             .map { list -> list.map { it.toDomain() } }
-            .catch { e ->
-                Log.e(TAG, "observeByRole DB error", e)
-                emit(emptyList())
-            }
+            .catch { e -> Log.e(TAG, "observeByRole error", e); emit(emptyList()) }
 
     override fun searchHeroes(query: String): Flow<List<Hero>> =
         heroDao.search(query.trim())
             .map { list -> list.map { it.toDomain() } }
-            .catch { e ->
-                Log.e(TAG, "searchHeroes DB error", e)
-                emit(emptyList())
-            }
+            .catch { e -> Log.e(TAG, "searchHeroes error", e); emit(emptyList()) }
 
     override suspend fun getHeroById(id: Int): Hero? =
         try { heroDao.getById(id)?.toDomain() }
@@ -62,20 +50,17 @@ class HeroRepositoryImpl @Inject constructor(
 
     /**
      * Refresh priority:
-     *   1. Remote API (if user has configured a URL in Settings)
-     *   2. Bundled assets/heroes.json
-     *   3. Existing DB cache (no-op — already emitted via [observeHeroes])
+     *  1. Remote API   — if user has set a URL in Settings
+     *  2. Bundled asset — assets/heroes.json (always available offline)
+     *  3. Existing DB cache — already visible through [observeHeroes]
      */
     override suspend fun refreshHeroes(patch: String?): Resource<Unit> {
-        // ── 1. Try remote API ──────────────────────────────────────────────
-        val apiUrl = try { userPreferences.apiUrl.first() } catch (_: Exception) { "" }
+        val apiUrl = try { userPreferences.apiUrl.first() } catch (e: Exception) { "" }
         if (apiUrl.isNotBlank()) {
             val remoteResult = tryRemoteRefresh(apiUrl, patch)
             if (remoteResult is Resource.Success) return remoteResult
             Log.w(TAG, "Remote refresh failed — falling back to bundled assets")
         }
-
-        // ── 2. Fall back to bundled asset ──────────────────────────────────
         return tryAssetRefresh()
     }
 
