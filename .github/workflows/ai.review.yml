@@ -1,4 +1,4 @@
-name: AI Code Review
+name: Combined AI Code Review (Ollama then GitHub Models)
 on:
   workflow_dispatch:
 
@@ -25,6 +25,11 @@ jobs:
           swap-storage: false
           tool-cache: true
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Install Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
@@ -36,7 +41,6 @@ jobs:
 
       - name: Run full code review and auto-fix with Ollama
         run: |
-          npm install -g ai-review-pipeline
           echo "AI_REVIEW_PROVIDER=ollama" >> .env.local
           npx ai-review-pipeline --full --fix --recursive \
             --extensions .kt,.java,.xml,.gradle,.kts,.properties \
@@ -67,9 +71,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Install AI Review Pipeline
-        run: npm install -g ai-review-pipeline
 
       - name: Configure GitHub Models (Claude 3.5 Sonnet)
         run: |
