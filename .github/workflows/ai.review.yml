@@ -1,4 +1,5 @@
-name: AI Code Review (Both Passes)
+name: Full Repository AI Refactor
+
 on:
   workflow_dispatch:
 
@@ -8,91 +9,128 @@ permissions:
   models: read
 
 jobs:
-  full_review:
+  full_refactor:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout main branch
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
-          persist-credentials: true
 
-      - name: Free disk space
-        uses: ggml-org/free-disk-space@main
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          large-packages: true
-          docker-images: true
-          swap-storage: false
-          tool-cache: true
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # ---------- PASS 1: ai-review-pipeline (built-in free model) ----------
-      - name: Pass 1 - ai-review-pipeline (auto-fix)
-        continue-on-error: true
+      - name: Apply deterministic fixes (ktlintFormat)
         run: |
-          npx ai-review-pipeline@latest --full --fix --recursive \
-            --extensions .kt,.java,.xml,.gradle,.kts,.properties \
-            --exclude ".gitignore"
+          # If ktlint is not yet configured, you can add a basic config.
+          ./gradlew ktlintFormat || echo "ktlintFormat not configured – skipping"
 
-      # ---------- PASS 2: GitHub Models (Code-focused Model) ----------
-      - name: Pass 2 - GitHub Models second pass fix
+      - name: Improve every Kotlin file with GitHub Models
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Find all Kotlin/Java/Android files
-          find . -type f \( -name "*.kt" -o -name "*.java" -o -name "*.xml" -o -name "*.gradle" -o -name "*.kts" -o -name "*.properties" \) > all_files.txt
-          
-          # Basic .gitignore exclusion
-          if [ -f .gitignore ]; then
-            while IFS= read -r pattern; do
-              sed -i "\|$pattern|d" all_files.txt 2>/dev/null || true
-            done < .gitignore
-          fi
+          echo "🤖 Starting AI batch refactor..."
 
-          while IFS= read -r file; do
-            echo "Second pass: fixing $file"
-            content=$(cat "$file")
-            # Skip empty files
-            if [ -z "$content" ]; then continue; fi
-            
-            # Use mistralai/codestral-2505 - a model specifically trained for code tasks
-            response=$(curl -s -X POST "https://models.inference.ai.azure.com/chat/completions?api-version=2024-02-15-preview" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -d "$(jq -n \
-                --arg model "mistralai/codestral-2505" \
-                --arg system "You are an Android/Kotlin expert. Fix any remaining bugs, style issues, security problems, or performance problems. Output ONLY the corrected file content, nothing else. Do not change business logic." \
-                --arg user "$content" \
-                '{model: $model, messages: [{role: "system", content: $system}, {role: "user", content: $user}], max_tokens: 4096, temperature: 0.2}')")
-            
-            fixed=$(echo "$response" | jq -r '.choices[0].message.content // empty')
-            if [ -n "$fixed" ] && [ "$fixed" != "null" ]; then
-              echo "$fixed" > "$file"
-              echo "Updated $file"
-            else
-              echo "No fix for $file"
-            fi
-            sleep 1
-          done < all_files.txt
+          # Create a temporary directory for the script.
+          mkdir -p scripts
+          cat << 'EOF' > scripts/ai_batch_edit.py
+          import os
+          import json
+          import sys
+          import time
+          import requests
+          from pathlib import Path
 
-      # ---------- CREATE PULL REQUEST ----------
-      - name: Create Pull Request with all fixes
+          API_URL = "https://models.github.ai/inference/chat/completions"
+          MODEL_NAME = "gpt-4o"
+          MAX_TOKENS = 16000
+          TEMPERATURE = 0.1
+
+          GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+          if not GITHUB_TOKEN:
+              print("❌ GITHUB_TOKEN not found", file=sys.stderr)
+              sys.exit(1)
+
+          headers = {
+              "Authorization": f"Bearer {GITHUB_TOKEN}",
+              "Content-Type": "application/json"
+          }
+
+          system_prompt = {
+              "role": "system",
+              "content": (
+                  "You are an expert Kotlin/Android developer. "
+                  "Improve the provided code for quality, performance, maintainability, and null‑safety. "
+                  "Fix any bugs, add missing annotations, and convert to idiomatic Kotlin where possible. "
+                  "Return ONLY the improved code – no explanations, no extra text."
+              )
+          }
+
+          def improve_file(file_path):
+              with open(file_path, "r", encoding="utf-8") as f:
+                  original_code = f.read()
+
+              payload = {
+                  "model": MODEL_NAME,
+                  "messages": [
+                      system_prompt,
+                      {"role": "user", "content": original_code}
+                  ],
+                  "max_tokens": MAX_TOKENS,
+                  "temperature": TEMPERATURE
+              }
+
+              try:
+                  resp = requests.post(API_URL, headers=headers, json=payload)
+                  resp.raise_for_status()
+                  data = resp.json()
+                  improved = data["choices"][0]["message"]["content"]
+
+                  if improved and improved != original_code:
+                      with open(file_path, "w", encoding="utf-8") as f:
+                          f.write(improved)
+                      print(f"✅ Updated: {file_path}")
+                  else:
+                      print(f"⏭️  No change: {file_path}")
+                  return True
+
+              except Exception as e:
+                  print(f"❌ Error processing {file_path}: {e}", file=sys.stderr)
+                  return False
+
+          kotlin_files = list(Path(".").rglob("*.kt"))
+          print(f"📁 Found {len(kotlin_files)} Kotlin files")
+
+          for file in kotlin_files:
+              improve_file(file)
+              time.sleep(0.5)
+
+          print("🎉 AI batch edit finished.")
+          EOF
+
+          python3 scripts/ai_batch_edit.py
+        continue-on-error: true
+
+      - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ai-code-review-full
-          base: ${{ github.ref_name }}
-          title: "AI Code Review: Two-pass fixes"
+          commit-message: "🤖 AI Refactor: Automated code improvements across the codebase"
+          title: "🤖 AI Refactor: Automated Code Enhancements"
           body: |
-            This PR contains automated fixes from two AI passes:
+            This pull request was generated automatically by a GitHub workflow.
 
-            **Pass 1:** ai-review-pipeline (built-in free model)
-            **Pass 2:** GitHub Models (Codestral) - trained specifically for code
+            **Changes include:**
+            - Rule‑based formatting and linting (e.g., `ktlintFormat`).
+            - AI‑powered improvements applied to every Kotlin file.
 
-            Please review changes before merging.
+            **Please review the changes carefully before merging.**  
+            If any changes are not desired, you can close this PR and revert the branch.
+          branch: "ai-refactor"
+          branch-suffix: timestamp
+          base: main
           delete-branch: true
-          labels: ai-review, two-pass
