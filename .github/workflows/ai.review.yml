@@ -1,4 +1,4 @@
-name: Combined AI Code Review (Ollama then GitHub Models)
+name: AI Code Review
 on:
   workflow_dispatch:
 
