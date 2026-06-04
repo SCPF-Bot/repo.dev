@@ -28,11 +28,11 @@ jobs:
         run: |
           ./gradlew ktlintFormat || echo "ktlintFormat not configured – skipping"
 
-      - name: Improve every Kotlin file with GitHub Models (with rate‑limit handling)
+      - name: Improve all code & config files with GitHub Models
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "🤖 Starting AI batch refactor with rate‑limit handling..."
+          echo "🤖 Starting AI batch refactor for all code/text files..."
 
           mkdir -p scripts
           cat << 'EOF' > scripts/ai_batch_edit.py
@@ -58,26 +58,25 @@ jobs:
               "Content-Type": "application/json"
           }
 
+          # System prompt for general code/text improvement
           system_prompt = {
               "role": "system",
               "content": (
-                  "You are an expert Kotlin/Android developer. "
-                  "Improve the provided code for quality, performance, maintainability, and null‑safety. "
-                  "Fix any bugs, add missing annotations, and convert to idiomatic Kotlin where possible. "
-                  "Return ONLY the improved code – no explanations, no extra text."
+                  "You are an expert developer. Improve the provided content for correctness, performance, readability, and maintainability. "
+                  "Fix bugs, update deprecated syntax, and follow language best practices. "
+                  "Return ONLY the improved content – no explanations, no extra text."
               )
           }
 
           def improve_file(file_path, retries=3):
-              """Send file to API with exponential backoff on 429 errors."""
               with open(file_path, "r", encoding="utf-8") as f:
-                  original_code = f.read()
+                  original = f.read()
 
               payload = {
                   "model": MODEL_NAME,
                   "messages": [
                       system_prompt,
-                      {"role": "user", "content": original_code}
+                      {"role": "user", "content": original}
                   ],
                   "max_tokens": MAX_TOKENS,
                   "temperature": TEMPERATURE
@@ -87,7 +86,6 @@ jobs:
                   try:
                       resp = requests.post(API_URL, headers=headers, json=payload)
                       if resp.status_code == 429:
-                          # Rate limited – wait and retry
                           wait = (2 ** attempt) + random.uniform(0, 1)
                           print(f"⚠️ Rate limited on {file_path}. Retrying in {wait:.2f}s...")
                           time.sleep(wait)
@@ -96,7 +94,7 @@ jobs:
                       data = resp.json()
                       improved = data["choices"][0]["message"]["content"]
 
-                      if improved and improved != original_code:
+                      if improved and improved != original:
                           with open(file_path, "w", encoding="utf-8") as f:
                               f.write(improved)
                           print(f"✅ Updated: {file_path}")
@@ -111,14 +109,30 @@ jobs:
                       time.sleep(2 ** attempt)
               return False
 
-          kotlin_files = list(Path(".").rglob("*.kt"))
-          print(f"📁 Found {len(kotlin_files)} Kotlin files")
+          # Define the file extensions we want to process (all non‑media, code/text files)
+          extensions = [
+              "*.kt", "*.kts", "*.java", "*.gradle", "*.aidl",
+              "*.xml", "*.properties", "*.pro", ".gitignore"
+          ]
 
-          # Process files with a generous delay (6 seconds) to stay within free tier limits.
-          for i, file in enumerate(kotlin_files):
-              print(f"Processing ({i+1}/{len(kotlin_files)}): {file}")
+          target_files = []
+          for ext in extensions:
+              # Special case for .gitignore (no extension, exact filename)
+              if ext == ".gitignore":
+                  gitignore = Path(".gitignore")
+                  if gitignore.exists():
+                      target_files.append(gitignore)
+              else:
+                  target_files.extend(Path(".").rglob(ext))
+
+          # Remove duplicates (if any) and sort for consistent order
+          target_files = sorted(set(target_files))
+
+          print(f"📁 Found {len(target_files)} target files")
+
+          for i, file in enumerate(target_files):
+              print(f"Processing ({i+1}/{len(target_files)}): {file}")
               improve_file(file)
-              # Base delay of 6 seconds + small random jitter to avoid burstiness
               delay = 6 + random.uniform(0, 2)
               print(f"Sleeping for {delay:.2f}s before next file...")
               time.sleep(delay)
@@ -133,14 +147,22 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "🤖 AI Refactor: Automated code improvements across the codebase"
-          title: "🤖 AI Refactor: Automated Code Enhancements"
+          commit-message: "🤖 AI Refactor: Automated improvements across all code/config files"
+          title: "🤖 AI Refactor: Automated Code & Config Enhancements"
           body: |
             This pull request was generated automatically by a GitHub workflow.
 
             **Changes include:**
             - Rule‑based formatting and linting (e.g., `ktlintFormat`).
-            - AI‑powered improvements applied to every Kotlin file.
+            - AI‑powered improvements applied to every code/text file in the repository:
+              - Kotlin (`.kt`, `.kts`)
+              - Java (`.java`)
+              - Gradle scripts (`.gradle`)
+              - AIDL (`.aidl`)
+              - XML layouts & resources (`.xml`)
+              - Properties files (`.properties`)
+              - ProGuard rules (`.pro`)
+              - `.gitignore`
 
             **Please review the changes carefully before merging.**  
             If any changes are not desired, you can close this PR and revert the branch.
