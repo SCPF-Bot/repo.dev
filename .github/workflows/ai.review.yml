@@ -26,22 +26,20 @@ jobs:
 
       - name: Apply deterministic fixes (ktlintFormat)
         run: |
-          # If ktlint is not yet configured, you can add a basic config.
           ./gradlew ktlintFormat || echo "ktlintFormat not configured – skipping"
 
-      - name: Improve every Kotlin file with GitHub Models
+      - name: Improve every Kotlin file with GitHub Models (with rate‑limit handling)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "🤖 Starting AI batch refactor..."
+          echo "🤖 Starting AI batch refactor with rate‑limit handling..."
 
-          # Create a temporary directory for the script.
           mkdir -p scripts
           cat << 'EOF' > scripts/ai_batch_edit.py
           import os
-          import json
           import sys
           import time
+          import random
           import requests
           from pathlib import Path
 
@@ -70,7 +68,8 @@ jobs:
               )
           }
 
-          def improve_file(file_path):
+          def improve_file(file_path, retries=3):
+              """Send file to API with exponential backoff on 429 errors."""
               with open(file_path, "r", encoding="utf-8") as f:
                   original_code = f.read()
 
@@ -84,30 +83,45 @@ jobs:
                   "temperature": TEMPERATURE
               }
 
-              try:
-                  resp = requests.post(API_URL, headers=headers, json=payload)
-                  resp.raise_for_status()
-                  data = resp.json()
-                  improved = data["choices"][0]["message"]["content"]
+              for attempt in range(retries):
+                  try:
+                      resp = requests.post(API_URL, headers=headers, json=payload)
+                      if resp.status_code == 429:
+                          # Rate limited – wait and retry
+                          wait = (2 ** attempt) + random.uniform(0, 1)
+                          print(f"⚠️ Rate limited on {file_path}. Retrying in {wait:.2f}s...")
+                          time.sleep(wait)
+                          continue
+                      resp.raise_for_status()
+                      data = resp.json()
+                      improved = data["choices"][0]["message"]["content"]
 
-                  if improved and improved != original_code:
-                      with open(file_path, "w", encoding="utf-8") as f:
-                          f.write(improved)
-                      print(f"✅ Updated: {file_path}")
-                  else:
-                      print(f"⏭️  No change: {file_path}")
-                  return True
+                      if improved and improved != original_code:
+                          with open(file_path, "w", encoding="utf-8") as f:
+                              f.write(improved)
+                          print(f"✅ Updated: {file_path}")
+                      else:
+                          print(f"⏭️  No change: {file_path}")
+                      return True
 
-              except Exception as e:
-                  print(f"❌ Error processing {file_path}: {e}", file=sys.stderr)
-                  return False
+                  except Exception as e:
+                      print(f"❌ Error on attempt {attempt+1} for {file_path}: {e}", file=sys.stderr)
+                      if attempt == retries - 1:
+                          return False
+                      time.sleep(2 ** attempt)
+              return False
 
           kotlin_files = list(Path(".").rglob("*.kt"))
           print(f"📁 Found {len(kotlin_files)} Kotlin files")
 
-          for file in kotlin_files:
+          # Process files with a generous delay (6 seconds) to stay within free tier limits.
+          for i, file in enumerate(kotlin_files):
+              print(f"Processing ({i+1}/{len(kotlin_files)}): {file}")
               improve_file(file)
-              time.sleep(0.5)
+              # Base delay of 6 seconds + small random jitter to avoid burstiness
+              delay = 6 + random.uniform(0, 2)
+              print(f"Sleeping for {delay:.2f}s before next file...")
+              time.sleep(delay)
 
           print("🎉 AI batch edit finished.")
           EOF
