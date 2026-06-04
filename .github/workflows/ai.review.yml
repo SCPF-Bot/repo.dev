@@ -38,7 +38,7 @@ jobs:
             --extensions .kt,.java,.xml,.gradle,.kts,.properties \
             --exclude ".gitignore"
 
-      # ---------- PASS 2: GitHub Models (Claude) ----------
+      # ---------- PASS 2: GitHub Models (Code-focused Model) ----------
       - name: Pass 2 - GitHub Models second pass fix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,17 +54,17 @@ jobs:
           fi
 
           while IFS= read -r file; do
-            echo "Second pass (Claude): fixing $file"
+            echo "Second pass: fixing $file"
             content=$(cat "$file")
             # Skip empty files
             if [ -z "$content" ]; then continue; fi
             
-            # Call GitHub Models API
+            # Use mistralai/codestral-2505 - a model specifically trained for code tasks
             response=$(curl -s -X POST "https://models.inference.ai.azure.com/chat/completions?api-version=2024-02-15-preview" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
               -d "$(jq -n \
-                --arg model "claude-3-5-sonnet-20241022" \
+                --arg model "mistralai/codestral-2505" \
                 --arg system "You are an Android/Kotlin expert. Fix any remaining bugs, style issues, security problems, or performance problems. Output ONLY the corrected file content, nothing else. Do not change business logic." \
                 --arg user "$content" \
                 '{model: $model, messages: [{role: "system", content: $system}, {role: "user", content: $user}], max_tokens: 4096, temperature: 0.2}')")
@@ -74,9 +74,9 @@ jobs:
               echo "$fixed" > "$file"
               echo "Updated $file"
             else
-              echo "No fix from Claude for $file (response: $response)"
+              echo "No fix for $file"
             fi
-            sleep 1  # avoid rate limits
+            sleep 1
           done < all_files.txt
 
       # ---------- CREATE PULL REQUEST ----------
@@ -86,14 +86,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: ai-code-review-full
           base: ${{ github.ref_name }}
-          title: "AI Code Review: Two-pass fixes (Pipeline + Claude)"
+          title: "AI Code Review: Two-pass fixes"
           body: |
             This PR contains automated fixes from two AI passes:
 
-            **Pass 1:** ai-review-pipeline (built-in free model) – full codebase scan and auto-fix
-            **Pass 2:** GitHub Models (Claude 3.5 Sonnet) – second pass review and additional fixes
+            **Pass 1:** ai-review-pipeline (built-in free model)
+            **Pass 2:** GitHub Models (Codestral) - trained specifically for code
 
-            All Kotlin, Java, XML, Gradle, and properties files were reviewed.
             Please review changes before merging.
           delete-branch: true
           labels: ai-review, two-pass
