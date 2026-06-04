@@ -1,4 +1,5 @@
 name: AI Code Review
+
 on:
   workflow_dispatch:
 
@@ -8,11 +9,11 @@ permissions:
   models: read
 
 jobs:
-  job1_ollama_full_review:
-    name: Pass 1 - Ollama (forward + reverse)
+  exhaustive_ai_review:
+    name: AI-Powered Code Review & Fix
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout full repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -31,266 +32,23 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install jq and curl
-        run: sudo apt-get update && sudo apt-get install -y jq curl
-
-      - name: Install Ollama
+      - name: Run AI Code Review Pipeline
         run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          ollama serve &
-          sleep 5
+          npx ai-review-pipeline@latest --full --fix --recursive \
+            --extensions .kt,.java,.xml,.gradle,.kts,.properties \
+            --exclude ".gitignore"
 
-      - name: Pull Qwen2.5-Coder model
-        run: ollama pull qwen2.5-coder:1.5b
-
-      - name: Generate ordered file list (Android launch to exit)
-        run: |
-          find . -type f \( -name "*.kt" -o -name "*.java" -o -name "*.xml" -o -name "*.gradle" -o -name "*.kts" -o -name "*.properties" \) > all_files.txt
-          if [ -f .gitignore ]; then
-            while IFS= read -r pattern; do
-              sed -i "\|$pattern|d" all_files.txt 2>/dev/null || true
-            done < .gitignore
-          fi
-          cat > prioritize.awk << 'EOF'
-          BEGIN {
-            priority["AndroidManifest.xml"] = 1
-            priority["Application"] = 2
-            priority["Activity"] = 3
-            priority["Service"] = 4
-            priority["BroadcastReceiver"] = 5
-            priority["Fragment"] = 6
-            priority["ViewModel"] = 7
-            priority["Repository"] = 8
-            priority["Manager"] = 8
-            priority["Adapter"] = 8
-            priority["Util"] = 9
-            priority["Helper"] = 9
-            priority["res/layout/"] = 10
-            priority["res/values/"] = 11
-            priority["res/drawable/"] = 11
-            priority[".gradle"] = 12
-            priority[".properties"] = 12
-            default_priority = 50
-          }
-          {
-            file = $0
-            p = default_priority
-            for (key in priority) {
-              if (index(file, key) > 0) {
-                p = priority[key]
-                break
-              }
-            }
-            if (file ~ /\.xml$/ && p == default_priority) p = 11
-            if (file ~ /\.gradle|\.kts/ && p == default_priority) p = 12
-            print p "\t" file
-          }
-          EOF
-          awk -f prioritize.awk all_files.txt | sort -n -k1 | cut -f2 > ordered_files.txt
-          echo "Forward order (launch to exit):"
-          cat ordered_files.txt
-          echo "Total files: $(wc -l < ordered_files.txt)"
-
-      - name: Review and fix - forward order (Ollama)
-        run: |
-          while IFS= read -r file; do
-            echo "Forward pass: fixing $file"
-            content=$(cat "$file")
-            escaped=$(printf '%s' "$content" | jq -Rs .)
-            prompt="You are an Android/Kotlin expert. Fix bugs, style, security, performance. Output ONLY the corrected file content, nothing else. Do not change business logic.\n\n$escaped"
-            response=$(curl -s http://localhost:11434/api/generate -d "{\"model\":\"qwen2.5-coder:1.5b\",\"prompt\":$prompt,\"stream\":false}" | jq -r '.response')
-            if [ -n "$response" ] && [ "$response" != "null" ]; then
-              echo "$response" > "$file"
-            else
-              echo "No valid response for $file"
-            fi
-          done < ordered_files.txt
-
-      - name: Review and fix - reverse order (Ollama)
-        run: |
-          tac ordered_files.txt > reversed_files.txt
-          echo "Reverse order (exit to launch):"
-          cat reversed_files.txt
-          while IFS= read -r file; do
-            echo "Reverse pass: fixing $file"
-            content=$(cat "$file")
-            escaped=$(printf '%s' "$content" | jq -Rs .)
-            prompt="You are an Android/Kotlin expert. Fix bugs, style, security, performance. Output ONLY the corrected file content, nothing else. Do not change business logic.\n\n$escaped"
-            response=$(curl -s http://localhost:11434/api/generate -d "{\"model\":\"qwen2.5-coder:1.5b\",\"prompt\":$prompt,\"stream\":false}" | jq -r '.response')
-            if [ -n "$response" ] && [ "$response" != "null" ]; then
-              echo "$response" > "$file"
-            else
-              echo "No valid response for $file"
-            fi
-          done < reversed_files.txt
-
-      - name: Commit fixes from Ollama
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b ai-fix-ollama-full
-          git add .
-          git commit -m "Ollama: full review (forward + reverse)" || echo "No changes"
-          git push origin ai-fix-ollama-full --force
-
-  job2_github_models_full_review:
-    name: Pass 2 - GitHub Models (forward + reverse)
-    runs-on: ubuntu-latest
-    needs: job1_ollama_full_review
-    steps:
-      - name: Checkout branch from pass 1
-        uses: actions/checkout@v4
-        with:
-          ref: ai-fix-ollama-full
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install jq and curl
-        run: sudo apt-get update && sudo apt-get install -y jq curl
-
-      - name: Generate ordered file list (same ordering)
-        run: |
-          find . -type f \( -name "*.kt" -o -name "*.java" -o -name "*.xml" -o -name "*.gradle" -o -name "*.kts" -o -name "*.properties" \) > all_files.txt
-          if [ -f .gitignore ]; then
-            while IFS= read -r pattern; do
-              sed -i "\|$pattern|d" all_files.txt 2>/dev/null || true
-            done < .gitignore
-          fi
-          cat > prioritize.awk << 'EOF'
-          BEGIN {
-            priority["AndroidManifest.xml"] = 1
-            priority["Application"] = 2
-            priority["Activity"] = 3
-            priority["Service"] = 4
-            priority["BroadcastReceiver"] = 5
-            priority["Fragment"] = 6
-            priority["ViewModel"] = 7
-            priority["Repository"] = 8
-            priority["Manager"] = 8
-            priority["Adapter"] = 8
-            priority["Util"] = 9
-            priority["Helper"] = 9
-            priority["res/layout/"] = 10
-            priority["res/values/"] = 11
-            priority["res/drawable/"] = 11
-            priority[".gradle"] = 12
-            priority[".properties"] = 12
-            default_priority = 50
-          }
-          {
-            file = $0
-            p = default_priority
-            for (key in priority) {
-              if (index(file, key) > 0) {
-                p = priority[key]
-                break
-              }
-            }
-            if (file ~ /\.xml$/ && p == default_priority) p = 11
-            if (file ~ /\.gradle|\.kts/ && p == default_priority) p = 12
-            print p "\t" file
-          }
-          EOF
-          awk -f prioritize.awk all_files.txt | sort -n -k1 | cut -f2 > ordered_files.txt
-
-      - name: Review and fix - forward order (GitHub Models)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          while IFS= read -r file; do
-            echo "Forward pass (GitHub Models): fixing $file"
-            content=$(cat "$file")
-            payload=$(jq -n \
-              --arg content "$content" \
-              '{
-                model: "claude-3-5-sonnet-20241022",
-                messages: [
-                  { role: "system", content: "You are an Android/Kotlin expert. Fix bugs, style, security, performance. Output ONLY the corrected file content, nothing else. Do not change business logic." },
-                  { role: "user", content: $content }
-                ],
-                max_tokens: 4096,
-                temperature: 0.2
-              }')
-            response=$(curl -s -X POST https://models.inference.ai.azure.com/chat/completions \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -d "$payload")
-            fixed=$(echo "$response" | jq -r '.choices[0].message.content')
-            if [ -n "$fixed" ] && [ "$fixed" != "null" ]; then
-              echo "$fixed" > "$file"
-            else
-              echo "Failed to get fix for $file"
-            fi
-          done < ordered_files.txt
-
-      - name: Review and fix - reverse order (GitHub Models)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tac ordered_files.txt > reversed_files.txt
-          while IFS= read -r file; do
-            echo "Reverse pass (GitHub Models): fixing $file"
-            content=$(cat "$file")
-            payload=$(jq -n \
-              --arg content "$content" \
-              '{
-                model: "claude-3-5-sonnet-20241022",
-                messages: [
-                  { role: "system", content: "You are an Android/Kotlin expert. Fix bugs, style, security, performance. Output ONLY the corrected file content, nothing else. Do not change business logic." },
-                  { role: "user", content: $content }
-                ],
-                max_tokens: 4096,
-                temperature: 0.2
-              }')
-            response=$(curl -s -X POST https://models.inference.ai.azure.com/chat/completions \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -d "$payload")
-            fixed=$(echo "$response" | jq -r '.choices[0].message.content')
-            if [ -n "$fixed" ] && [ "$fixed" != "null" ]; then
-              echo "$fixed" > "$file"
-            else
-              echo "Failed to get fix for $file"
-            fi
-          done < reversed_files.txt
-
-      - name: Commit second fixes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "GitHub Models: second pass (forward + reverse)" || echo "No additional changes"
-          git push origin ai-fix-ollama-full
-
-  job3_create_pr:
-    name: Create pull request to main
-    runs-on: ubuntu-latest
-    needs: job2_github_models_full_review
-    steps:
-      - name: Checkout final branch
-        uses: actions/checkout@v4
-        with:
-          ref: ai-fix-ollama-full
-          fetch-depth: 0
-
-      - name: Create Pull Request
+      - name: Create Pull Request with AI Fixes
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ai-fix-ollama-full
-          base: main
-          title: "AI Code Review: full fixes (forward + reverse order)"
+          commit-message: "AI: Automated code review fixes"
+          title: "AI Code Review: Automated improvements"
           body: |
-            This PR contains fixes from two full passes (Ollama + GitHub Models).
-            Each pass processed every file twice:
-            - Forward order: Android launch → exit
-            - Reverse order: exit → launch
+            This PR automatically applies fixes generated by the `ai-review-pipeline` tool.
 
-            All changes respect .gitignore. Review before merging.
+            Changes focus on logic, style, security, and performance.
+          branch: ai-code-review-fixes
+          base: main
           delete-branch: true
-          labels: ai-review
+          labels: automated, ai-review
