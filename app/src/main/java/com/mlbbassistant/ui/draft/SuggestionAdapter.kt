@@ -28,12 +28,13 @@ class SuggestionAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(suggestion: DraftSuggestion, rank: Int) {
-            binding.tvRank.text         = "#$rank"
+            binding.tvRank.text          = "#$rank"
             binding.tvSuggestionName.text = suggestion.hero.name
             binding.tvSuggestionRole.text = suggestion.hero.role.displayName
-            binding.tvScore.text        = "${"%.0f".format(suggestion.score * 100)}pts"
-            binding.tvReason.text       = suggestion.reason
-            binding.progressScore.progress = (suggestion.score * 100).toInt()
+            binding.tvScore.text         = "${"%.0f".format(suggestion.score * 100)}pts"
+            binding.tvReason.text        = suggestion.reason
+            // Use setProgress(value, animated=false) — the proper LinearProgressIndicator API
+            binding.progressScore.setProgress((suggestion.score * 100).toInt(), false)
             binding.root.setOnClickListener { onSuggestionClick(suggestion) }
         }
     }

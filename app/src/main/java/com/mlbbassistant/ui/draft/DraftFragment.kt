@@ -2,7 +2,6 @@ package com.mlbbassistant.ui.draft
 
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -29,18 +28,24 @@ class DraftFragment : Fragment() {
     private lateinit var picksAdapter: DraftPicksAdapter
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View {
-        _binding = FragmentDraftBinding.inflate(inflater, container, false)
-        return binding.root
-    }
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ) = FragmentDraftBinding.inflate(inflater, container, false)
+        .also { _binding = it }
+        .root
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: android.view.View,
+        savedInstanceState: Bundle?
+    ) {
         super.onViewCreated(view, savedInstanceState)
         setupAdapters()
         setupButtons()
         observeState()
     }
+
+    // ── Setup ─────────────────────────────────────────────────────────────────
 
     private fun setupAdapters() {
         suggestionAdapter = SuggestionAdapter { suggestion ->
@@ -55,7 +60,9 @@ class DraftFragment : Fragment() {
             if (isAlly) viewModel.removeAllyPick(hero) else viewModel.removeEnemyPick(hero)
         }
         binding.rvPicks.apply {
-            layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+            layoutManager = LinearLayoutManager(
+                requireContext(), LinearLayoutManager.HORIZONTAL, false
+            )
             adapter = picksAdapter
         }
     }
@@ -66,23 +73,23 @@ class DraftFragment : Fragment() {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.draft_reset_title)
                 .setMessage(R.string.draft_reset_message)
-                .setPositiveButton(R.string.action_reset) { _, _ -> viewModel.resetDraft() }
+                .setPositiveButton(R.string.action_reset)  { _, _ -> viewModel.resetDraft() }
                 .setNegativeButton(R.string.action_cancel, null)
                 .show()
         }
     }
 
+    // ── Observation ───────────────────────────────────────────────────────────
+
     private fun observeState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-
                 launch {
                     viewModel.suggestions.collect { suggestions ->
                         if (_binding == null) return@collect
                         suggestionAdapter.submitList(suggestions)
                     }
                 }
-
                 launch {
                     viewModel.draftState.collect { state ->
                         if (_binding == null) return@collect
@@ -94,6 +101,8 @@ class DraftFragment : Fragment() {
         }
     }
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
     private fun updatePicksDisplay(state: DraftState) {
         val combined = state.allyPicks.map { it to true } +
                 state.enemyPicks.map { it to false }
@@ -101,7 +110,7 @@ class DraftFragment : Fragment() {
     }
 
     private fun buildDraftStatus(state: DraftState) =
-        "Ally: ${state.allyPicks.size}/5  |  Enemy: ${state.enemyPicks.size}/5  |  Bans: ${state.bans.size}/10"
+        "Ally ${state.allyPicks.size}/5  ·  Enemy ${state.enemyPicks.size}/5  ·  Bans ${state.bans.size}/10"
 
     private fun showAddPickDialog(hero: Hero) {
         if (!isAdded || activity == null) return

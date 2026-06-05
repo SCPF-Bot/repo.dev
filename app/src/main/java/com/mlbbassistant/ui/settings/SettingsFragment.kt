@@ -1,6 +1,7 @@
 package com.mlbbassistant.ui.settings
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -33,8 +34,10 @@ class SettingsFragment : Fragment() {
 
     private val viewModel: SettingsViewModel by viewModels()
 
-    /** Suppress the switch listener while we're programmatically restoring state. */
+    // Prevents recursive calls when we programmatically flip the switch
     private var suppressSwitchListener = false
+
+    // ── Permission launchers ──────────────────────────────────────────────────
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -47,13 +50,15 @@ class SettingsFragment : Fragment() {
             suppressSwitchListener = true
             binding.switchOverlay.isChecked = false
             suppressSwitchListener = false
-            Snackbar.make(binding.root, R.string.settings_overlay_permission_denied, Snackbar.LENGTH_LONG).show()
+            showSnackbar(R.string.settings_overlay_permission_denied)
         }
     }
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* non-critical */ }
+    ) { /* non-critical — notification shows if granted */ }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -67,6 +72,13 @@ class SettingsFragment : Fragment() {
         setupControls()
         observeState()
     }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
+    // ── Controls setup ────────────────────────────────────────────────────────
 
     private fun setupControls() {
         binding.switchOverlay.setOnCheckedChangeListener { _, isChecked ->
@@ -89,39 +101,22 @@ class SettingsFragment : Fragment() {
                 binding.sliderWeightCounter.value,
                 binding.sliderWeightSynergy.value
             )
-            Snackbar.make(binding.root, R.string.settings_weights_saved, Snackbar.LENGTH_SHORT).show()
+            showSnackbar(R.string.settings_weights_saved)
         }
 
-        // API URL input
         binding.etApiUrl.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                saveApiUrl(); true
-            } else false
+            if (actionId == EditorInfo.IME_ACTION_DONE) { saveApiUrl(); true } else false
         }
         binding.btnSaveApiUrl.setOnClickListener { saveApiUrl() }
         binding.btnClearApiUrl.setOnClickListener {
+            if (_binding == null) return@setOnClickListener
             binding.etApiUrl.setText("")
             viewModel.setApiUrl("")
-            Snackbar.make(binding.root,
-                R.string.settings_api_url_cleared, Snackbar.LENGTH_SHORT).show()
+            showSnackbar(R.string.settings_api_url_cleared)
         }
     }
 
-    private fun saveApiUrl() {
-        if (_binding == null) return
-        val url = binding.etApiUrl.text?.toString().orEmpty().trim()
-        viewModel.setApiUrl(url)
-        hideKeyboard()
-        val msg = if (url.isBlank()) R.string.settings_api_url_cleared
-                  else R.string.settings_api_url_saved
-        Snackbar.make(binding.root, msg, Snackbar.LENGTH_SHORT).show()
-    }
-
-    private fun hideKeyboard() {
-        val imm = requireContext()
-            .getSystemService(InputMethodManager::class.java)
-        imm.hideSoftInputFromWindow(binding.root.windowToken, 0)
-    }
+    // ── State observation ─────────────────────────────────────────────────────
 
     private fun observeState() {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -135,29 +130,53 @@ class SettingsFragment : Fragment() {
                         binding.groupOverlayControls.isVisible = enabled
                     }
                 }
-                launch { viewModel.overlayOpacity.collect  { if (_binding != null) binding.sliderOpacity.value = it } }
-                launch { viewModel.suggestionCount.collect { if (_binding != null) binding.sliderSuggestions.value = it.toFloat() } }
-                launch { viewModel.weightMeta.collect      { if (_binding != null) binding.sliderWeightMeta.value = it } }
-                launch { viewModel.weightCounter.collect   { if (_binding != null) binding.sliderWeightCounter.value = it } }
-                launch { viewModel.weightSynergy.collect   { if (_binding != null) binding.sliderWeightSynergy.value = it } }
+                launch {
+                    viewModel.overlayOpacity.collect {
+                        _binding?.sliderOpacity?.value = it
+                    }
+                }
+                launch {
+                    viewModel.suggestionCount.collect {
+                        _binding?.sliderSuggestions?.value = it.toFloat()
+                    }
+                }
+                launch { viewModel.weightMeta.collect    { _binding?.sliderWeightMeta.value = it } }
+                launch { viewModel.weightCounter.collect { _binding?.sliderWeightCounter.value = it } }
+                launch { viewModel.weightSynergy.collect { _binding?.sliderWeightSynergy.value = it } }
                 launch {
                     viewModel.apiUrl.collect { url ->
-                        if (_binding == null) return@collect
-                        // Only update if the field is not currently focused to avoid cursor jump
-                        if (!binding.etApiUrl.hasFocus()) {
-                            binding.etApiUrl.setText(url)
-                        }
+                        val et = _binding?.etApiUrl ?: return@collect
+                        if (!et.hasFocus()) et.setText(url)
                     }
                 }
             }
         }
     }
 
+    // ── Actions ───────────────────────────────────────────────────────────────
+
+    private fun saveApiUrl() {
+        if (_binding == null) return
+        val url = binding.etApiUrl.text?.toString().orEmpty().trim()
+        viewModel.setApiUrl(url)
+        hideKeyboard()
+        showSnackbar(if (url.isBlank()) R.string.settings_api_url_cleared else R.string.settings_api_url_saved)
+    }
+
+    private fun hideKeyboard() {
+        val b = _binding ?: return
+        val imm = requireContext()
+            .getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(b.root.windowToken, 0)
+    }
+
     private fun requestPermissionsAndEnable() {
         if (!Settings.canDrawOverlays(requireContext())) {
             overlayPermissionLauncher.launch(
-                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:${requireContext().packageName}"))
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:${requireContext().packageName}")
+                )
             )
         } else {
             viewModel.setOverlayEnabled(true)
@@ -183,12 +202,12 @@ class SettingsFragment : Fragment() {
                 Intent(requireContext(), OverlayService::class.java)
             )
         }.onFailure {
-            Snackbar.make(binding.root, R.string.settings_overlay_start_failed, Snackbar.LENGTH_LONG).show()
+            if (_binding != null) showSnackbar(R.string.settings_overlay_start_failed)
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    private fun showSnackbar(resId: Int) {
+        val b = _binding ?: return
+        Snackbar.make(b.root, resId, Snackbar.LENGTH_SHORT).show()
     }
 }
