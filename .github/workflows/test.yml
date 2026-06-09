@@ -1,0 +1,30 @@
+name: Remove first line from Java files
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  remove-first-line:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove first line from all files in app/src/main/java/com/mlbb/assistant/
+        run: |
+          find app/src/main/java/com/mlbb/assistant/ -type f -exec sh -c '
+            for file; do
+              if [ -f "$file" ]; then
+                tail -n +2 "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+              fi
+            done
+          ' sh {} +
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/mlbb/assistant/
+          git diff --quiet && git diff --staged --quiet || git commit -m "chore: remove first line from assistant Java files"
+          git push
