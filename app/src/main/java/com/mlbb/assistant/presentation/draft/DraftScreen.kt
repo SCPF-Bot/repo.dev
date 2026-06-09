@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/draft/DraftScreen.kt
 package com.mlbb.assistant.presentation.draft
 
 import androidx.compose.foundation.layout.PaddingValues

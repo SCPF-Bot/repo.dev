@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/herolist/HeroListState.kt
 package com.mlbb.assistant.presentation.herolist
 
 import com.mlbb.assistant.domain.model.Hero

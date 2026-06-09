@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/domain/usecase/ToggleOverlayUseCase.kt
 package com.mlbb.assistant.domain.usecase
 
 import android.content.Context

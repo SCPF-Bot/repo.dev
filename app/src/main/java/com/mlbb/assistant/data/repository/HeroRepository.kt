@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/data/repository/HeroRepository.kt
 package com.mlbb.assistant.data.repository
 
 import com.mlbb.assistant.domain.model.Hero

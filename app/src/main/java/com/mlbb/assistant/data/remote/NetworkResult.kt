@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/data/remote/NetworkResult.kt
 package com.mlbb.assistant.data.remote
 
 sealed class NetworkResult<out T> {

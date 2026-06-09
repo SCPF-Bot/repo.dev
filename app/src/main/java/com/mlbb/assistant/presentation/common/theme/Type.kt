@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/common/theme/Type.kt
 package com.mlbb.assistant.presentation.common.theme
 
 import androidx.compose.material3.Typography

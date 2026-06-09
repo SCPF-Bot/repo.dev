@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/settings/SettingsState.kt
 package com.mlbb.assistant.presentation.settings
 
 data class SettingsState(

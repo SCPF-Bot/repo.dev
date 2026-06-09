@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/settings/SettingsViewModel.kt
 package com.mlbb.assistant.presentation.settings
 
 import androidx.lifecycle.ViewModel

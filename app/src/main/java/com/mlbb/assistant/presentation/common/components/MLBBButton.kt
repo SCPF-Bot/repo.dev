@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/common/components/MLBBButton.kt
 package com.mlbb.assistant.presentation.common.components
 
 import androidx.compose.material3.Button

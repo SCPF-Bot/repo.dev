@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/main/MainViewModel.kt
 package com.mlbb.assistant.presentation.main
 
 import androidx.lifecycle.ViewModel

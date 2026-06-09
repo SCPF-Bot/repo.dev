@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/domain/usecase/GetSuggestionsUseCase.kt
 package com.mlbb.assistant.domain.usecase
 
 import com.mlbb.assistant.domain.model.Hero

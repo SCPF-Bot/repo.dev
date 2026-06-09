@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/common/theme/Color.kt
 package com.mlbb.assistant.presentation.common.theme
 
 import androidx.compose.ui.graphics.Color

@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/data/local/database/HeroEntity.kt
 package com.mlbb.assistant.data.local.database
 
 import androidx.room.Entity

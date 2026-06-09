@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/domain/scoring/DraftScorer.kt
 package com.mlbb.assistant.domain.scoring
 
 import com.mlbb.assistant.domain.model.Hero

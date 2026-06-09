@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/data/local/database/HeroDao.kt
 package com.mlbb.assistant.data.local.database
 
 import androidx.room.Dao

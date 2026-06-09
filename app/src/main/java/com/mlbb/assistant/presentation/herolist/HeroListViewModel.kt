@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/herolist/HeroListViewModel.kt
 package com.mlbb.assistant.presentation.herolist
 
 import androidx.lifecycle.ViewModel

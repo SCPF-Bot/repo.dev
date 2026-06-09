@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/overlay/OverlayPermissionActivity.kt
 package com.mlbb.assistant.presentation.overlay
 
 import android.content.Intent

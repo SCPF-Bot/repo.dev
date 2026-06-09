@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/draft/DraftState.kt
 package com.mlbb.assistant.presentation.draft
 
 import com.mlbb.assistant.domain.model.Hero

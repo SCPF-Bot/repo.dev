@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/utils/Extensions.kt
 package com.mlbb.assistant.utils
 
 import android.widget.Toast

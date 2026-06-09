@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/main/MainActivity.kt
 package com.mlbb.assistant.presentation.main
 
 import android.os.Bundle

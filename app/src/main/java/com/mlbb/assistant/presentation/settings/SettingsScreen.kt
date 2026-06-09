@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/settings/SettingsScreen.kt
 package com.mlbb.assistant.presentation.settings
 
 import androidx.compose.foundation.layout.Column

@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/utils/JsonParser.kt
 package com.mlbb.assistant.utils
 
 import android.content.Context

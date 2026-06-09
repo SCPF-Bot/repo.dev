@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/presentation/draft/components/HeroChip.kt
 package com.mlbb.assistant.presentation.draft.components
 
 import androidx.compose.foundation.layout.padding

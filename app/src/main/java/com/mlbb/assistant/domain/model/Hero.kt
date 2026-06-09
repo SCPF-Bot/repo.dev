@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/domain/model/Hero.kt
 package com.mlbb.assistant.domain.model
 
 data class Hero(

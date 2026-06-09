@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/mlbb/assistant/data/remote/dto/MetaSnapshotDto.kt
 package com.mlbb.assistant.data.remote.dto
 
 data class MetaSnapshotDto(
