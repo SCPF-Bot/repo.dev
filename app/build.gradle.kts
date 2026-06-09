@@ -1,8 +1,9 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp")
-    id("com.google.dagger.hilt.android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -37,9 +38,6 @@ android {
     }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.6.0"
     }
 }
 
@@ -83,6 +81,9 @@ dependencies {
 
     // WorkManager
     implementation(libs.work.runtime.ktx)
+
+    // SavedState (needed for ComposeView in Service)
+    implementation(libs.androidx.savedstate.ktx)
 
     // Testing
     testImplementation("junit:junit:4.13.2")

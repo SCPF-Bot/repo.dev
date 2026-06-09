@@ -1,11 +1,12 @@
 package com.mlbb.assistant.utils
 
+import android.content.Context
 import android.widget.Toast
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 
-@Composable
-fun ShowToast(message: String) {
-    val context = LocalContext.current
-    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+/**
+ * Shows a short Toast. Call from a coroutine or click handler on the Main dispatcher,
+ * NOT directly inside a @Composable function body (side effects belong in LaunchedEffect).
+ */
+fun Context.showToast(message: String) {
+    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 }

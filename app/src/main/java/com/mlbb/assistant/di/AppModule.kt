@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
-import com.mlbb.assistant.data.local.datastore.PreferencesDataStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -20,7 +19,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providePreferencesDataStore(@ApplicationContext context: Context): PreferencesDataStore {
-        return PreferencesDataStore(context.dataStore)
+    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
+        return context.dataStore
     }
 }

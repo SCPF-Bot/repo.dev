@@ -9,6 +9,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +30,13 @@ fun SettingsScreen(
     var metaWeight by remember { mutableStateOf(state.metaWeight) }
     var counterWeight by remember { mutableStateOf(state.counterWeight) }
     var synergyWeight by remember { mutableStateOf(state.synergyWeight) }
+
+    // Sync local slider state whenever the ViewModel emits updated weights
+    LaunchedEffect(state.metaWeight, state.counterWeight, state.synergyWeight) {
+        metaWeight = state.metaWeight
+        counterWeight = state.counterWeight
+        synergyWeight = state.synergyWeight
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) }

@@ -46,7 +46,9 @@ fun DraftScreen(
         topBar = { TopAppBar(title = { Text("Draft Assistant") }) }
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
         ) {

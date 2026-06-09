@@ -24,9 +24,12 @@ class HeroListViewModel @Inject constructor(
     fun loadHeroes() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
+            // Sync heroes from network (or fall back to bundled JSON)
             syncHeroesUseCase().onFailure { error ->
-                _state.value = _state.value.copy(error = error.message, isLoading = false)
+                // Don't stop loading here — the DB flow below will still emit cached heroes
+                _state.value = _state.value.copy(error = error.message)
             }
+            // Observe the DB regardless of whether sync succeeded
             getHeroesUseCase()
                 .catch { e ->
                     _state.value = _state.value.copy(error = e.message, isLoading = false)

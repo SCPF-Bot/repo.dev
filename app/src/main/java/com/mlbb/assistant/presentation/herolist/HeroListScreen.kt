@@ -3,6 +3,8 @@ package com.mlbb.assistant.presentation.herolist
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -78,7 +80,9 @@ fun HeroCard(hero: com.mlbb.assistant.domain.model.Hero) {
             AsyncImage(
                 model = hero.imageUrl,
                 contentDescription = hero.name,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
             )
             Text(text = hero.name, style = MaterialTheme.typography.titleMedium)
             Text(text = "Role: ${hero.role}", style = MaterialTheme.typography.bodySmall)

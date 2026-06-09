@@ -21,7 +21,7 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "mlbb_database"
-        ).fallbackToDestructiveMigration().build()
+        ).fallbackToDestructiveMigration(dropAllTables = true).build()
     }
 
     @Provides

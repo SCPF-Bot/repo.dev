@@ -29,7 +29,8 @@ class DraftViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            preferencesDataStore.metaWeightFlow.combine(
+            combine(
+                preferencesDataStore.metaWeightFlow,
                 preferencesDataStore.counterWeightFlow,
                 preferencesDataStore.synergyWeightFlow
             ) { meta, counter, synergy ->
