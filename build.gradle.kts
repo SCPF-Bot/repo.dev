@@ -1,8 +1,7 @@
-// Top-level build file. Configuration for all sub-projects/modules lives here.
+// File: build.gradle.kts (project root)
 plugins {
     alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.kotlin.android)      apply false
-    alias(libs.plugins.hilt)                apply false
-    alias(libs.plugins.kotlin.kapt)         apply false
-    alias(libs.plugins.navigation.safeargs) apply false
+    alias(libs.plugins.kotlin.android) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.hilt) apply false
 }
