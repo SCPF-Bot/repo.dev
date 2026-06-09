@@ -1,4 +1,3 @@
-// File: gradlew
 #!/bin/sh
 
 #
