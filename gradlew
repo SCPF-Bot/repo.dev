@@ -164,8 +164,7 @@ if "$cygwin" || "$msys" ; then
             arg=$(cygpath --path --ignore --mixed "$arg")
         fi
         # Roll the args list around exactly as many times as the number of
-        # args, so each arg winds up back at the beginning, then set the position
-        # of the args list in the correct order.
+        # args, so each arg winds up back at the beginning
         set -- "$arg" "$@"
     done
 fi
@@ -183,13 +182,13 @@ set -- \
         "$DEFAULT_JVM_OPTS" \
         "$JAVA_OPTS" \
         "$GRADLE_OPTS" \
-        "--add-opens=java.base/java.io=ALL-UNNAMED" \
-        "--add-opens=java.base/java.lang=ALL-UNNAMED" \
-        "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED" \
-        "--add-opens=java.base/java.util=ALL-UNNAMED" \
-        "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED" \
-        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
-        "--add-opens=java.base/sun.security.util=ALL-UNNAMED" \
+        "\"--add-opens=java.base/java.io=ALL-UNNAMED\"" \
+        "\"--add-opens=java.base/java.lang=ALL-UNNAMED\"" \
+        "\"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED\"" \
+        "\"--add-opens=java.base/java.util=ALL-UNNAMED\"" \
+        "\"--add-opens=java.base/java.util.concurrent=ALL-UNNAMED\"" \
+        "\"--add-opens=java.base/sun.nio.ch=ALL-UNNAMED\"" \
+        "\"--add-opens=java.base/sun.security.util=ALL-UNNAMED\"" \
         "$@"
 
 # Stop when "xargs" is not available.
