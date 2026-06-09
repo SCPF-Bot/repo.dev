@@ -164,15 +164,9 @@ if "$cygwin" || "$msys" ; then
             arg=$(cygpath --path --ignore --mixed "$arg")
         fi
         # Roll the args list around exactly as many times as the number of
-        # args, so each arg winds up back at the beginning, then quote the whole thing.
-        # shellcheck disable=SC2046
-        # Also, append the arguments list because we join with newlines (to make the script work in zsh).
-        # However, we must normalize the IFS so we don't split the arguments on newlines.
-        IFS=" "
-        set -- $arg
-        IFS=$OLDIFS
-        # Save the arguments for later
-        args="$args \"$arg\""
+        # args, so each arg winds up back at the beginning, then set the position
+        # of the args list in the correct order.
+        set -- "$arg" "$@"
     done
 fi
 
@@ -186,7 +180,17 @@ set -- \
         "-Dorg.gradle.appname=$APP_BASE_NAME" \
         -classpath "\"$CLASSPATH\"" \
         org.gradle.wrapper.GradleWrapperMain \
-        "$args"
+        "$DEFAULT_JVM_OPTS" \
+        "$JAVA_OPTS" \
+        "$GRADLE_OPTS" \
+        "--add-opens=java.base/java.io=ALL-UNNAMED" \
+        "--add-opens=java.base/java.lang=ALL-UNNAMED" \
+        "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED" \
+        "--add-opens=java.base/java.util=ALL-UNNAMED" \
+        "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED" \
+        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
+        "--add-opens=java.base/sun.security.util=ALL-UNNAMED" \
+        "$@"
 
 # Stop when "xargs" is not available.
 if ! command -v xargs >/dev/null 2>&1
@@ -196,23 +200,17 @@ fi
 
 # Use "xargs" to parse quoted args, similar to how GNU java handles them.
 # Use the entire environment as arguments to xargs.
-# shellcheck disable=SC2034
-GREP_OPTIONS=''
-xargs_cmd="xargs -0 -r printf -- 2>/dev/null"
 IFS=" "
 gradle_cmd=""
 for arg in "$@" ; do
-    # In theory, we could stop after the first non-option argument, but for
-    # simplicity, we just pass all arguments.
-    gradle_cmd="$gradle_cmd $arg"
+    gradle_cmd="$gradle_cmd \"$arg\""
 done
 
 # Use xargs to break apart the arguments into a single line of arguments,
 # preserving quotes. We must break the arguments into a single line because
 # the JVM will otherwise not handle them correctly.
-# shellcheck disable=SC2002
 # shellcheck disable=SC2086
-parsed_args=$(printf "%s\n" "$gradle_cmd" | xargs_cmd)
+parsed_args=$(printf "%s\n" "$gradle_cmd" | xargs -0 printf "%s\n")
 
 # Execute the command
 exec $JAVACMD $parsed_args
