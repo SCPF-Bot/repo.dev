@@ -16,14 +16,12 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        return Room.databaseBuilder(
-            context,
-            AppDatabase::class.java,
-            "mlbb_database"
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
-    }
+    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
+        Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_database")
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
 
     @Provides
+    @Singleton
     fun provideHeroDao(database: AppDatabase) = database.heroDao()
 }

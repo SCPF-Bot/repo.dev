@@ -2,11 +2,11 @@ package com.mlbb.assistant.presentation.overlay
 
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,26 +19,38 @@ import androidx.compose.ui.unit.dp
 import com.mlbb.assistant.presentation.common.theme.MLBBAssistantTheme
 
 class OverlayPermissionActivity : ComponentActivity() {
+
+    // Receives result when user returns from the system overlay settings screen
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        // User returned — check if permission was granted
+        if (Settings.canDrawOverlays(this)) {
+            startOverlayService()
+        }
+        // else: stay on screen so user can try again or dismiss
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // If permission already granted on launch, go straight to service
+        if (Settings.canDrawOverlays(this)) {
+            startOverlayService()
+            return
+        }
         setContent {
             MLBBAssistantTheme {
-                OverlayPermissionScreen(
-                    onRequestPermission = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            if (!Settings.canDrawOverlays(this)) {
-                                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-                                startActivity(intent)
-                            } else {
-                                startOverlayService()
-                            }
-                        } else {
-                            startOverlayService()
-                        }
-                    }
-                )
+                OverlayPermissionScreen(onRequestPermission = ::requestOverlayPermission)
             }
         }
+    }
+
+    private fun requestOverlayPermission() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName")
+        )
+        overlayPermissionLauncher.launch(intent)
     }
 
     private fun startOverlayService() {
@@ -50,7 +62,12 @@ class OverlayPermissionActivity : ComponentActivity() {
 @Composable
 fun OverlayPermissionScreen(onRequestPermission: () -> Unit) {
     Scaffold { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+        ) {
             Text("Overlay Permission Required")
             Text("To show draft suggestions on top of MLBB, grant overlay permission.")
             Button(

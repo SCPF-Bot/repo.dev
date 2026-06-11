@@ -1,6 +1,7 @@
 package com.mlbb.assistant.di
 
 import com.google.gson.GsonBuilder
+import com.mlbb.assistant.BuildConfig
 import com.mlbb.assistant.data.remote.api.MetaApi
 import dagger.Module
 import dagger.Provides
@@ -22,14 +23,17 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
-        }
-        return OkHttpClient.Builder()
-            .addInterceptor(logging)
+        val builder = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
-            .build()
+            .writeTimeout(30, TimeUnit.SECONDS)
+        if (BuildConfig.DEBUG) {
+            val logging = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BASIC
+            }
+            builder.addInterceptor(logging)
+        }
+        return builder.build()
     }
 
     @Provides
@@ -38,13 +42,12 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient, gson: com.google.gson.Gson): Retrofit {
-        return Retrofit.Builder()
+    fun provideRetrofit(okHttpClient: OkHttpClient, gson: com.google.gson.Gson): Retrofit =
+        Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
-    }
 
     @Provides
     @Singleton

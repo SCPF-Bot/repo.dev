@@ -38,6 +38,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -79,9 +80,6 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
-    // WorkManager
-    implementation(libs.work.runtime.ktx)
-
     // SavedState (needed for ComposeView in Service)
     implementation(libs.androidx.savedstate.ktx)
 
@@ -91,6 +89,3 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }
 
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-}

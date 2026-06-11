@@ -1,7 +1,10 @@
 package com.mlbb.assistant.presentation.settings
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -16,22 +19,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    navController: NavController,
-    viewModel: SettingsViewModel = hiltViewModel()
-) {
+fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     var metaWeight by remember { mutableStateOf(state.metaWeight) }
     var counterWeight by remember { mutableStateOf(state.counterWeight) }
     var synergyWeight by remember { mutableStateOf(state.synergyWeight) }
 
-    // Sync local slider state whenever the ViewModel emits updated weights
     LaunchedEffect(state.metaWeight, state.counterWeight, state.synergyWeight) {
         metaWeight = state.metaWeight
         counterWeight = state.counterWeight
@@ -41,38 +41,48 @@ fun SettingsScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) }
     ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues).padding(16.dp)) {
-            Text("Meta Weight: ${String.format("%.2f", metaWeight)}")
+        // verticalScroll prevents content being clipped on small screens
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // steps = 9 → 11 positions: 0.0, 0.1, … 1.0
+            Text("Meta Weight: ${String.format(Locale.US, "%.2f", metaWeight)}")
             Slider(
                 value = metaWeight.toFloat(),
                 onValueChange = { metaWeight = it.toDouble() },
                 valueRange = 0f..1f,
-                steps = 10
+                steps = 9
             )
-            Text("Counter Weight: ${String.format("%.2f", counterWeight)}")
+
+            Text("Counter Weight: ${String.format(Locale.US, "%.2f", counterWeight)}")
             Slider(
                 value = counterWeight.toFloat(),
                 onValueChange = { counterWeight = it.toDouble() },
                 valueRange = 0f..1f,
-                steps = 10
+                steps = 9
             )
-            Text("Synergy Weight: ${String.format("%.2f", synergyWeight)}")
+
+            Text("Synergy Weight: ${String.format(Locale.US, "%.2f", synergyWeight)}")
             Slider(
                 value = synergyWeight.toFloat(),
                 onValueChange = { synergyWeight = it.toDouble() },
                 valueRange = 0f..1f,
-                steps = 10
+                steps = 9
             )
+
             Button(
-                onClick = {
-                    viewModel.saveWeights(metaWeight, counterWeight, synergyWeight)
-                },
+                onClick = { viewModel.saveWeights(metaWeight, counterWeight, synergyWeight) },
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text("Save")
             }
+
             if (state.isSaved) {
-                Text("Settings saved!", color = androidx.compose.ui.graphics.Color.Green)
+                Text("Settings saved!", color = Color.Green)
             }
         }
     }

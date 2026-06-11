@@ -1,15 +1,14 @@
 package com.mlbb.assistant.presentation.overlay
 
-import android.app.*
-import android.content.Context
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
-import android.view.View
 import android.view.WindowManager
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
@@ -39,19 +38,24 @@ import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
 import com.mlbb.assistant.domain.usecase.GetSuggestionsUseCase
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
-    @Inject
-    lateinit var getHeroesUseCase: GetHeroesUseCase
+    @Inject lateinit var getHeroesUseCase: GetHeroesUseCase
+    @Inject lateinit var getSuggestionsUseCase: GetSuggestionsUseCase
 
-    @Inject
-    lateinit var getSuggestionsUseCase: GetSuggestionsUseCase
-
-    // --- Lifecycle + SavedState owners required by ComposeView in a Service ---
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
 
@@ -61,22 +65,23 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private lateinit var windowManager: WindowManager
     private lateinit var overlayView: ComposeView
 
-    // Single coroutine scope tied to the service; cancelled in onDestroy
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    private var allHeroes: List<Hero> = emptyList()
+    private val heroListRef = AtomicReference<List<Hero>>(emptyList())
     private var lastSuggestion: Pair<Hero, Double>? by mutableStateOf(null)
 
     override fun onCreate() {
-        // Initialise SavedState + Lifecycle before super.onCreate()
         savedStateRegistryController.performAttach()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
-
         super.onCreate()
+
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+
+        // startForeground first — must be called ASAP to avoid StopForegroundException on API 31+
+        startServiceForeground()
+
         createOverlayView()
-        startForegroundService()
 
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
@@ -84,9 +89,24 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         startUpdatingSuggestions()
     }
 
+    private fun startServiceForeground() {
+        val channelId = "overlay_channel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId, "MLBB Overlay", NotificationManager.IMPORTANCE_LOW
+            )
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("MLBB Assistant")
+            .setContentText("Overlay is active")
+            .setSmallIcon(android.R.drawable.ic_menu_edit)
+            .build()
+        startForeground(1, notification)
+    }
+
     private fun createOverlayView() {
         overlayView = ComposeView(this).apply {
-            // Wire lifecycle and saved-state owners so Compose can attach
             setViewTreeLifecycleOwner(this@OverlayService)
             setViewTreeSavedStateRegistryOwner(this@OverlayService)
             setContent {
@@ -98,15 +118,13 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 }
             }
         }
-
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE,
+                @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -117,34 +135,14 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         windowManager.addView(overlayView, params)
     }
 
-    private fun startForegroundService() {
-        val channelId = "overlay_channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "MLBB Overlay",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
-        }
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("MLBB Assistant")
-            .setContentText("Overlay is active")
-            .setSmallIcon(android.R.drawable.ic_menu_edit)
-            .build()
-        startForeground(1, notification)
-    }
-
     private fun startUpdatingSuggestions() {
-        // Collect heroes on IO, then periodically refresh suggestion on Main
         serviceScope.launch(Dispatchers.IO) {
             getHeroesUseCase().collect { heroes ->
-                allHeroes = heroes
+                heroListRef.set(heroes)
                 updateSuggestion()
             }
         }
-        // Periodic refresh every 2 s — entirely inside a coroutine, not blocking
+        // Periodic refresh — scoring runs on Default to avoid blocking Main
         serviceScope.launch {
             while (isActive) {
                 delay(2000)
@@ -154,17 +152,20 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     private suspend fun updateSuggestion() {
-        if (allHeroes.isEmpty()) return
-        val suggestions = getSuggestionsUseCase(
-            allHeroes = allHeroes,
-            allies = emptyList(),
-            enemies = emptyList(),
-            weights = ScoreWeights(0.5, 0.3, 0.2),
-            bannedIds = emptyList()
-        )
-        // Update Compose state on Main thread — triggers recomposition automatically
+        val heroes = heroListRef.get()
+        if (heroes.isEmpty()) return
+        // Compute on Default dispatcher — potentially expensive with large hero lists
+        val suggestion = withContext(Dispatchers.Default) {
+            getSuggestionsUseCase(
+                allHeroes = heroes,
+                allies = emptyList(),
+                enemies = emptyList(),
+                weights = ScoreWeights(0.5, 0.3, 0.2),
+                bannedIds = emptyList()
+            ).firstOrNull()
+        }
         withContext(Dispatchers.Main) {
-            lastSuggestion = suggestions.firstOrNull()
+            lastSuggestion = suggestion
         }
     }
 
@@ -172,11 +173,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-
         serviceScope.cancel()
-
+        // Guard against removeView on a view that was never successfully added
         if (::overlayView.isInitialized) {
-            windowManager.removeView(overlayView)
+            try { windowManager.removeView(overlayView) } catch (_: IllegalArgumentException) { }
         }
         super.onDestroy()
     }
@@ -194,7 +194,7 @@ fun SuggestionOverlayContent(hero: Hero?, score: Double?) {
             if (hero != null) {
                 Text(text = "Top Pick: ${hero.name}", color = Color.White, fontSize = 16.sp)
                 Text(
-                    text = "Score: ${String.format("%.2f", score ?: 0.0)}",
+                    text = "Score: ${String.format(Locale.US, "%.2f", score ?: 0.0)}",
                     color = Color.White,
                     fontSize = 12.sp
                 )

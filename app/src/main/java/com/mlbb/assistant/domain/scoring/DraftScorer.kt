@@ -15,12 +15,16 @@ class DraftScorer @Inject constructor() {
     ): Double {
         val metaScore = hero.winRate
 
+        // Convert to Set for O(1) lookup instead of O(n) List.contains per hero
+        val heroCounterSet = hero.counters.toHashSet()
+        val heroSynergySet = hero.synergies.toHashSet()
+
         val counterScore = if (enemies.isNotEmpty()) {
-            enemies.count { enemy -> hero.counters.contains(enemy.id) }.toDouble() / enemies.size
+            enemies.count { enemy -> heroCounterSet.contains(enemy.id) }.toDouble() / enemies.size
         } else 0.0
 
         val synergyScore = if (allies.isNotEmpty()) {
-            allies.count { ally -> hero.synergies.contains(ally.id) }.toDouble() / allies.size
+            allies.count { ally -> heroSynergySet.contains(ally.id) }.toDouble() / allies.size
         } else 0.0
 
         return (weights.metaWeight * metaScore) +

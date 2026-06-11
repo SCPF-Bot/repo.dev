@@ -15,8 +15,13 @@ class GetSuggestionsUseCase @Inject constructor(
         weights: ScoreWeights,
         bannedIds: List<Int> = emptyList()
     ): List<Pair<Hero, Double>> {
+        // Use Set for O(1) banned-id lookup instead of O(n) per hero
+        val bannedSet = bannedIds.toHashSet()
+        val allyIds = allies.map { it.id }.toHashSet()
+        val enemyIds = enemies.map { it.id }.toHashSet()
+
         val availableHeroes = allHeroes.filter { hero ->
-            !allies.contains(hero) && !enemies.contains(hero) && hero.id !in bannedIds
+            hero.id !in allyIds && hero.id !in enemyIds && hero.id !in bannedSet
         }
         return availableHeroes.map { hero ->
             hero to scorer.computeScore(hero, allies, enemies, weights)

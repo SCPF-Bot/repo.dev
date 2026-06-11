@@ -9,9 +9,7 @@ import javax.inject.Inject
 
 class ToggleOverlayUseCase @Inject constructor() {
 
-    fun isOverlayEnabled(context: Context): Boolean {
-        return Settings.canDrawOverlays(context)
-    }
+    fun isOverlayEnabled(context: Context): Boolean = Settings.canDrawOverlays(context)
 
     fun startOverlay(context: Context) {
         if (isOverlayEnabled(context)) {
@@ -23,7 +21,6 @@ class ToggleOverlayUseCase @Inject constructor() {
         context.stopService(Intent(context, OverlayService::class.java))
     }
 
-    fun getOverlayPermissionIntent(): Intent {
-        return Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:com.mlbb.assistant"))
-    }
+    fun getOverlayPermissionIntent(context: Context): Intent =
+        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
 }

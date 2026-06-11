@@ -30,6 +30,7 @@
 
         <activity
             android:name=".presentation.overlay.OverlayPermissionActivity"
+            android:exported="false"
             android:theme="@style/Theme.MLBBAssistant" />
 
         <service

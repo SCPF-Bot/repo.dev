@@ -8,9 +8,11 @@ import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
 import com.mlbb.assistant.domain.usecase.GetSuggestionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,6 +28,7 @@ class DraftViewModel @Inject constructor(
 
     private var allHeroes: List<Hero> = emptyList()
     private var currentWeights = ScoreWeights(0.5, 0.3, 0.2)
+    private var heroCollectJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -43,67 +46,74 @@ class DraftViewModel @Inject constructor(
     }
 
     fun loadHeroes() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+        heroCollectJob?.cancel()
+        heroCollectJob = viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
             getHeroesUseCase().collect { heroes ->
                 allHeroes = heroes
-                _state.value = _state.value.copy(isLoading = false)
+                _state.update { it.copy(isLoading = false) }
                 updateSuggestions()
             }
         }
     }
 
     fun addAlly(name: String) {
-        val hero = findHeroByName(name)
-        if (hero != null && !_state.value.allies.contains(hero)) {
-            _state.value = _state.value.copy(allies = _state.value.allies + hero)
-            updateSuggestions()
-        }
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        val hero = findHeroByName(trimmed) ?: return
+        val current = _state.value
+        if (current.allies.any { it.id == hero.id } || current.enemies.any { it.id == hero.id }) return
+        _state.update { it.copy(allies = it.allies + hero) }
+        updateSuggestions()
     }
 
     fun removeAlly(hero: Hero) {
-        _state.value = _state.value.copy(allies = _state.value.allies - hero)
+        _state.update { it.copy(allies = it.allies.filter { a -> a.id != hero.id }) }
         updateSuggestions()
     }
 
     fun addEnemy(name: String) {
-        val hero = findHeroByName(name)
-        if (hero != null && !_state.value.enemies.contains(hero)) {
-            _state.value = _state.value.copy(enemies = _state.value.enemies + hero)
-            updateSuggestions()
-        }
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        val hero = findHeroByName(trimmed) ?: return
+        val current = _state.value
+        if (current.enemies.any { it.id == hero.id } || current.allies.any { it.id == hero.id }) return
+        _state.update { it.copy(enemies = it.enemies + hero) }
+        updateSuggestions()
     }
 
     fun removeEnemy(hero: Hero) {
-        _state.value = _state.value.copy(enemies = _state.value.enemies - hero)
+        _state.update { it.copy(enemies = it.enemies.filter { e -> e.id != hero.id }) }
         updateSuggestions()
     }
 
     fun addBan(name: String) {
-        val hero = findHeroByName(name)
-        if (hero != null && !_state.value.bans.contains(hero)) {
-            _state.value = _state.value.copy(bans = _state.value.bans + hero)
-            updateSuggestions()
-        }
-    }
-
-    fun removeBan(hero: Hero) {
-        _state.value = _state.value.copy(bans = _state.value.bans - hero)
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        val hero = findHeroByName(trimmed) ?: return
+        val current = _state.value
+        if (current.bans.any { it.id == hero.id }) return
+        _state.update { it.copy(bans = it.bans + hero) }
         updateSuggestions()
     }
 
-    private fun findHeroByName(name: String): Hero? {
-        return allHeroes.find { it.name.equals(name, ignoreCase = true) }
+    fun removeBan(hero: Hero) {
+        _state.update { it.copy(bans = it.bans.filter { b -> b.id != hero.id }) }
+        updateSuggestions()
     }
 
+    private fun findHeroByName(name: String): Hero? =
+        allHeroes.find { it.name.equals(name, ignoreCase = true) }
+
     private fun updateSuggestions() {
+        val s = _state.value
         val suggestions = getSuggestionsUseCase(
             allHeroes = allHeroes,
-            allies = _state.value.allies,
-            enemies = _state.value.enemies,
+            allies = s.allies,
+            enemies = s.enemies,
             weights = currentWeights,
-            bannedIds = _state.value.bans.map { it.id }
+            bannedIds = s.bans.map { it.id }
         )
-        _state.value = _state.value.copy(suggestions = suggestions)
+        _state.update { it.copy(suggestions = suggestions) }
     }
 }

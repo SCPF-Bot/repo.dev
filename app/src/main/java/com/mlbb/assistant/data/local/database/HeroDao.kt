@@ -4,19 +4,27 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface HeroDao {
+abstract class HeroDao {
+
     @Query("SELECT * FROM heroes")
-    fun getAllHeroes(): Flow<List<HeroEntity>>
+    abstract fun getAllHeroes(): Flow<List<HeroEntity>>
 
     @Query("SELECT * FROM heroes WHERE id = :heroId")
-    suspend fun getHeroById(heroId: Int): HeroEntity?
+    abstract suspend fun getHeroById(heroId: Int): HeroEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(heroes: List<HeroEntity>)
+    abstract suspend fun insertAll(heroes: List<HeroEntity>)
 
     @Query("DELETE FROM heroes")
-    suspend fun deleteAll()
+    abstract suspend fun deleteAll()
+
+    @Transaction
+    open suspend fun replaceAll(heroes: List<HeroEntity>) {
+        deleteAll()
+        insertAll(heroes)
+    }
 }

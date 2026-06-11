@@ -16,23 +16,25 @@ import javax.inject.Singleton
 class NetworkMonitor @Inject constructor(@ApplicationContext private val context: Context) {
 
     val isConnected: Flow<Boolean> = callbackFlow {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
         val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                trySend(true)
-            }
-            override fun onLost(network: Network) {
-                trySend(false)
-            }
+            override fun onAvailable(network: Network) { trySend(true) }
+            override fun onLost(network: Network) { trySend(false) }
         }
-        val networkRequest = NetworkRequest.Builder()
+
+        val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-        connectivityManager.registerNetworkCallback(networkRequest, callback)
-        val isCurrentlyConnected = connectivityManager.activeNetwork != null
+        cm.registerNetworkCallback(request, callback)
+
+        // Emit correct initial state using NetworkCapabilities, not just activeNetwork != null
+        val isCurrentlyConnected = cm.activeNetwork?.let { network ->
+            cm.getNetworkCapabilities(network)
+                ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        } ?: false
         trySend(isCurrentlyConnected)
-        awaitClose {
-            connectivityManager.unregisterNetworkCallback(callback)
-        }
+
+        awaitClose { cm.unregisterNetworkCallback(callback) }
     }
 }
