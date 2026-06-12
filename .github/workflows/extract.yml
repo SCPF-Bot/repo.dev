@@ -24,19 +24,18 @@ jobs:
           # - .git folder (required for commit/push)
           # - any .7z files
           find . -mindepth 1 -maxdepth 1 \
-            ! -name '.github' \
-            ! -name '.git' \
-            ! -name '*.7z' \
-            -exec rm -rf {} +
+          ! -name '.github' \
+          ! -name '.git' \
+          ! -name '*.7z' \
+          -exec rm -rf {} +
         working-directory: ${{ github.workspace }}
 
       - name: Extract all .7z archives
         run: |
+          shopt -s nullglob   # Make loop skip if no .7z files
           for archive in *.7z; do
-            if [ -f "$archive" ]; then
-              echo "Extracting $archive"
-              7z x -y "$archive"   # -y auto‑yes to overwrite files
-            fi
+            echo "Extracting $archive"
+            7z x -y "$archive"   # -y auto‑yes to overwrite files
           done
         working-directory: ${{ github.workspace }}
 
@@ -44,7 +43,7 @@ jobs:
         run: rm -f *.7z
         working-directory: ${{ github.workspace }}
 
-      - name: Commit and push changes to main branch
+      - name: Commit and push changes to the current branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -53,5 +52,6 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Extract 7z archive and cleanup [skip ci]"
-            git push origin main
+            # Push to the same branch that triggered the workflow
+            git push origin HEAD:${{ github.ref_name }}
           fi
