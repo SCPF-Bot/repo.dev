@@ -45,6 +45,20 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // jspecify (pulled in by OkHttp 5.x) duplicates META-INF/versions/9/OSGI-INF/MANIFEST.MF.
+    // pickFirsts wins over excludes at the mergeJavaResource phase in AGP 8.10+.
+    packaging {
+        resources {
+            pickFirsts += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
+}
+
+// jspecify is a compile-time annotation library; its OSGI manifest conflicts with
+// OkHttp 5.x during APK packaging. Evict it completely – no runtime impact.
+configurations.all {
+    exclude(group = "org.jspecify", module = "jspecify")
 }
 
 dependencies {
