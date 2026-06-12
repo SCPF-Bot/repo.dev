@@ -23,11 +23,11 @@ jobs:
           # - .github folder
           # - .git folder (required for commit/push)
           # - any .7z files
-          find . -mindepth 1 -maxdepth 1 \
-            ! -name '.github' \
-            ! -name '.git' \
-            ! -name '*.7z' \
-            -exec rm -rf {} +
+          # find . -mindepth 1 -maxdepth 1 \
+            # ! -name '.github' \
+            # ! -name '.git' \
+            # ! -name '*.7z' \
+            # -exec rm -rf {} +
         working-directory: ${{ github.workspace }}
 
       - name: Extract all .7z archives
