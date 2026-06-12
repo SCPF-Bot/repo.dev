@@ -29,13 +29,18 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
         jvmTarget = "17"
+        // Suppress metadata version check to avoid KSP/Room incompatibility errors
+        freeCompilerArgs += "-Xskip-metadata-version-check"
     }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -85,6 +90,16 @@ dependencies {
 
     // Material Components – provides the missing theme
     implementation("com.google.android.material:material:1.12.0")
+
+    // Force consistent Kotlin stdlib version
+    constraints {
+        implementation("org.jetbrains.kotlin:kotlin-stdlib") {
+            version { strictly(libs.versions.kotlin.get()) }
+        }
+        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8") {
+            version { strictly(libs.versions.kotlin.get()) }
+        }
+    }
 
     // Testing
     testImplementation("junit:junit:4.13.2")
