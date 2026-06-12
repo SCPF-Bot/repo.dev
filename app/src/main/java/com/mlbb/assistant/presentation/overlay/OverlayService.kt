@@ -71,14 +71,16 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var lastSuggestion: Pair<Hero, Double>? by mutableStateOf(null)
 
     override fun onCreate() {
+        // SavedStateRegistryController must be attached and restored before super.onCreate()
         savedStateRegistryController.performAttach()
         savedStateRegistryController.performRestore(null)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         super.onCreate()
+        // Lifecycle events dispatched after super.onCreate() per LifecycleOwner contract
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
-        // startForeground first — must be called ASAP to avoid StopForegroundException on API 31+
+        // startForeground must be called ASAP on API 31+ to avoid ANR/StopForegroundException
         startServiceForeground()
 
         createOverlayView()

@@ -8,6 +8,7 @@ import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
 import com.mlbb.assistant.domain.usecase.GetSuggestionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +30,7 @@ class DraftViewModel @Inject constructor(
     private var allHeroes: List<Hero> = emptyList()
     private var currentWeights = ScoreWeights(0.5, 0.3, 0.2)
     private var heroCollectJob: Job? = null
+    private var suggestionsJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -105,15 +107,22 @@ class DraftViewModel @Inject constructor(
     private fun findHeroByName(name: String): Hero? =
         allHeroes.find { it.name.equals(name, ignoreCase = true) }
 
+    /**
+     * Computes draft suggestions on [Dispatchers.Default] to avoid blocking the Main thread.
+     * Cancels any in-flight computation so only the latest state is used.
+     */
     private fun updateSuggestions() {
-        val s = _state.value
-        val suggestions = getSuggestionsUseCase(
-            allHeroes = allHeroes,
-            allies = s.allies,
-            enemies = s.enemies,
-            weights = currentWeights,
-            bannedIds = s.bans.map { it.id }
-        )
-        _state.update { it.copy(suggestions = suggestions) }
+        suggestionsJob?.cancel()
+        suggestionsJob = viewModelScope.launch(Dispatchers.Default) {
+            val s = _state.value
+            val suggestions = getSuggestionsUseCase(
+                allHeroes = allHeroes,
+                allies = s.allies,
+                enemies = s.enemies,
+                weights = currentWeights,
+                bannedIds = s.bans.map { it.id }
+            )
+            _state.update { it.copy(suggestions = suggestions) }
+        }
     }
 }

@@ -22,8 +22,8 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)   // super first — required by Android lifecycle contract
         enableEdgeToEdge()
-        super.onCreate(savedInstanceState)
         setContent {
             MLBBAssistantTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
