@@ -5,11 +5,15 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [HeroEntity::class],
-    version = 1,
+    entities = [
+        HeroEntity::class,
+        DraftSessionEntity::class
+    ],
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun heroDao(): HeroDao
+    abstract fun draftSessionDao(): DraftSessionDao
 }

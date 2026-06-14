@@ -1,26 +1,16 @@
 package com.mlbb.assistant.domain.usecase
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
 import com.mlbb.assistant.presentation.overlay.OverlayService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
-class ToggleOverlayUseCase @Inject constructor() {
-
-    fun isOverlayEnabled(context: Context): Boolean = Settings.canDrawOverlays(context)
-
-    fun startOverlay(context: Context) {
-        if (isOverlayEnabled(context)) {
-            context.startForegroundService(Intent(context, OverlayService::class.java))
-        }
+class ToggleOverlayUseCase @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    operator fun invoke(start: Boolean) {
+        if (!Settings.canDrawOverlays(context)) return
+        if (start) OverlayService.start(context) else OverlayService.stop(context)
     }
-
-    fun stopOverlay(context: Context) {
-        context.stopService(Intent(context, OverlayService::class.java))
-    }
-
-    fun getOverlayPermissionIntent(context: Context): Intent =
-        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
 }

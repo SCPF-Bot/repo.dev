@@ -1,167 +1,75 @@
 package com.mlbb.assistant.presentation.draft
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.mlbb.assistant.presentation.common.components.LoadingSpinner
-import com.mlbb.assistant.presentation.common.components.MLBBTextField
-import com.mlbb.assistant.presentation.draft.components.HeroChip
-import com.mlbb.assistant.presentation.draft.components.SuggestionCard
+import com.mlbb.assistant.presentation.common.components.HeroPortrait
+import com.mlbb.assistant.presentation.common.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DraftScreen(viewModel: DraftViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
 
-    // rememberSaveable survives configuration changes
-    var allyInput by rememberSaveable { mutableStateOf("") }
-    var enemyInput by rememberSaveable { mutableStateOf("") }
-    var banInput by rememberSaveable { mutableStateOf("") }
+    // DraftScreen is now a lightweight fallback/standalone view.
+    // The primary draft UI is the overlay (DraftPanel + BanPhaseContent + PickPhaseContent).
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(SurfaceDark)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("⚔️ DRAFT PLANNER", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text(
+            "Use the floating overlay during MLBB draft for the full experience. " +
+            "This view shows the current session state.",
+            color = TextSecondary, fontSize = 12.sp
+        )
 
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(Unit) { viewModel.loadHeroes() }
-
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Draft Assistant") }) },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                MLBBTextField(
-                    value = allyInput,
-                    onValueChange = { allyInput = it },
-                    label = "Add Ally Hero (name)",
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Button(
-                    onClick = {
-                        if (allyInput.isNotBlank()) {
-                            viewModel.addAlly(allyInput)
-                            allyInput = ""
-                        }
-                    },
-                    enabled = allyInput.isNotBlank()
-                ) { Text("Add Ally") }
+        if (state.allies.isNotEmpty()) {
+            Text("YOUR TEAM", color = MLBBTeal, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                state.allies.take(5).forEach { hero ->
+                    HeroPortrait(hero = hero, size = 48.dp, showName = true)
+                }
             }
+        }
 
-            item {
-                MLBBTextField(
-                    value = enemyInput,
-                    onValueChange = { enemyInput = it },
-                    label = "Add Enemy Hero (name)",
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Button(
-                    onClick = {
-                        if (enemyInput.isNotBlank()) {
-                            viewModel.addEnemy(enemyInput)
-                            enemyInput = ""
-                        }
-                    },
-                    enabled = enemyInput.isNotBlank()
-                ) { Text("Add Enemy") }
+        if (state.enemies.isNotEmpty()) {
+            Text("ENEMY TEAM", color = ErrorRed, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                state.enemies.take(5).forEach { hero ->
+                    HeroPortrait(hero = hero, size = 48.dp, showName = true)
+                }
             }
+        }
 
-            item {
-                MLBBTextField(
-                    value = banInput,
-                    onValueChange = { banInput = it },
-                    label = "Ban Hero (name)",
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Button(
-                    onClick = {
-                        if (banInput.isNotBlank()) {
-                            viewModel.addBan(banInput)
-                            banInput = ""
+        if (state.suggestions.isNotEmpty()) {
+            Text("TOP SUGGESTIONS", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(state.suggestions.take(5)) { (hero, score) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(SurfaceCard, androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        HeroPortrait(hero = hero, size = 40.dp)
+                        Column {
+                            Text(hero.name, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Score: %.0f%%".format(score * 100), color = TextSecondary, fontSize = 11.sp)
                         }
-                    },
-                    enabled = banInput.isNotBlank()
-                ) { Text("Add Ban") }
-            }
-
-            item {
-                Text("Allies:", modifier = Modifier.padding(top = 8.dp))
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    state.allies.forEach { ally ->
-                        HeroChip(hero = ally, onRemove = { viewModel.removeAlly(ally) })
                     }
                 }
-            }
-
-            item {
-                Text("Enemies:")
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    state.enemies.forEach { enemy ->
-                        HeroChip(hero = enemy, onRemove = { viewModel.removeEnemy(enemy) })
-                    }
-                }
-            }
-
-            item {
-                Text("Bans:")
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    state.bans.forEach { ban ->
-                        HeroChip(hero = ban, onRemove = { viewModel.removeBan(ban) })
-                    }
-                }
-            }
-
-            if (state.isLoading) {
-                item { LoadingSpinner() }
-            } else {
-                item { Text("Top Suggestions:", modifier = Modifier.padding(top = 16.dp)) }
-                items(
-                    items = state.suggestions.take(5),
-                    key = { (hero, _) -> hero.id }
-                ) { (hero, score) ->
-                    SuggestionCard(hero = hero, score = score)
-                }
-            }
-
-            if (state.error != null) {
-                item { Text("Error: ${state.error}", color = Color.Red) }
             }
         }
     }

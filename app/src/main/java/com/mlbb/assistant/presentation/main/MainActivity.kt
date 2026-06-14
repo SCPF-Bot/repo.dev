@@ -1,47 +1,135 @@
 package com.mlbb.assistant.presentation.main
 
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
+import com.mlbb.assistant.data.local.database.DraftSessionDao
+import com.mlbb.assistant.data.repository.HeroRepository
 import com.mlbb.assistant.presentation.common.theme.MLBBAssistantTheme
-import com.mlbb.assistant.presentation.common.utils.Screen
-import com.mlbb.assistant.presentation.draft.DraftScreen
+import com.mlbb.assistant.presentation.common.theme.SurfaceDark
+import com.mlbb.assistant.presentation.herodetail.HeroDetailScreen
 import com.mlbb.assistant.presentation.herolist.HeroListScreen
+import com.mlbb.assistant.presentation.history.DraftHistoryScreen
+import com.mlbb.assistant.presentation.home.HomeScreen
+import com.mlbb.assistant.presentation.metaboard.MetaBoardScreen
+import com.mlbb.assistant.presentation.overlay.OverlayService
 import com.mlbb.assistant.presentation.settings.SettingsScreen
+import com.mlbb.assistant.presentation.welcome.PermissionWizardScreen
+import com.mlbb.assistant.service.ScreenCaptureManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+enum class AppScreen {
+    WIZARD, HOME, HERO_LIST, HERO_DETAIL, META_BOARD, HISTORY, SETTINGS
+}
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var heroRepository: HeroRepository
+    @Inject lateinit var draftSessionDao: DraftSessionDao
+
+    private lateinit var screenCaptureManager: ScreenCaptureManager
+    private val projectionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            screenCaptureManager.startCapture(result.resultCode, result.data!!)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)   // super first — required by Android lifecycle contract
-        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+        screenCaptureManager = ScreenCaptureManager(this)
+
         setContent {
             MLBBAssistantTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    MLBBAppNav()
-                }
+                AppNavHost(
+                    heroRepository       = heroRepository,
+                    draftSessionDao      = draftSessionDao,
+                    onStartOverlay       = { startOverlay() },
+                    onRequestCapture     = { requestScreenCapture() }
+                )
             }
         }
+    }
+
+    private fun startOverlay() {
+        if (Settings.canDrawOverlays(this)) {
+            OverlayService.start(this)
+        }
+    }
+
+    private fun requestScreenCapture() {
+        val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        projectionLauncher.launch(mpm.createScreenCaptureIntent())
     }
 }
 
 @Composable
-fun MLBBAppNav(navController: NavHostController = rememberNavController()) {
-    NavHost(
-        navController = navController,
-        startDestination = Screen.HeroList.route
-    ) {
-        composable(Screen.HeroList.route) { HeroListScreen() }
-        composable(Screen.Draft.route) { DraftScreen() }
-        composable(Screen.Settings.route) { SettingsScreen() }
+private fun AppNavHost(
+    heroRepository: HeroRepository,
+    draftSessionDao: DraftSessionDao,
+    onStartOverlay: () -> Unit,
+    onRequestCapture: () -> Unit
+) {
+    var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
+    var selectedHeroId by remember { mutableStateOf<Int?>(null) }
+
+    val heroesState = produceState(initialValue = emptyList<com.mlbb.assistant.domain.model.Hero>()) {
+        heroRepository.getHeroes().collectLatest { value = it.map { e -> e.toDomain() } }
+    }
+    val heroes = heroesState.value
+    val heroMap = remember(heroes) { heroes.associateBy { it.id } }
+
+    val sessionsState = produceState(initialValue = emptyList<com.mlbb.assistant.data.local.database.DraftSessionEntity>()) {
+        draftSessionDao.getRecentSessions().collectLatest { value = it }
+    }
+
+    Box(Modifier.fillMaxSize().background(SurfaceDark)) {
+        when (currentScreen) {
+            AppScreen.WIZARD     -> PermissionWizardScreen(onComplete = { currentScreen = AppScreen.HOME })
+            AppScreen.HOME       -> HomeScreen(
+                onStartDraft   = { onStartOverlay(); currentScreen = AppScreen.HOME },
+                onOpenExplorer = { currentScreen = AppScreen.HERO_LIST },
+                onOpenMeta     = { currentScreen = AppScreen.META_BOARD },
+                onOpenHistory  = { currentScreen = AppScreen.HISTORY },
+                onOpenSettings = { currentScreen = AppScreen.SETTINGS }
+            )
+            AppScreen.HERO_LIST  -> HeroListScreen(onBack = { currentScreen = AppScreen.HOME })
+            AppScreen.HERO_DETAIL -> {
+                val hero = heroMap[selectedHeroId]
+                if (hero != null) {
+                    HeroDetailScreen(
+                        hero          = hero,
+                        relatedHeroes = heroMap,
+                        onBack        = { currentScreen = AppScreen.HERO_LIST }
+                    )
+                } else { currentScreen = AppScreen.HERO_LIST }
+            }
+            AppScreen.META_BOARD -> MetaBoardScreen(
+                heroes       = heroes,
+                onHeroClick  = { h -> selectedHeroId = h.id; currentScreen = AppScreen.HERO_DETAIL },
+                onBack       = { currentScreen = AppScreen.HOME }
+            )
+            AppScreen.HISTORY    -> DraftHistoryScreen(
+                sessions = sessionsState.value,
+                onBack   = { currentScreen = AppScreen.HOME }
+            )
+            AppScreen.SETTINGS   -> SettingsScreen(onBack = { currentScreen = AppScreen.HOME })
+        }
     }
 }

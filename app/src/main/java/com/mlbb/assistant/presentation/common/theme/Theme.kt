@@ -1,32 +1,30 @@
 package com.mlbb.assistant.presentation.common.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary          = MLBBGold,
+    onPrimary        = SurfaceDark,
+    primaryContainer = MLBBGoldDark,
+    secondary        = MLBBTeal,
+    onSecondary      = SurfaceDark,
+    tertiary         = MLBBRed,
+    background       = SurfaceDark,
+    surface          = SurfaceMid,
+    surfaceVariant   = SurfaceCard,
+    onBackground     = TextPrimary,
+    onSurface        = TextPrimary,
+    onSurfaceVariant = TextSecondary,
+    error            = ErrorRed
 )
 
 @Composable
-fun MLBBAssistantTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+fun MLBBAssistantTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
+        colorScheme = DarkColorScheme,
+        typography  = MLBBTypography,
+        content     = content
     )
 }

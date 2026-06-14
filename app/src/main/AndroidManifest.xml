@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ── Permissions ─────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".MLBBApplication"
@@ -15,36 +16,53 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MLBBAssistant"
-        tools:targetApi="31">
-        
+        android:theme="@style/Theme.MLBBAssistant">
+
+        <!-- ── Main Activity ───────────────────────────────────────────────── -->
         <activity
             android:name=".presentation.main.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.MLBBAssistant">
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- ── Overlay Permission Activity ────────────────────────────────── -->
         <activity
             android:name=".presentation.overlay.OverlayPermissionActivity"
             android:exported="false"
             android:theme="@style/Theme.MLBBAssistant" />
 
+        <!-- ── Overlay Service ─────────────────────────────────────────────── -->
         <service
             android:name=".presentation.overlay.OverlayService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="overlay" />
+                android:value="MLBB draft assistant overlay" />
         </service>
 
+        <!-- ── Accessibility Service ───────────────────────────────────────── -->
+        <service
+            android:name=".service.MLBBAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- ── FileProvider (for debug screenshot sharing) ─────────────────── -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
+            android:authorities="${applicationId}.provider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
@@ -53,4 +71,5 @@
         </provider>
 
     </application>
+
 </manifest>

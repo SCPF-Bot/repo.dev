@@ -7,26 +7,22 @@ plugins {
 }
 
 android {
-    namespace = "com.mlbb.assistant"
-    compileSdk = 36
+    namespace   = "com.mlbb.assistant"
+    compileSdk  = 36
 
     defaultConfig {
         applicationId = "com.mlbb.assistant"
-        minSdk = 24
-        targetSdk = 36
-        versionCode = 1
-        versionName = "2.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        minSdk        = 29
+        targetSdk     = 36
+        versionCode   = 2
+        versionName   = "2.0.0"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            isMinifyEnabled   = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
@@ -37,17 +33,15 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        // Suppress metadata version check to avoid KSP/Room incompatibility errors
         freeCompilerArgs += "-Xskip-metadata-version-check"
     }
 
     buildFeatures {
-        compose = true
+        compose     = true
         buildConfig = true
     }
 
-    // jspecify (pulled in by OkHttp 5.x) duplicates META-INF/versions/9/OSGI-INF/MANIFEST.MF.
-    // pickFirsts wins over excludes at the mergeJavaResource phase in AGP 8.10+.
+    // OkHttp 5.x and jspecify both ship META-INF/versions/9/OSGI-INF/MANIFEST.MF
     packaging {
         resources {
             pickFirsts += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
@@ -55,69 +49,50 @@ android {
     }
 }
 
-// jspecify is a compile-time annotation library; its OSGI manifest conflicts with
-// OkHttp 5.x during APK packaging. Evict it completely – no runtime impact.
+// jspecify is a compile-time annotation lib; its OSGI manifest conflicts with OkHttp 5.x
 configurations.all {
     exclude(group = "org.jspecify", module = "jspecify")
 }
 
 dependencies {
+    // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.kotlinx.coroutines.android)
+
+    // Compose
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
-    debugImplementation(libs.compose.ui.tooling)   // Compose Layout Inspector + Studio Preview renderer
     implementation(libs.compose.material3)
-    implementation(libs.compose.navigation)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.compose.animation)
+    implementation(libs.navigation.compose)
+    debugImplementation(libs.compose.ui.tooling)
 
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
-    // Retrofit
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-    implementation(libs.okhttp.logging)
-
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    // Coil
+    // Network
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.gson)
+    implementation(libs.okhttp.logging)
+    implementation(libs.gson)
+
+    // Coil 3
     implementation(libs.coil.compose)
-    implementation(libs.coil.network.okhttp)
+    implementation(libs.coil.network)
 
     // DataStore
     implementation(libs.datastore.preferences)
-
-    // Coroutines
-    implementation(libs.kotlinx.coroutines.android)
-
-    // SavedState (needed for ComposeView in Service)
-    implementation(libs.androidx.savedstate.ktx)
-
-    // Material Components – provides the missing theme
-    implementation("com.google.android.material:material:1.12.0")
-
-    // Force consistent Kotlin stdlib version
-    constraints {
-        implementation("org.jetbrains.kotlin:kotlin-stdlib") {
-            version { strictly(libs.versions.kotlin.get()) }
-        }
-        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8") {
-            version { strictly(libs.versions.kotlin.get()) }
-        }
-    }
-
-    // Testing
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    implementation(libs.savedstate)
 }

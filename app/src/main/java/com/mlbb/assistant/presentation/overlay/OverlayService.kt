@@ -1,213 +1,296 @@
 package com.mlbb.assistant.presentation.overlay
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
-import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.WindowManager
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.lifecycle.*
+import com.mlbb.assistant.domain.advisor.*
+import com.mlbb.assistant.domain.engine.*
 import com.mlbb.assistant.domain.model.Hero
+import com.mlbb.assistant.domain.scoring.DraftScorer
+import com.mlbb.assistant.domain.scoring.HeroScore
 import com.mlbb.assistant.domain.scoring.ScoreWeights
-import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
-import com.mlbb.assistant.domain.usecase.GetSuggestionsUseCase
+import com.mlbb.assistant.presentation.common.theme.*
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.Locale
-import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
+class OverlayService : Service(), LifecycleOwner {
 
-    @Inject lateinit var getHeroesUseCase: GetHeroesUseCase
-    @Inject lateinit var getSuggestionsUseCase: GetSuggestionsUseCase
+    // ── Hilt injections ───────────────────────────────────────────────────────
+    @Inject lateinit var draftSessionManager: DraftSessionManager
+
+    // ── Android plumbing ──────────────────────────────────────────────────────
+    private lateinit var windowManager: WindowManager
+    private var bubbleView:  ComposeView? = null
+    private var panelView:   ComposeView? = null
 
     private val lifecycleRegistry = LifecycleRegistry(this)
-    private val savedStateRegistryController = SavedStateRegistryController.create(this)
-
     override val lifecycle: Lifecycle get() = lifecycleRegistry
-    override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
-
-    private lateinit var windowManager: WindowManager
-    private lateinit var overlayView: ComposeView
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    private val heroListRef = AtomicReference<List<Hero>>(emptyList())
-    private var lastSuggestion: Pair<Hero, Double>? by mutableStateOf(null)
+    // ── Shared state ──────────────────────────────────────────────────────────
+    private val allHeroes    = mutableStateListOf<Hero>()
+    private val recommendations = mutableStateListOf<HeroScore>()
+    private val banSuggestions  = mutableStateListOf<BanSuggestion>()
+    private val enemyWarnings   = mutableStateListOf<String>()
+    private var isExpanded      = mutableStateOf(false)
+    private var isBanTurn       = mutableStateOf(false)
+
+    companion object {
+        private const val NOTIF_CHANNEL = "overlay_channel"
+        private const val NOTIF_ID      = 1
+        fun start(context: Context) =
+            context.startForegroundService(Intent(context, OverlayService::class.java))
+        fun stop(context: Context)  =
+            context.stopService(Intent(context, OverlayService::class.java))
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onCreate() {
-        // SavedStateRegistryController must be attached and restored before super.onCreate()
-        savedStateRegistryController.performAttach()
-        savedStateRegistryController.performRestore(null)
         super.onCreate()
-        // Lifecycle events dispatched after super.onCreate() per LifecycleOwner contract
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
-
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-
-        // startForeground must be called ASAP on API 31+ to avoid ANR/StopForegroundException
-        startServiceForeground()
-
-        createOverlayView()
-
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-
-        startUpdatingSuggestions()
+        createNotificationChannel()
+        startFg()
+        addBubble()
+        observeSession()
     }
 
-    private fun startServiceForeground() {
-        val channelId = "overlay_channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId, "MLBB Overlay", NotificationManager.IMPORTANCE_LOW
-            )
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("MLBB Assistant")
-            .setContentText("Overlay is active")
-            .setSmallIcon(android.R.drawable.ic_menu_edit)
-            .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(1, notification)
-        }
-    }
-
-    private fun createOverlayView() {
-        overlayView = ComposeView(this).apply {
-            setViewTreeLifecycleOwner(this@OverlayService)
-            setViewTreeSavedStateRegistryOwner(this@OverlayService)
-            setContent {
-                MaterialTheme {
-                    SuggestionOverlayContent(
-                        hero = lastSuggestion?.first,
-                        score = lastSuggestion?.second
-                    )
-                }
-            }
-        }
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 16
-            y = 100
-        }
-        windowManager.addView(overlayView, params)
-    }
-
-    private fun startUpdatingSuggestions() {
-        serviceScope.launch(Dispatchers.IO) {
-            getHeroesUseCase().collect { heroes ->
-                heroListRef.set(heroes)
-                updateSuggestion()
-            }
-        }
-        // Periodic refresh — scoring runs on Default to avoid blocking Main
-        serviceScope.launch {
-            while (isActive) {
-                delay(2000)
-                updateSuggestion()
-            }
-        }
-    }
-
-    private suspend fun updateSuggestion() {
-        val heroes = heroListRef.get()
-        if (heroes.isEmpty()) return
-        // Compute on Default dispatcher — potentially expensive with large hero lists
-        val suggestion = withContext(Dispatchers.Default) {
-            getSuggestionsUseCase(
-                allHeroes = heroes,
-                allies = emptyList(),
-                enemies = emptyList(),
-                weights = ScoreWeights(0.5, 0.3, 0.2),
-                bannedIds = emptyList()
-            ).firstOrNull()
-        }
-        withContext(Dispatchers.Main) {
-            lastSuggestion = suggestion
-        }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lifecycleRegistry.currentState = Lifecycle.State.STARTED
+        return START_STICKY
     }
 
     override fun onDestroy() {
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         serviceScope.cancel()
-        // Guard against removeView on a view that was never successfully added
-        if (::overlayView.isInitialized) {
-            try { windowManager.removeView(overlayView) } catch (_: IllegalArgumentException) { }
-        }
+        removeBubble()
+        removePanel()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
-}
 
-@Composable
-fun SuggestionOverlayContent(hero: Hero?, score: Double?) {
-    Card(
-        modifier = Modifier.padding(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.85f))
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            if (hero != null) {
-                Text(text = "Top Pick: ${hero.name}", color = Color.White, fontSize = 16.sp)
-                Text(
-                    text = "Score: ${String.format(Locale.US, "%.2f", score ?: 0.0)}",
-                    color = Color.White,
-                    fontSize = 12.sp
-                )
-            } else {
-                Text(text = "No suggestion", color = Color.White)
+    // ── Foreground notification ───────────────────────────────────────────────
+
+    private fun startFg() {
+        val notification = NotificationCompat.Builder(this, NOTIF_CHANNEL)
+            .setContentTitle("MLBB Assistant Active")
+            .setContentText("Draft assistant is running")
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setOngoing(true)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIF_ID, notification)
+        }
+    }
+
+    private fun createNotificationChannel() {
+        val channel = NotificationChannel(
+            NOTIF_CHANNEL, "Overlay Service", NotificationManager.IMPORTANCE_LOW
+        ).apply { description = "MLBB Draft Assistant overlay" }
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
+            .createNotificationChannel(channel)
+    }
+
+    // ── Bubble ────────────────────────────────────────────────────────────────
+
+    private fun addBubble() {
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0; y = 300
+        }
+
+        var initialX = 0; var initialY = 0
+        var touchX   = 0f; var touchY  = 0f
+
+        bubbleView = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(this@OverlayService)
+
+            setContent {
+                MLBBAssistantTheme {
+                    FloatingBubble(
+                        session    = draftSessionManager.session.collectAsState().value,
+                        isExpanded = isExpanded.value,
+                        onTap      = { isExpanded.value = !isExpanded.value; if (isExpanded.value) addPanel() else removePanel() }
+                    )
+                }
+            }
+            setOnTouchListener { _, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN  -> { initialX = params.x; initialY = params.y; touchX = event.rawX; touchY = event.rawY; true }
+                    MotionEvent.ACTION_MOVE  -> {
+                        params.x = initialX + (event.rawX - touchX).toInt()
+                        params.y = initialY + (event.rawY - touchY).toInt()
+                        windowManager.updateViewLayout(this, params); true
+                    }
+                    else -> false
+                }
+            }
+        }
+        windowManager.addView(bubbleView, params)
+    }
+
+    private fun removeBubble() { bubbleView?.let { windowManager.removeView(it) }; bubbleView = null }
+
+    // ── Panel ─────────────────────────────────────────────────────────────────
+
+    private fun addPanel() {
+        val params = WindowManager.LayoutParams(
+            (resources.displayMetrics.widthPixels * 0.92).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = 40
+        }
+
+        panelView = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(this@OverlayService)
+            setContent {
+                MLBBAssistantTheme {
+                    DraftPanel(
+                        session        = draftSessionManager.session.collectAsState().value,
+                        recommendations = recommendations.toList(),
+                        banSuggestions = banSuggestions.toList(),
+                        allHeroes      = allHeroes.toList(),
+                        enemyWarnings  = enemyWarnings.toList(),
+                        isBanTurn      = isBanTurn.value,
+                        onHeroSelected = { hero -> handleHeroSelected(hero) },
+                        onHeroLongPress = { /* TODO: show detail popup */ },
+                        onMinimize     = { isExpanded.value = false; removePanel() },
+                        onClose        = { stopSelf() }
+                    )
+                }
+            }
+        }
+        windowManager.addView(panelView, params)
+    }
+
+    private fun removePanel() { panelView?.let { windowManager.removeView(it) }; panelView = null }
+
+    // ── Session observation ───────────────────────────────────────────────────
+
+    private fun observeSession() {
+        serviceScope.launch {
+            draftSessionManager.session.collectLatest { session ->
+                refreshRecommendations(session)
             }
         }
     }
+
+    private fun refreshRecommendations(session: DraftSession) {
+        val weights = ScoreWeights.DEFAULT
+        when (session.phase) {
+            DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
+                val newBans = BanRecommender.rank(
+                    availableHeroes = allHeroes,
+                    bannedIds       = session.allBannedHeroes.map { it.id }.toSet(),
+                    pickedIds       = session.allPickedHeroes.map { it.id }.toSet(),
+                    weights         = weights
+                )
+                banSuggestions.clear()
+                banSuggestions.addAll(newBans)
+
+                val comp = CompositionAnalyzer.analyze(session.enemyPickedHeroes)
+                enemyWarnings.clear()
+                enemyWarnings.addAll(comp.warnings)
+            }
+            DraftPhase.PICK -> {
+                val scored = DraftScorer.rankAll(
+                    pool        = allHeroes,
+                    alliedPicks = session.ourPickedHeroes,
+                    enemyPicks  = session.enemyPickedHeroes,
+                    bannedIds   = session.unavailableIds,
+                    weights     = weights,
+                    currentTurn = session.currentTurn
+                )
+                recommendations.clear()
+                recommendations.addAll(scored.take(10))
+
+                val comp = CompositionAnalyzer.analyze(session.enemyPickedHeroes)
+                enemyWarnings.clear()
+                enemyWarnings.addAll(comp.warnings)
+            }
+            else -> {}
+        }
+    }
+
+    private fun handleHeroSelected(hero: Hero) {
+        val s = draftSessionManager.session.value
+        when (s.phase) {
+            DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
+                val slot = (if (s.phase == DraftPhase.BAN_ROUND_1) s.ourBansR1 else s.ourBansR2)
+                    .indexOfFirst { it == null }
+                if (slot >= 0) {
+                    draftSessionManager.recordOurBan(hero, if (s.phase == DraftPhase.BAN_ROUND_1) 1 else 2, slot)
+                }
+            }
+            DraftPhase.PICK -> {
+                val slot = s.ourPicks.indexOfFirst { it == null }
+                if (slot >= 0) {
+                    val topId = recommendations.firstOrNull()?.hero?.id
+                    draftSessionManager.recordOurPick(hero, slot, followedRecommendation = hero.id == topId)
+                }
+            }
+            else -> {}
+        }
+    }
+
+    fun setHeroes(heroes: List<Hero>) {
+        allHeroes.clear()
+        allHeroes.addAll(heroes)
+    }
+
+    fun setBanTurn(visible: Boolean) { isBanTurn.value = visible }
 }

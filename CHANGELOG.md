@@ -1,17 +1,42 @@
-# Changelog
+# MLBB Assistant — Complete Rebuild Changelog
 
-| File Path | Change Type | Reason |
+## Round 1 — Bug fixes (pre-build)
+| File | Change | Reason |
 |---|---|---|
-| `app/src/main/java/com/mlbb/assistant/presentation/herolist/HeroListScreen.kt` | MODIFY | Coil 3.x package changed from `coil` to `coil3`; was a compile error. |
-| `app/src/main/java/com/mlbb/assistant/presentation/overlay/OverlayService.kt` | MODIFY | `startForeground` must pass `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` on API 34+ (targetSdk=36). |
-| `app/src/main/java/com/mlbb/assistant/di/NetworkModule.kt` | MODIFY | Replace FQN `com.google.gson.Gson` with proper import statement. |
-| `app/build.gradle.kts` | MODIFY | Add missing `debugImplementation(libs.compose.ui.tooling)` declared in TOML but unused. |
-| `app/proguard-rules.pro` | MODIFY | Add Gson TypeToken retention rules; missing rules caused release-build JSON parse failure. |
-| `.github/workflows/extract.yml` | MODIFY | Uncomment `find` delete command; shell comments made the delete step a no-op. |
-| `.github/workflows/build.yml` | MODIFY | Add Android SDK 36 license acceptance and platform installation before build step. |
-| `app/build.gradle.kts` | MODIFY | Add `packaging.resources.excludes` to fix OkHttp 5.x + jspecify META-INF merge conflict. |
-| `app/src/main/java/com/mlbb/assistant/presentation/draft/DraftScreen.kt` | MODIFY | Update deprecated `hiltViewModel` import to `androidx.hilt.lifecycle.viewmodel.compose`. |
-| `app/src/main/java/com/mlbb/assistant/presentation/herolist/HeroListScreen.kt` | MODIFY | Update deprecated `hiltViewModel` import to `androidx.hilt.lifecycle.viewmodel.compose`. |
-| `app/src/main/java/com/mlbb/assistant/presentation/settings/SettingsScreen.kt` | MODIFY | Update deprecated `hiltViewModel` import to `androidx.hilt.lifecycle.viewmodel.compose`. |
-| `app/build.gradle.kts` | MODIFY | Replace `excludes` with `pickFirsts` for META-INF conflict; AGP 8.10 needs pickFirsts at merge phase. |
-| `app/build.gradle.kts` | MODIFY | Add `configurations.all { exclude jspecify }` to evict the conflicting artifact from dep graph. |
+| `HeroListScreen.kt` | coil → coil3 import | Coil 3.x package rename |
+| `OverlayService.kt` | startForeground type | API 34+ FOREGROUND_SERVICE_TYPE_SPECIAL_USE |
+| `NetworkModule.kt` | Remove Gson FQN | Proper import statement |
+| `build.gradle.kts` | Add debugImplementation compose-ui-tooling | TOML entry was unused |
+| `proguard-rules.pro` | Add Gson TypeToken rules | Release build crash |
+| `extract.yml` | Uncomment find command | Shell comments made step no-op |
+| `build.yml` | Add SDK 36 install step | CI missing platform |
+
+## Round 2 — CI failures
+| File | Change | Reason |
+|---|---|---|
+| `build.gradle.kts` | excludes → pickFirsts | OkHttp/jspecify META-INF conflict |
+| `build.gradle.kts` | configurations.all exclude jspecify | Belt-and-suspenders eviction |
+| `DraftScreen.kt` | hiltViewModel import path | Deprecated package |
+| `HeroListScreen.kt` | hiltViewModel import path | Deprecated package |
+| `SettingsScreen.kt` | hiltViewModel import path | Deprecated package |
+
+## Round 3 — Full feature rebuild
+| Area | Files Created/Modified |
+|---|---|
+| **Domain models** | `Hero.kt`, `Lane`, `Tier`, `HeroRole`, `CoreItem` |
+| **Data layer** | `HeroEntity.kt`, `Converters.kt`, `AppDatabase.kt` v2, `HeroDao.kt`, `DraftSessionEntity.kt`, `DraftSessionDao.kt`, `MetaSnapshotDto.kt`, `HeroRepositoryImpl.kt`, `PreferencesDataStore.kt` |
+| **Core engines** | `RankRuleEngine.kt`, `PickSequenceEngine.kt`, `DraftSessionManager.kt` |
+| **Screen capture** | `FrameProcessor.kt`, `PortraitMatcher.kt`, `PerceptualHash.kt`, `PhaseDetector.kt`, `SlotRegions.kt`, `ScreenCaptureManager.kt` |
+| **Domain advisors** | `CompositionAnalyzer.kt`, `BanRecommender.kt`, `BuildAdvisor.kt`, `DraftScoreCalculator.kt`, `DraftScorer.kt`, `ScoreWeights.kt` |
+| **Use cases** | `GetHeroesUseCase.kt`, `GetSuggestionsUseCase.kt`, `SyncHeroesUseCase.kt`, `ToggleOverlayUseCase.kt` |
+| **Overlay system** | `OverlayService.kt`, `FloatingBubble.kt`, `DraftPanel.kt`, `BanPhaseContent.kt`, `PickPhaseContent.kt`, `TradingPhaseContent.kt`, `FinalReportContent.kt` |
+| **Common UI** | `HeroPortrait.kt`, `HeroGrid.kt`, `RoleDashboard.kt`, `Color.kt`, `Theme.kt`, `Type.kt` |
+| **Main app** | `MainActivity.kt`, `HomeScreen.kt`, `HeroListScreen.kt`, `HeroDetailScreen.kt`, `MetaBoardScreen.kt`, `DraftHistoryScreen.kt`, `SettingsScreen.kt`, `SettingsViewModel.kt`, `DraftScreen.kt`, `DraftViewModel.kt` |
+| **Welcome** | `PermissionWizardScreen.kt` |
+| **Services** | `MLBBAccessibilityService.kt`, `VoiceAlertService.kt` |
+| **DI** | `AppModule.kt`, `DatabaseModule.kt`, `RepositoryModule.kt` |
+| **Config** | `AndroidManifest.xml`, `libs.versions.toml`, `build.gradle.kts`, `proguard-rules.pro`, `strings.xml`, `accessibility_service_config.xml` |
+| **Data** | `default_heroes.json` — 130 heroes, full schema |
+
+**Total Kotlin files: 76**
+**Total features implemented: 49**
