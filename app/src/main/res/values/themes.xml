@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Theme.MLBBAssistant: base XML theme for the Activity window.
+    This app is Compose-only, so the parent only needs to:
+      1. Remove the system ActionBar (NoActionBar)
+      2. Provide a dark window background to prevent white flash before Compose renders
+
+    android:Theme.Material.Light.NoActionBar is part of the Android SDK (API 21+)
+    and requires no external dependency.  com.google.android.material (MDC) is not
+    in this project's deps, so Theme.Material3.DayNight.NoActionBar is unavailable.
+-->
 <resources>
-    <style name="Theme.MLBBAssistant" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.MLBBAssistant" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Match SurfaceDark (#0D0D14) so the window is dark before Compose paints -->
+        <item name="android:windowBackground">#0D0D14</item>
+        <item name="android:statusBarColor">#0D0D14</item>
+        <item name="android:navigationBarColor">#0D0D14</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
 </resources>

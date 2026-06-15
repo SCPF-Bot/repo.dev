@@ -41,7 +41,12 @@
 **Total Kotlin files: 76**
 **Total features implemented: 49**
 
-## Round 4 — Full-repository audit (18 issues)
+## Round 5 — CI resource-linking failure
+| File | Change | Reason |
+|---|---|---|
+| `res/values/themes.xml` | Change parent from `Theme.Material3.DayNight.NoActionBar` to `android:Theme.Material.Light.NoActionBar`; add dark `windowBackground` / status-bar / nav-bar colours | `Theme.Material3.DayNight.NoActionBar` is an XML style from the View-based `com.google.android.material:material` library, which is not in the project's dependencies. The project only has `androidx.compose.material3:material3` (Compose-side), which ships no XML themes. `android:Theme.Material.Light.NoActionBar` is built into the Android SDK (API 21+), requires no extra dependency, and is the correct base for a Compose-only app. Dark `windowBackground` (#0D0D14 = `SurfaceDark`) prevents the white system window from flashing before Compose renders. |
+
+
 | File | Change | Reason |
 |---|---|---|
 | `libs.versions.toml` | Separate garbled `datastore-preferences` + `savedstate` lines | Malformed TOML prevented Gradle dependency resolution |
