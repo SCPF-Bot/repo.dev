@@ -197,8 +197,8 @@ private fun ActionButton(label: String, color: androidx.compose.ui.graphics.Colo
         modifier
             .background(color.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
             .border(1.dp, color.copy(alpha = 0.40f), RoundedCornerShape(8.dp))
-            .padding(vertical = 10.dp)
-            .then(Modifier.let { androidx.compose.foundation.clickable { onClick() }.let { _ -> it } }),
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)

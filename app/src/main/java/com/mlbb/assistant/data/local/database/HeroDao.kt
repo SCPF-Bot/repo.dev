@@ -10,13 +10,34 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 abstract class HeroDao {
 
-    @Query("SELECT * FROM heroes ORDER BY tier ASC, winRate DESC")
+    @Query("""
+        SELECT * FROM heroes
+        ORDER BY CASE tier
+            WHEN 'S+' THEN 0 WHEN 'S'  THEN 1
+            WHEN 'A+' THEN 2 WHEN 'A'  THEN 3
+            ELSE 4 END ASC,
+        winRate DESC
+    """)
     abstract fun getAllHeroes(): Flow<List<HeroEntity>>
 
-    @Query("SELECT * FROM heroes WHERE role = :role ORDER BY tier ASC, winRate DESC")
+    @Query("""
+        SELECT * FROM heroes WHERE role = :role
+        ORDER BY CASE tier
+            WHEN 'S+' THEN 0 WHEN 'S'  THEN 1
+            WHEN 'A+' THEN 2 WHEN 'A'  THEN 3
+            ELSE 4 END ASC,
+        winRate DESC
+    """)
     abstract fun getHeroesByRole(role: String): Flow<List<HeroEntity>>
 
-    @Query("SELECT * FROM heroes WHERE lane = :lane ORDER BY tier ASC, winRate DESC")
+    @Query("""
+        SELECT * FROM heroes WHERE lane = :lane
+        ORDER BY CASE tier
+            WHEN 'S+' THEN 0 WHEN 'S'  THEN 1
+            WHEN 'A+' THEN 2 WHEN 'A'  THEN 3
+            ELSE 4 END ASC,
+        winRate DESC
+    """)
     abstract fun getHeroesByLane(lane: String): Flow<List<HeroEntity>>
 
     @Query("SELECT * FROM heroes WHERE id = :heroId")
@@ -25,7 +46,14 @@ abstract class HeroDao {
     @Query("SELECT * FROM heroes WHERE id IN (:ids)")
     abstract suspend fun getHeroesByIds(ids: List<Int>): List<HeroEntity>
 
-    @Query("SELECT * FROM heroes WHERE name LIKE '%' || :query || '%' ORDER BY tier ASC, winRate DESC")
+    @Query("""
+        SELECT * FROM heroes WHERE name LIKE '%' || :query || '%'
+        ORDER BY CASE tier
+            WHEN 'S+' THEN 0 WHEN 'S'  THEN 1
+            WHEN 'A+' THEN 2 WHEN 'A'  THEN 3
+            ELSE 4 END ASC,
+        winRate DESC
+    """)
     abstract fun searchHeroes(query: String): Flow<List<HeroEntity>>
 
     @Query("SELECT * FROM heroes WHERE isOP = 1 OR isToxicMechanic = 1 ORDER BY banRate DESC LIMIT 10")

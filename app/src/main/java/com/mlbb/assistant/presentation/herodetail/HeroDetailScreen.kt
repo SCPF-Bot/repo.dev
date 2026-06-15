@@ -10,7 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,7 +81,7 @@ fun HeroDetailScreen(
                     Modifier
                         .weight(1f)
                         .background(if (selected) MLBBGold.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
-                        .border(bottomWidth = if (selected) 2.dp else 0.dp, color = if (selected) MLBBGold else androidx.compose.ui.graphics.Color.Transparent)
+                        .then(if (selected) Modifier.bottomBorder(2.dp, MLBBGold) else Modifier)
                         .padding(vertical = 10.dp)
                         .clickableNoRipple { activeTab = tab },
                     contentAlignment = Alignment.Center
@@ -267,11 +268,27 @@ private fun tierColor(tier: com.mlbb.assistant.domain.model.Tier) = when (tier) 
     else -> TierA
 }
 
-private fun Modifier.clickableNoRipple(onClick: () -> Unit) =
-    this.then(androidx.compose.foundation.clickable(
-        indication = null,
-        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-        onClick = onClick
-    ))
+@Composable
+private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    return this.then(
+        androidx.compose.foundation.clickable(
+            indication        = null,
+            interactionSource = interactionSource,
+            onClick           = onClick
+        )
+    )
+}
 
-private fun Modifier.border(bottomWidth: androidx.compose.ui.unit.Dp, color: androidx.compose.ui.graphics.Color): Modifier = this
+@Composable
+private fun Modifier.bottomBorder(width: androidx.compose.ui.unit.Dp, color: androidx.compose.ui.graphics.Color): Modifier {
+    val widthPx = with(androidx.compose.ui.platform.LocalDensity.current) { width.toPx() }
+    return this.drawBehind {
+        drawLine(
+            color       = color,
+            start       = androidx.compose.ui.geometry.Offset(0f, size.height),
+            end         = androidx.compose.ui.geometry.Offset(size.width, size.height),
+            strokeWidth = widthPx
+        )
+    }
+}

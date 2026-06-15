@@ -62,7 +62,7 @@ class DraftViewModel @Inject constructor(
     }
 
     fun setWeights(meta: Float, counter: Float, synergy: Float) {
-        currentWeights = ScoreWeights.normalized(meta, counter, synergy)
+        currentWeights = ScoreWeights.normalized(meta = meta, synergy = synergy, counter = counter)
         refreshSuggestions(draftSessionManager.session.value)
     }
 

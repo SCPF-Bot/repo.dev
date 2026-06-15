@@ -90,6 +90,4 @@ object BuildAdvisor {
     }
 }
 
-private operator fun <A, B, C> Triple<A, B, C>.component1() = first
-private operator fun <A, B, C> Triple<A, B, C>.component2() = second
-private operator fun <A, B, C> Triple<A, B, C>.component3() = third
+

@@ -162,8 +162,8 @@ private fun WizardButton(label: String, primary: Boolean, onClick: () -> Unit) {
                 RoundedCornerShape(10.dp)
             )
             .border(1.dp, if (primary) MLBBGold.copy(alpha = 0.60f) else SurfaceElevated, RoundedCornerShape(10.dp))
-            .padding(vertical = 14.dp)
-            .then(Modifier.let { androidx.compose.foundation.clickable { onClick() }.let { _ -> it } }),
+            .clickable { onClick() }
+            .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = if (primary) MLBBGold else TextSecondary,

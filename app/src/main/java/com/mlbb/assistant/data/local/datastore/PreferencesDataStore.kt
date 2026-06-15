@@ -15,9 +15,10 @@ class PreferencesDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
     companion object {
-        val META_WEIGHT     = floatPreferencesKey("meta_weight")
-        val COUNTER_WEIGHT  = floatPreferencesKey("counter_weight")
-        val SYNERGY_WEIGHT  = floatPreferencesKey("synergy_weight")
+        // Keys must match SettingsViewModel.KEY_META / KEY_COUNTER / KEY_SYNERGY
+        val META_WEIGHT     = floatPreferencesKey("weight_meta")
+        val COUNTER_WEIGHT  = floatPreferencesKey("weight_counter")
+        val SYNERGY_WEIGHT  = floatPreferencesKey("weight_synergy")
     }
 
     private val prefsFlow = dataStore.data.distinctUntilChanged()

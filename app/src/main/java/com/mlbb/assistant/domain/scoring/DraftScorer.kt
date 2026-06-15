@@ -64,6 +64,26 @@ object DraftScorer {
         return HeroScore(candidate, total, meta, synergy, counter, role, badge, reason)
     }
 
+    /**
+     * Simple linear scoring formula used by unit tests and lightweight callers.
+     * score = metaWeight * winRate
+     *       + counterWeight * (enemies countered / total enemies)
+     *       + synergyWeight * (allies synergised / total allies)
+     */
+    fun computeScore(
+        hero: Hero,
+        allies: List<Hero>,
+        enemies: List<Hero>,
+        weights: ScoreWeights
+    ): Double {
+        val meta    = hero.winRate * weights.meta
+        val counter = if (enemies.isEmpty()) 0.0
+                      else enemies.count { e -> e.id in hero.counters }.toDouble() / enemies.size * weights.counter
+        val synergy = if (allies.isEmpty()) 0.0
+                      else allies.count { a -> a.id in hero.synergies }.toDouble() / allies.size * weights.synergy
+        return meta + counter + synergy
+    }
+
     fun rankAll(
         pool: List<Hero>,
         alliedPicks: List<Hero>,

@@ -14,9 +14,9 @@ import com.mlbb.assistant.presentation.overlay.OverlayService
 class MLBBAccessibilityService : AccessibilityService() {
 
     companion object {
-        private const val MLBB_PACKAGE = "com.mobile.legends"
+        private const val MLBB_PACKAGE     = "com.mobile.legends"
         private const val MLBB_PACKAGE_ALT = "com.mobilelegends.mi"
-        private var isMLBBForeground = false
+        @Volatile private var isMLBBForeground = false
     }
 
     override fun onServiceConnected() {

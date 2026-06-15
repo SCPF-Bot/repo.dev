@@ -37,7 +37,6 @@ fun HeroGrid(
 
     val filtered = remember(heroes, query, roleFilter) {
         heroes
-            .filter { it.id !in disabledIds || true }  // show all, just grey disabled
             .filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
             .filter { roleFilter == null || it.role.equals(roleFilter, ignoreCase = true) }
     }

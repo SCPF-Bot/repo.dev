@@ -4,16 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
 import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
@@ -62,11 +63,11 @@ private fun LaneSlotIndicator(lane: Lane, hero: Hero?, missing: Boolean) {
             contentAlignment = Alignment.Center
         ) {
             if (hero != null) {
-                androidx.compose.foundation.Image(
-                    painter = coil3.compose.rememberAsyncImagePainter(hero.imageUrl),
+                AsyncImage(
+                    model              = hero.imageUrl,
                     contentDescription = hero.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    modifier           = Modifier.fillMaxSize(),
+                    contentScale       = ContentScale.Crop
                 )
             } else {
                 Text(

@@ -10,7 +10,6 @@ import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
-import android.util.DisplayMetrics
 import android.view.WindowManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,13 +31,12 @@ class ScreenCaptureManager(private val context: Context) {
     private var screenDpi    = 0
 
     init {
-        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val metrics = DisplayMetrics()
-        @Suppress("DEPRECATION")
-        wm.defaultDisplay.getRealMetrics(metrics)
-        screenWidth  = metrics.widthPixels
-        screenHeight = metrics.heightPixels
-        screenDpi    = metrics.densityDpi
+        val wm      = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val metrics = wm.currentWindowMetrics
+        val bounds  = metrics.bounds
+        screenWidth  = bounds.width()
+        screenHeight = bounds.height()
+        screenDpi    = context.resources.displayMetrics.densityDpi
     }
 
     fun startCapture(resultCode: Int, data: Intent) {

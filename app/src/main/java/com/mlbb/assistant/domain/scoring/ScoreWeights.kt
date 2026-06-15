@@ -6,7 +6,7 @@ data class ScoreWeights(
     val counter: Float = 0.30f
 ) {
     init {
-        require((meta + synergy + counter - 1.0f) < 0.01f) {
+        require(kotlin.math.abs(meta + synergy + counter - 1.0f) < 0.01f) {
             "ScoreWeights must sum to 1.0 (got ${meta + synergy + counter})"
         }
     }

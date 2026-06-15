@@ -42,9 +42,8 @@ okhttp-logging                   = { group = "com.squareup.okhttp3",      name =
 gson                             = { group = "com.google.code.gson",      name = "gson",                       version.ref = "gson" }
 coil-compose                     = { group = "io.coil-kt.coil3",          name = "coil-compose",               version.ref = "coil" }
 coil-network                     = { group = "io.coil-kt.coil3",          name = "coil-network-okhttp",        version.ref = "coil" }
-datastore-preferences
-savedstate                   = { group = "androidx.savedstate",       name = "savedstate-ktx",             version = "1.2.1" }            = { group = "androidx.datastore",        name = "datastore-preferences
-savedstate                   = { group = "androidx.savedstate",       name = "savedstate-ktx",             version = "1.2.1" }",      version.ref = "datastore" }
+datastore-preferences        = { group = "androidx.datastore",        name = "datastore-preferences",      version.ref = "datastore" }
+savedstate                   = { group = "androidx.savedstate",       name = "savedstate-ktx",             version = "1.2.1" }
 kotlinx-coroutines-android       = { group = "org.jetbrains.kotlinx",     name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
 [plugins]

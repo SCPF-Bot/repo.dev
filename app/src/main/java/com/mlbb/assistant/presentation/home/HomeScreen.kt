@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
 import com.mlbb.assistant.presentation.common.theme.*
@@ -34,8 +34,9 @@ fun HomeScreen(
     viewModel: HeroListViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val topMeta  = state.heroes.take(5)
-    val recentlyUsed = state.heroes.shuffled().take(3) // placeholder until history implemented
+    val topMeta      = state.heroes.take(5)
+    // Placeholder until real history is wired up: stable shuffle keyed to hero-list identity
+    val recentlyUsed = remember(state.heroes) { state.heroes.shuffled().take(3) }
 
     Column(
         Modifier

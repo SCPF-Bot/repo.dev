@@ -40,3 +40,27 @@
 
 **Total Kotlin files: 76**
 **Total features implemented: 49**
+
+## Round 4 — Full-repository audit (18 issues)
+| File | Change | Reason |
+|---|---|---|
+| `libs.versions.toml` | Separate garbled `datastore-preferences` + `savedstate` lines | Malformed TOML prevented Gradle dependency resolution |
+| `DraftScorerTest.kt` | Rewrite test class: use object directly, rename `computeScore`, fix `ScoreWeights` keys, add missing `Hero` constructor fields | Four independent compilation errors |
+| `HeroDetailScreen.kt` | Add `@Composable` to `clickableNoRipple`; remove no-op `border(bottomWidth)` overload, implement real bottom-border via `drawBehind` | `remember{}` outside `@Composable` is a compilation error; tab indicator was never rendered |
+| `DraftScreen.kt` | Fix `hiltViewModel` import → `androidx.hilt.navigation.compose` | Deprecated/removed package; previously noted in Round 2 but not applied |
+| `HeroListScreen.kt` | Fix `hiltViewModel` import → `androidx.hilt.navigation.compose` | Same as above |
+| `SettingsScreen.kt` | Fix `hiltViewModel` import → `androidx.hilt.navigation.compose` | Same as above |
+| `HomeScreen.kt` | Fix `hiltViewModel` import → `androidx.hilt.navigation.compose`; stabilise `recentlyUsed` with `remember` | Import wrong; `shuffled()` in composition caused recomposition instability |
+| `PermissionWizardScreen.kt` | Replace broken `.then(Modifier.let { clickable{}.let { _ -> it } })` with `.clickable {}` | `{ _ -> it }` discarded the clickable Modifier; wizard buttons were non-interactive |
+| `FinalReportContent.kt` | Same clickable fix in `ActionButton` | Same broken pattern; New Draft / Close buttons were non-interactive |
+| `DraftViewModel.kt` | Fix `ScoreWeights.normalized(meta, counter, synergy)` → use named args | counter and synergy weights were swapped |
+| `PreferencesDataStore.kt` | Align key strings to match `SettingsViewModel` (`weight_meta` / `weight_counter` / `weight_synergy`) | Mismatched keys meant saved weights were never shared between the two classes |
+| `ScoreWeights.kt` | Fix `require` to use `abs(sum - 1.0f) < 0.01f` | One-sided check allowed sum = 0.0 through |
+| `MLBBAccessibilityService.kt` | Add `@Volatile` to `isMLBBForeground` | Shared mutable companion-object var accessed from multiple threads without synchronisation |
+| `HeroDao.kt` | Replace string `ORDER BY tier ASC` with explicit `CASE` ordering | Alphabetical string sort placed S+ heroes last; correct order is S+ > S > A+ > A > B |
+| `HeroGrid.kt` | Remove `.filter { it.id !in disabledIds \|\| true }` dead filter line | `\|\| true` made condition always true; graying is handled in `HeroGridCell` |
+| `SettingsScreen.kt` | Remove unused `val ranks` | Allocated a list on every recomposition without ever using it |
+| `BuildAdvisor.kt` | Remove three `Triple.component{1,2,3}()` operator extensions | Shadow identical stdlib members; cause "extension shadows member" warnings |
+| `Screen.kt` | Delete file | Sealed class `Screen` is completely unreferenced; app uses `AppScreen` enum |
+| `ScreenCaptureManager.kt` | Replace deprecated `defaultDisplay.getRealMetrics()` with `WindowManager.getCurrentWindowMetrics()` | APIs deprecated since API 30/31 |
+| `RoleDashboard.kt` | Replace `Image + rememberAsyncImagePainter` with `AsyncImage` | Inconsistent with all other image loading in the project; simpler API |

@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.mlbb.assistant.presentation.common.theme.*
 
 @Composable
@@ -54,7 +54,6 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 
             // Draft preferences
             SettingsSection("DRAFT PREFERENCES") {
-                val ranks = listOf("Epic","Legend","Mythic","Mythical Honor","Mythical Glory","Immortal")
                 InfoRow("Default rank", state.defaultRank)
             }
 
