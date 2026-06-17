@@ -28,20 +28,20 @@ data class CoreItem(
     val priority: Int
 )
 
-enum class Lane(val display: String) {
-    EXP("EXP Lane"),
-    GOLD("Gold Lane"),
-    JUNGLE("Jungle"),
-    MID("Mid Lane"),
-    ROAM("Roam")
+enum class Lane(val display: String, val shortLabel: String) {
+    EXP("EXP Lane",  "EXP"),
+    GOLD("Gold Lane", "GOLD"),
+    JUNGLE("Jungle", "JGL"),
+    MID("Mid Lane",  "MID"),
+    ROAM("Roam",     "ROAM")
 }
 
 enum class Tier(val display: String, val order: Int) {
     S_PLUS("S+", 0),
-    S("S", 1),
+    S("S",       1),
     A_PLUS("A+", 2),
-    A("A", 3),
-    B("B", 4);
+    A("A",       3),
+    B("B",       4);
 
     companion object {
         fun fromString(value: String): Tier = when (value.uppercase()) {

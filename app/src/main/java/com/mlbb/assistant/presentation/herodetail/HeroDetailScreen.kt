@@ -2,7 +2,6 @@ package com.mlbb.assistant.presentation.herodetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable  // Pass 1: required for the clickableNoRipple extension; extension functions cannot be called via fully-qualified free-function syntax
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,12 +12,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.ContentScale  // Pass 1: was missing; ContentScale.Crop used on AsyncImage
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 import com.mlbb.assistant.domain.model.Hero
+import com.mlbb.assistant.domain.model.Tier
+import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
 import com.mlbb.assistant.presentation.common.theme.*
 
@@ -34,29 +41,33 @@ fun HeroDetailScreen(
 ) {
     var activeTab by remember { mutableStateOf(DetailTab.OVERVIEW) }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(SurfaceDark)
-    ) {
-        // Hero banner
+    Column(Modifier.fillMaxSize().background(SurfaceDark)) {
+
+        // Hero banner with Coil placeholder/error — ContentScale.Crop
         Box(Modifier.fillMaxWidth().height(160.dp)) {
             AsyncImage(
-                model = hero.imageUrl, contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(hero.imageUrl)
+                    .crossfade(300)
+                    .build(),
+                contentDescription = "${hero.name} splash art",
+                contentScale       = ContentScale.Crop,
+                modifier           = Modifier.fillMaxSize()
             )
-            Box(Modifier.fillMaxSize().background(
-                androidx.compose.ui.graphics.Brush.verticalGradient(
-                    listOf(androidx.compose.ui.graphics.Color.Transparent, SurfaceDark)
+            // Gradient overlay
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(listOf(Color.Transparent, SurfaceDark))
                 )
-            ))
+            )
+            // Back button + hero info
             Row(
-                Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(4.dp),
+                verticalAlignment     = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                BackButton(onBack = onBack, modifier = Modifier.align(Alignment.CenterVertically))
+                Column(Modifier.weight(1f).padding(bottom = 8.dp)) {
                     Text(hero.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 22.sp)
                     Text(buildString {
                         append(hero.role)
@@ -64,37 +75,26 @@ fun HeroDetailScreen(
                         append("  •  ${hero.tier.display} Tier")
                     }, color = tierColor(hero.tier), fontSize = 12.sp)
                 }
-                Text("← Back", color = MLBBGold, fontSize = 12.sp,
-                    modifier = Modifier.clickableNoRipple { onBack() })
             }
         }
 
         // Stats row
         StatRow(hero = hero)
 
-        // Tabs
-        Row(
-            Modifier.fillMaxWidth().background(SurfaceMid),
-            horizontalArrangement = Arrangement.SpaceEvenly
+        // M3 TabRow — accessible, handles selection announcements, underline indicator
+        TabRow(
+            selectedTabIndex = activeTab.ordinal,
+            containerColor   = SurfaceMid,
+            contentColor     = MLBBGold
         ) {
             DetailTab.entries.forEach { tab ->
-                val selected = activeTab == tab
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .background(if (selected) MLBBGold.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
-                        .then(if (selected) Modifier.bottomBorder(2.dp, MLBBGold) else Modifier)
-                        .padding(vertical = 10.dp)
-                        .clickableNoRipple { activeTab = tab },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        tab.name.lowercase().replaceFirstChar { it.uppercase() },
-                        color = if (selected) MLBBGold else TextSecondary,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                        fontSize = 12.sp
-                    )
-                }
+                Tab(
+                    selected = activeTab == tab,
+                    onClick  = { activeTab = tab },
+                    text     = {
+                        Text(tab.name.lowercase().replaceFirstChar { it.uppercase() })
+                    }
+                )
             }
         }
 
@@ -107,15 +107,15 @@ fun HeroDetailScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             when (activeTab) {
-                DetailTab.OVERVIEW -> OverviewTab(hero = hero)
-                DetailTab.COUNTERS -> HeroRelationTab(
+                DetailTab.OVERVIEW   -> OverviewTab(hero = hero)
+                DetailTab.COUNTERS   -> HeroRelationTab(
                     sectionA = "Heroes that BEAT ${hero.name}",
                     idsA     = hero.counteredBy,
                     sectionB = "${hero.name} BEATS",
                     idsB     = hero.counters,
                     related  = relatedHeroes
                 )
-                DetailTab.SYNERGIES -> HeroRelationTab(
+                DetailTab.SYNERGIES  -> HeroRelationTab(
                     sectionA = "BEST PARTNERS",
                     idsA     = hero.synergies,
                     sectionB = "WORKS AGAINST",
@@ -125,7 +125,7 @@ fun HeroDetailScreen(
             }
         }
 
-        // Action buttons (used from overlay context)
+        // Action buttons
         if (onAddToEnemy != null || onAddToYours != null) {
             Row(
                 Modifier
@@ -135,10 +135,18 @@ fun HeroDetailScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 onAddToEnemy?.let { fn ->
-                    ActionBtn("Add to Enemy", ErrorRed, Modifier.weight(1f)) { fn(hero) }
+                    Button(
+                        onClick  = { fn(hero) },
+                        modifier = Modifier.weight(1f),
+                        colors   = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                    ) { Text("Add to Enemy") }
                 }
                 onAddToYours?.let { fn ->
-                    ActionBtn("Add to Your Team", MLBBTeal, Modifier.weight(1f)) { fn(hero) }
+                    Button(
+                        onClick  = { fn(hero) },
+                        modifier = Modifier.weight(1f),
+                        colors   = ButtonDefaults.buttonColors(containerColor = MLBBTeal)
+                    ) { Text("Add to Yours") }
                 }
             }
         }
@@ -157,12 +165,13 @@ private fun StatRow(hero: Hero) {
         StatItem("Trend",
             if (hero.patchTrend >= 0) "+%.0f%%".format(hero.patchTrend * 100)
             else "%.0f%%".format(hero.patchTrend * 100),
-            if (hero.patchTrend >= 0) SuccessGreen else ErrorRed)
+            if (hero.patchTrend >= 0) SuccessGreen else ErrorRed
+        )
     }
 }
 
 @Composable
-private fun StatItem(label: String, value: String, color: androidx.compose.ui.graphics.Color) {
+private fun StatItem(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp)
         Text(label, color = TextDisabled, fontSize = 9.sp)
@@ -172,19 +181,17 @@ private fun StatItem(label: String, value: String, color: androidx.compose.ui.gr
 @Composable
 private fun OverviewTab(hero: Hero) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        InfoRow("Lane",   hero.lane.display)
-        InfoRow("Role",   buildString { append(hero.role); hero.secondaryRole?.let { append(" / $it") } })
-        InfoRow("Tier",   hero.tier.display)
-        if (hero.isOP)             InfoTag("OP PICK",     MLBBGold)
-        if (hero.isToxicMechanic)  InfoTag("TOXIC MECHANIC", MLBBRed)
+        InfoRow("Lane",  hero.lane.display)
+        InfoRow("Role",  buildString { append(hero.role); hero.secondaryRole?.let { append(" / $it") } })
+        InfoRow("Tier",  hero.tier.display)
+        if (hero.isOP)            InfoTag("OP PICK",        MLBBGold)
+        if (hero.isToxicMechanic) InfoTag("TOXIC MECHANIC", MLBBRed)
         if (hero.flexLanes.isNotEmpty()) {
             InfoRow("Flex Lanes", hero.flexLanes.joinToString(", ") { it.display })
         }
         SectionTitle("RECOMMENDED SPELLS")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            hero.recommendedSpells.forEach { spell ->
-                Chip(spell, MLBBGold)
-            }
+            hero.recommendedSpells.forEach { Chip(it, MLBBGold) }
         }
         SectionTitle("CORE BUILD ORDER")
         hero.coreItems.forEach { item ->
@@ -212,17 +219,24 @@ private fun HeroRelationTab(
                 HeroPortrait(hero = h, size = 48.dp, showName = true)
             }
         }
+        if (idsA.isEmpty()) Text("No data", color = TextDisabled, fontSize = 12.sp)
+        Divider(color = SurfaceElevated)
         SectionTitle(sectionB)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             idsB.take(5).mapNotNull { related[it] }.forEach { h ->
                 HeroPortrait(hero = h, size = 48.dp, showName = true)
             }
         }
+        if (idsB.isEmpty()) Text("No data", color = TextDisabled, fontSize = 12.sp)
     }
 }
 
 @Composable private fun SectionTitle(t: String) =
     Text(t, color = MLBBGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+
+@Composable
+private fun Divider(color: Color) =
+    Box(Modifier.fillMaxWidth().height(1.dp).background(color))
 
 @Composable
 private fun InfoRow(label: String, value: String) {
@@ -233,7 +247,7 @@ private fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun InfoTag(label: String, color: androidx.compose.ui.graphics.Color) {
+private fun InfoTag(label: String, color: Color) {
     Box(
         Modifier
             .background(color.copy(0.15f), RoundedCornerShape(6.dp))
@@ -243,7 +257,7 @@ private fun InfoTag(label: String, color: androidx.compose.ui.graphics.Color) {
 }
 
 @Composable
-private fun Chip(label: String, color: androidx.compose.ui.graphics.Color) {
+private fun Chip(label: String, color: Color) {
     Box(
         Modifier
             .background(color.copy(0.12f), RoundedCornerShape(14.dp))
@@ -251,46 +265,11 @@ private fun Chip(label: String, color: androidx.compose.ui.graphics.Color) {
     ) { Text(label, color = color, fontSize = 11.sp) }
 }
 
-@Composable
-private fun ActionBtn(label: String, color: androidx.compose.ui.graphics.Color, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier
-            .background(color.copy(0.15f), RoundedCornerShape(8.dp))
-            .border(1.dp, color.copy(0.40f), RoundedCornerShape(8.dp))
-            .padding(vertical = 12.dp)
-            .clickableNoRipple { onClick() },
-        contentAlignment = Alignment.Center
-    ) { Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-}
-
-private fun tierColor(tier: com.mlbb.assistant.domain.model.Tier) = when (tier) {
-    com.mlbb.assistant.domain.model.Tier.S_PLUS -> TierSPlus
-    com.mlbb.assistant.domain.model.Tier.S      -> TierS
-    com.mlbb.assistant.domain.model.Tier.A_PLUS -> TierAPlus
-    else -> TierA
-}
-
-// Pass 1: clickable import added above; this.clickable(...) is the correct way to call
-// a Modifier extension function — the old fully-qualified free-function call was unresolvable.
-@Composable
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier {
-    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    return this.clickable(
-        indication        = null,
-        interactionSource = interactionSource,
-        onClick           = onClick
-    )
-}
-
-@Composable
-private fun Modifier.bottomBorder(width: androidx.compose.ui.unit.Dp, color: androidx.compose.ui.graphics.Color): Modifier {
-    val widthPx = with(androidx.compose.ui.platform.LocalDensity.current) { width.toPx() }
-    return this.drawBehind {
-        drawLine(
-            color       = color,
-            start       = Offset(0f, size.height),
-            end         = Offset(size.width, size.height),
-            strokeWidth = widthPx
-        )
-    }
+// Exhaustive on sealed enum — compiler enforces all cases, no silent else fallback
+private fun tierColor(tier: Tier) = when (tier) {
+    Tier.S_PLUS -> TierSPlus
+    Tier.S      -> TierS
+    Tier.A_PLUS -> TierAPlus
+    Tier.A      -> TierA
+    Tier.B      -> TierB
 }

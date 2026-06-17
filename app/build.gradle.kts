@@ -33,8 +33,6 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        // NOTE: -Xskip-metadata-version-check removed — it masked library compatibility
-        // issues and must not appear in a production build.
     }
 
     buildFeatures {
@@ -42,7 +40,6 @@ android {
         buildConfig = true
     }
 
-    // OkHttp 5.x and jspecify both ship META-INF/versions/9/OSGI-INF/MANIFEST.MF
     packaging {
         resources {
             pickFirsts += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
@@ -50,7 +47,6 @@ android {
     }
 }
 
-// jspecify is a compile-time annotation lib; its OSGI manifest conflicts with OkHttp 5.x
 configurations.all {
     exclude(group = "org.jspecify", module = "jspecify")
 }
@@ -59,16 +55,18 @@ dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)   // collectAsStateWithLifecycle
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Compose
+    // Compose BOM + modules
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)      // full Material icon set
     implementation(libs.compose.animation)
     implementation(libs.navigation.compose)
     debugImplementation(libs.compose.ui.tooling)

@@ -1,12 +1,16 @@
 package com.mlbb.assistant.presentation.common.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,14 +18,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mlbb.assistant.domain.model.Hero
-import com.mlbb.assistant.presentation.common.theme.*  // Pass 1: removed spurious blank line before this import
+import com.mlbb.assistant.presentation.common.theme.*
 
 @Composable
 fun HeroGrid(
@@ -40,68 +48,60 @@ fun HeroGrid(
             .filter { roleFilter == null || it.role.equals(roleFilter, ignoreCase = true) }
     }
 
+    // Adaptive grid columns based on screen width instead of fixed 5
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val columns = when {
+        screenWidthDp >= 840 -> 9   // large tablet / desktop
+        screenWidthDp >= 600 -> 7   // tablet / foldable
+        else                 -> 5   // phone
+    }
+
     Column(modifier = modifier) {
-        // Search bar
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .background(SurfaceElevated, RoundedCornerShape(8.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            if (query.isEmpty()) {
-                Text("🔍 Search hero...", color = TextDisabled, fontSize = 13.sp)
-            }
-            BasicTextField(
-                value = query, onValueChange = { query = it },
-                textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        Spacer(Modifier.height(6.dp))
-
-        // Role filter chips
-        val roles = listOf(null, "Tank", "Fighter", "Mage", "Marksman", "Support", "Assassin")
-        ScrollableTabRow(
-            selectedTabIndex = roles.indexOf(roleFilter).coerceAtLeast(0),
-            containerColor = Color.Transparent,
-            edgePadding = 0.dp,
-            divider = {}
-        ) {
-            roles.forEach { role ->
-                val selected = roleFilter == role
-                Tab(
-                    selected = selected,
-                    onClick  = { roleFilter = role },
-                    modifier = Modifier.padding(horizontal = 2.dp)
-                ) {
-                    Box(
-                        Modifier
-                            .background(
-                                if (selected) MLBBGold.copy(alpha = 0.25f) else SurfaceElevated,
-                                RoundedCornerShape(16.dp)
-                            )
-                            .border(1.dp, if (selected) MLBBGold else SurfaceElevated, RoundedCornerShape(16.dp))
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            role ?: "All",
-                            color     = if (selected) MLBBGold else TextSecondary,
-                            fontSize  = 11.sp
-                        )
+        // M3 OutlinedTextField replaces BasicTextField — has hint, icon, and IME action
+        OutlinedTextField(
+            value           = query,
+            onValueChange   = { query = it },
+            placeholder     = { Text("Search heroes…") },
+            leadingIcon     = { Icon(Icons.Rounded.Search, contentDescription = null) },
+            trailingIcon    = if (query.isNotEmpty()) {
+                {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Rounded.Clear, contentDescription = "Clear search")
                     }
                 }
+            } else null,
+            singleLine      = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            modifier        = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "Search heroes" }
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        // FilterChip replaces custom Tab — correct M3 component for single-select filters.
+        // FilterChip has built-in selected-state semantics announced by TalkBack.
+        val roles = listOf<String?>(null, "Tank", "Fighter", "Mage", "Marksman", "Support", "Assassin")
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding        = PaddingValues(horizontal = 2.dp)
+        ) {
+            items(roles) { role ->
+                FilterChip(
+                    selected = roleFilter == role,
+                    onClick  = { roleFilter = role },
+                    label    = { Text(role ?: "All") }
+                )
             }
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
 
-        // Grid
         LazyVerticalGrid(
-            columns = GridCells.Fixed(5),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            columns               = GridCells.Fixed(columns),
+            verticalArrangement   = Arrangement.spacedBy(6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier              = Modifier.fillMaxWidth()
         ) {
             items(filtered, key = { it.id }) { hero ->
                 val disabled = hero.id in disabledIds
@@ -117,14 +117,28 @@ fun HeroGrid(
 }
 
 @Composable
-private fun HeroGridCell(hero: Hero, disabled: Boolean, onTap: () -> Unit, onLong: () -> Unit) {
+private fun HeroGridCell(
+    hero:     Hero,
+    disabled: Boolean,
+    onTap:    () -> Unit,
+    onLong:   () -> Unit
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
             .background(SurfaceCard)
-            .clickable { onTap() }
+            // combinedClickable: onClick + long-press properly wired (was missing long-press)
+            .combinedClickable(
+                onClick          = onTap,
+                onLongClick      = onLong,
+                onLongClickLabel = "View ${hero.name} options"
+            )
             .padding(3.dp)
+            // Parent-level semantics so image and label are one accessible unit
+            .semantics {
+                contentDescription = if (disabled) "${hero.name}, unavailable" else hero.name
+            }
     ) {
         Box(
             Modifier
@@ -132,24 +146,31 @@ private fun HeroGridCell(hero: Hero, disabled: Boolean, onTap: () -> Unit, onLon
                 .clip(RoundedCornerShape(5.dp))
         ) {
             AsyncImage(
-                model = hero.imageUrl,
-                contentDescription = hero.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                model              = hero.imageUrl,
+                contentDescription = null,   // parent semantics covers this
+                contentScale       = ContentScale.Crop,
+                modifier           = Modifier.fillMaxSize()
             )
             if (disabled) {
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.60f)))
-                Text(
-                    "✕", color = TextDisabled, fontSize = 16.sp,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.65f)),
+                    contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector        = Icons.Rounded.Block,
+                        contentDescription = null,
+                        tint               = Color.White.copy(alpha = 0.7f),
+                        modifier           = Modifier.size(18.dp)
+                    )
+                }
             }
         }
         Text(
-            hero.name, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            color = if (disabled) TextDisabled else TextSecondary,
-            fontSize = 8.sp, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            hero.name,
+            maxLines  = 1,
+            overflow  = TextOverflow.Ellipsis,
+            color     = if (disabled) TextDisabled else TextSecondary,
+            fontSize  = 8.sp,
+            textAlign = TextAlign.Center,
+            modifier  = Modifier.fillMaxWidth()
         )
     }
 }
