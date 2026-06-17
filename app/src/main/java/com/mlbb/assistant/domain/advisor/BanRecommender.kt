@@ -38,7 +38,7 @@ object BanRecommender {
             val badge  = when {
                 hero.isToxicMechanic -> "Toxic"
                 hero.isOP            -> "OP Meta"
-                hero.banRate > 0.25f -> "High Ban"
+                hero.banRate > 0.25  -> "High Ban"   // Pass 4: Double compared to Double literal (was 0.25f → Float mismatch)
                 else                 -> "Counter"
             }
 
@@ -50,11 +50,11 @@ object BanRecommender {
 
     private fun buildBanReason(hero: Hero): String = when {
         hero.isToxicMechanic -> "Toxic mechanics — difficult for most players to deal with"
-        hero.isOP && hero.banRate > 0.25f ->
+        hero.isOP && hero.banRate > 0.25 ->   // Pass 4: was 0.25f
             "OP in current meta — %.0f%% ban rate".format(hero.banRate * 100)
         hero.isOP ->
             "Strong pick — %.0f%% win rate this patch".format(hero.winRate * 100)
-        hero.banRate > 0.20f ->
+        hero.banRate > 0.20 ->               // Pass 4: was 0.20f
             "Community consensus ban — %.0f%% ban rate".format(hero.banRate * 100)
         else ->
             "Counters common team compositions"

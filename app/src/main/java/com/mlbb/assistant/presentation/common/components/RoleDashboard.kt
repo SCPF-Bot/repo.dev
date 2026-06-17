@@ -8,16 +8,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.mlbb.assistant.domain.advisor.CompositionAnalyzer  // Pass 1: moved above domain.model.* (advisor < model alphabetically)
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
-import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
 import com.mlbb.assistant.presentation.common.theme.*
 
 @Composable

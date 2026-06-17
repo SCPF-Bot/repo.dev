@@ -71,7 +71,8 @@ object CompositionAnalyzer {
     fun getLanesFilled(picks: List<Hero>): Map<Lane, Hero?> {
         val result = Lane.entries.associateWith<Lane, Hero?> { null }.toMutableMap()
         val assigned = mutableSetOf<Int>()
-        picks.filterNotNull().forEach { hero ->
+        // Pass 1: filterNotNull() was redundant — picks is List<Hero> (non-nullable elements)
+        picks.forEach { hero ->
             if (hero.id !in assigned) {
                 val preferred = hero.lane
                 if (result[preferred] == null) {

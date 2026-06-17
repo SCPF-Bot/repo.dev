@@ -33,6 +33,7 @@ import com.mlbb.assistant.presentation.overlay.OverlayService
 import com.mlbb.assistant.presentation.settings.SettingsScreen
 import com.mlbb.assistant.presentation.welcome.PermissionWizardScreen
 import com.mlbb.assistant.service.ScreenCaptureManager
+import com.mlbb.assistant.service.VoiceAlertService  // Pass 3: inject to call shutdown() on destroy
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
@@ -46,6 +47,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var heroRepository: HeroRepository
     @Inject lateinit var draftSessionDao: DraftSessionDao
+    // Pass 3: VoiceAlertService holds a TextToSpeech instance; shutdown() must be called
+    // to release the TTS engine when the Activity is destroyed.
+    @Inject lateinit var voiceAlertService: VoiceAlertService
 
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private val projectionLauncher = registerForActivityResult(
@@ -74,6 +78,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         screenCaptureManager.stopCapture()
+        voiceAlertService.shutdown()  // Pass 3: release TTS engine before super — prevents resource leak
         super.onDestroy()
     }
 
