@@ -1,6 +1,5 @@
 package com.mlbb.assistant.presentation.overlay
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -13,39 +12,33 @@ import android.os.IBinder
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
-import androidx.lifecycle.*
-import com.mlbb.assistant.domain.advisor.*
-import com.mlbb.assistant.domain.engine.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import com.mlbb.assistant.domain.advisor.BanRecommender
+import com.mlbb.assistant.domain.advisor.BanSuggestion
+import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
+import com.mlbb.assistant.domain.engine.DraftPhase
+import com.mlbb.assistant.domain.engine.DraftSession
+import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.scoring.DraftScorer
 import com.mlbb.assistant.domain.scoring.HeroScore
 import com.mlbb.assistant.domain.scoring.ScoreWeights
-import com.mlbb.assistant.presentation.common.theme.*
+import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
+import com.mlbb.assistant.presentation.common.theme.MLBBAssistantTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -53,6 +46,7 @@ class OverlayService : Service(), LifecycleOwner {
 
     // ── Hilt injections ───────────────────────────────────────────────────────
     @Inject lateinit var draftSessionManager: DraftSessionManager
+    @Inject lateinit var getHeroesUseCase: GetHeroesUseCase
 
     // ── Android plumbing ──────────────────────────────────────────────────────
     private lateinit var windowManager: WindowManager
@@ -65,7 +59,7 @@ class OverlayService : Service(), LifecycleOwner {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     // ── Shared state ──────────────────────────────────────────────────────────
-    private val allHeroes    = mutableStateListOf<Hero>()
+    private val allHeroes       = mutableStateListOf<Hero>()
     private val recommendations = mutableStateListOf<HeroScore>()
     private val banSuggestions  = mutableStateListOf<BanSuggestion>()
     private val enemyWarnings   = mutableStateListOf<String>()
@@ -90,6 +84,7 @@ class OverlayService : Service(), LifecycleOwner {
         createNotificationChannel()
         startFg()
         addBubble()
+        loadHeroes()
         observeSession()
     }
 
@@ -99,10 +94,10 @@ class OverlayService : Service(), LifecycleOwner {
     }
 
     override fun onDestroy() {
-        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         serviceScope.cancel()
         removeBubble()
         removePanel()
+        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         super.onDestroy()
     }
 
@@ -131,6 +126,22 @@ class OverlayService : Service(), LifecycleOwner {
         ).apply { description = "MLBB Draft Assistant overlay" }
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
             .createNotificationChannel(channel)
+    }
+
+    // ── Hero loading ──────────────────────────────────────────────────────────
+
+    /**
+     * Collects hero data from the repository and keeps [allHeroes] up-to-date.
+     * Without this, recommendations and ban suggestions were always empty.
+     */
+    private fun loadHeroes() {
+        serviceScope.launch {
+            getHeroesUseCase().collectLatest { heroes ->
+                allHeroes.clear()
+                allHeroes.addAll(heroes)
+                refreshRecommendations(draftSessionManager.session.value)
+            }
+        }
     }
 
     // ── Bubble ────────────────────────────────────────────────────────────────
@@ -200,16 +211,16 @@ class OverlayService : Service(), LifecycleOwner {
             setContent {
                 MLBBAssistantTheme {
                     DraftPanel(
-                        session        = draftSessionManager.session.collectAsState().value,
+                        session         = draftSessionManager.session.collectAsState().value,
                         recommendations = recommendations.toList(),
-                        banSuggestions = banSuggestions.toList(),
-                        allHeroes      = allHeroes.toList(),
-                        enemyWarnings  = enemyWarnings.toList(),
-                        isBanTurn      = isBanTurn.value,
-                        onHeroSelected = { hero -> handleHeroSelected(hero) },
-                        onHeroLongPress = { /* TODO: show detail popup */ },
-                        onMinimize     = { isExpanded.value = false; removePanel() },
-                        onClose        = { stopSelf() }
+                        banSuggestions  = banSuggestions.toList(),
+                        allHeroes       = allHeroes.toList(),
+                        enemyWarnings   = enemyWarnings.toList(),
+                        isBanTurn       = isBanTurn.value,
+                        onHeroSelected  = { hero -> handleHeroSelected(hero) },
+                        onHeroLongPress = { /* TODO: [Issue-12] show hero detail popup */ },
+                        onMinimize      = { isExpanded.value = false; removePanel() },
+                        onClose         = { stopSelf() }
                     )
                 }
             }
@@ -273,24 +284,25 @@ class OverlayService : Service(), LifecycleOwner {
                 val slot = (if (s.phase == DraftPhase.BAN_ROUND_1) s.ourBansR1 else s.ourBansR2)
                     .indexOfFirst { it == null }
                 if (slot >= 0) {
-                    draftSessionManager.recordOurBan(hero, if (s.phase == DraftPhase.BAN_ROUND_1) 1 else 2, slot)
+                    draftSessionManager.recordOurBan(
+                        hero,
+                        if (s.phase == DraftPhase.BAN_ROUND_1) 1 else 2,
+                        slot
+                    )
                 }
             }
             DraftPhase.PICK -> {
                 val slot = s.ourPicks.indexOfFirst { it == null }
                 if (slot >= 0) {
                     val topId = recommendations.firstOrNull()?.hero?.id
-                    draftSessionManager.recordOurPick(hero, slot, followedRecommendation = hero.id == topId)
+                    draftSessionManager.recordOurPick(
+                        hero,
+                        slot,
+                        followedRecommendation = hero.id == topId
+                    )
                 }
             }
             else -> {}
         }
     }
-
-    fun setHeroes(heroes: List<Hero>) {
-        allHeroes.clear()
-        allHeroes.addAll(heroes)
-    }
-
-    fun setBanTurn(visible: Boolean) { isBanTurn.value = visible }
 }

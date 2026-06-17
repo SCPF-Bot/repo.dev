@@ -1,7 +1,7 @@
 package com.mlbb.assistant.di
 
-import com.mlbb.assistant.data.repository.HeroRepository
 import com.mlbb.assistant.data.repository.HeroRepositoryImpl
+import com.mlbb.assistant.domain.repository.HeroRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

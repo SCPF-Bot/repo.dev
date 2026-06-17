@@ -30,9 +30,9 @@ data class CoreItem(
 
 enum class Lane(val display: String) {
     EXP("EXP Lane"),
+    GOLD("Gold Lane"),
     JUNGLE("Jungle"),
     MID("Mid Lane"),
-    GOLD("Gold Lane"),
     ROAM("Roam")
 }
 
@@ -52,13 +52,4 @@ enum class Tier(val display: String, val order: Int) {
             else -> B
         }
     }
-}
-
-enum class HeroRole(val display: String) {
-    TANK("Tank"),
-    FIGHTER("Fighter"),
-    MAGE("Mage"),
-    MARKSMAN("Marksman"),
-    SUPPORT("Support"),
-    ASSASSIN("Assassin")
 }

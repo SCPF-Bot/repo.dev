@@ -8,14 +8,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.lifecycleScope
 import com.mlbb.assistant.data.local.database.DraftSessionDao
-import com.mlbb.assistant.data.repository.HeroRepository
+import com.mlbb.assistant.data.local.database.DraftSessionEntity
+import com.mlbb.assistant.domain.model.Hero
+import com.mlbb.assistant.domain.repository.HeroRepository
 import com.mlbb.assistant.presentation.common.theme.MLBBAssistantTheme
 import com.mlbb.assistant.presentation.common.theme.SurfaceDark
 import com.mlbb.assistant.presentation.herodetail.HeroDetailScreen
@@ -29,7 +35,6 @@ import com.mlbb.assistant.presentation.welcome.PermissionWizardScreen
 import com.mlbb.assistant.service.ScreenCaptureManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class AppScreen {
@@ -67,6 +72,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        screenCaptureManager.stopCapture()
+        super.onDestroy()
+    }
+
     private fun startOverlay() {
         if (Settings.canDrawOverlays(this)) {
             OverlayService.start(this)
@@ -86,16 +96,19 @@ private fun AppNavHost(
     onStartOverlay: () -> Unit,
     onRequestCapture: () -> Unit
 ) {
-    var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
-    var selectedHeroId by remember { mutableStateOf<Int?>(null) }
+    // rememberSaveable survives configuration changes AND process death
+    // (AppScreen is an enum → Serializable; Int? is Serializable)
+    var currentScreen by rememberSaveable { mutableStateOf(AppScreen.HOME) }
+    var selectedHeroId by rememberSaveable { mutableStateOf<Int?>(null) }
 
-    val heroesState = produceState(initialValue = emptyList<com.mlbb.assistant.domain.model.Hero>()) {
-        heroRepository.getHeroes().collectLatest { value = it.map { e -> e.toDomain() } }
+    val heroesState = produceState(initialValue = emptyList<Hero>()) {
+        // getHeroes() now returns Flow<List<Hero>> — no .toDomain() mapping needed
+        heroRepository.getHeroes().collectLatest { value = it }
     }
     val heroes = heroesState.value
     val heroMap = remember(heroes) { heroes.associateBy { it.id } }
 
-    val sessionsState = produceState(initialValue = emptyList<com.mlbb.assistant.data.local.database.DraftSessionEntity>()) {
+    val sessionsState = produceState(initialValue = emptyList<DraftSessionEntity>()) {
         draftSessionDao.getRecentSessions().collectLatest { value = it }
     }
 

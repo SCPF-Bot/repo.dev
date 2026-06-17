@@ -54,8 +54,9 @@ class DraftViewModel @Inject constructor(
         if (heroCollectJob?.isActive == true) return
         heroCollectJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            getHeroesUseCase().collect { entities ->
-                allHeroes = entities.map { it.toDomain() }
+            // getHeroesUseCase returns Flow<List<Hero>> — no .toDomain() mapping needed
+            getHeroesUseCase().collect { heroes ->
+                allHeroes = heroes
                 _state.update { it.copy(isLoading = false) }
             }
         }

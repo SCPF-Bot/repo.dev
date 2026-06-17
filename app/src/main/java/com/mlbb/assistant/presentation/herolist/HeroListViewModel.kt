@@ -35,8 +35,8 @@ class HeroListViewModel @Inject constructor(
     private fun collectHeroes() {
         if (heroCollectJob?.isActive == true) return
         heroCollectJob = viewModelScope.launch {
-            getHeroesUseCase().collect { entities ->
-                val heroes = entities.map { it.toDomain() }
+            // getHeroesUseCase returns Flow<List<Hero>> — no .toDomain() mapping needed
+            getHeroesUseCase().collect { heroes ->
                 _state.update { s ->
                     s.copy(
                         heroes         = heroes,

@@ -12,7 +12,7 @@ enum class DraftPhase {
 
 data class DraftSession(
     val rank: Rank = Rank.UNKNOWN,
-    val banStructure: BanStructure = RankRuleEngine.getBanStructure(Rank.EPIC),
+    val banStructure: BanStructure = RankRuleEngine.getBanStructure(Rank.UNKNOWN),
     val phase: DraftPhase = DraftPhase.IDLE,
     val ourTeamFirst: Boolean = true,
     val pickSequence: List<PickTurn> = emptyList(),

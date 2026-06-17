@@ -33,7 +33,8 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += "-Xskip-metadata-version-check"
+        // NOTE: -Xskip-metadata-version-check removed — it masked library compatibility
+        // issues and must not appear in a production build.
     }
 
     buildFeatures {
@@ -95,4 +96,7 @@ dependencies {
     // DataStore
     implementation(libs.datastore.preferences)
     implementation(libs.savedstate)
+
+    // Tests
+    testImplementation(libs.junit)
 }

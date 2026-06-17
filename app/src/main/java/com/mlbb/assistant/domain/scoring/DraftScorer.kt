@@ -29,7 +29,7 @@ object DraftScorer {
     ): HeroScore {
 
         // 1. Meta score
-        val meta = scoreMetа(candidate)
+        val meta = scoreMeta(candidate)
 
         // 2. Synergy score
         val synergy = scoreSynergy(candidate, alliedPicks)
@@ -99,7 +99,7 @@ object DraftScorer {
             .sortedByDescending { it.totalScore }
     }
 
-    private fun scoreMetа(hero: Hero): Float {
+    private fun scoreMeta(hero: Hero): Float {
         val winContrib  = ((hero.winRate  - 0.48f) / 0.08f).coerceIn(0f, 1f)
         val banContrib  = (hero.banRate   / 0.40f).coerceIn(0f, 1f)
         val pickContrib = (hero.pickRate  / 0.30f).coerceIn(0f, 1f)

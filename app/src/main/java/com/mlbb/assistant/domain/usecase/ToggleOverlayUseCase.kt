@@ -1,16 +1,19 @@
 package com.mlbb.assistant.domain.usecase
 
-import android.content.Context
-import android.provider.Settings
-import com.mlbb.assistant.presentation.overlay.OverlayService
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.mlbb.assistant.domain.OverlayController
 import javax.inject.Inject
 
+/**
+ * Starts or stops the overlay.
+ *
+ * Domain-pure: no android.* imports, no reference to the presentation layer.
+ * The platform check (canDrawOverlays) and service binding are handled by
+ * the [OverlayController] implementation injected from [di.OverlayModule].
+ */
 class ToggleOverlayUseCase @Inject constructor(
-    @ApplicationContext private val context: Context
+    private val overlayController: OverlayController
 ) {
     operator fun invoke(start: Boolean) {
-        if (!Settings.canDrawOverlays(context)) return
-        if (start) OverlayService.start(context) else OverlayService.stop(context)
+        if (start) overlayController.start() else overlayController.stop()
     }
 }
