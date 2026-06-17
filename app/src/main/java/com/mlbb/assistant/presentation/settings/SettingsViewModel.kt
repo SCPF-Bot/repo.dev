@@ -3,6 +3,7 @@ package com.mlbb.assistant.presentation.settings
 import android.content.Context
 import android.provider.Settings
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences  // Pass 4: DataStore edit block receives MutablePreferences, not Preferences.Editor
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -67,6 +68,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Pass 4: was (Preferences.Editor) — that is the old SharedPreferences API.
+    // DataStore's edit {} lambda receives MutablePreferences.
     fun setMetaWeight(v: Float)    = save { it[KEY_META]    = v }
     fun setCounterWeight(v: Float) = save { it[KEY_COUNTER] = v }
     fun setSynergyWeight(v: Float) = save { it[KEY_SYNERGY] = v }
@@ -89,7 +92,7 @@ class SettingsViewModel @Inject constructor(
         dataStore.edit { it[KEY_LAST_SYNCED] = label }
     }
 
-    private fun save(block: suspend (Preferences.Editor) -> Unit) =
+    private fun save(block: suspend (MutablePreferences) -> Unit) =
         viewModelScope.launch { dataStore.edit { block(it) } }
 
     private fun isAccessibilityEnabled(): Boolean = runCatching {

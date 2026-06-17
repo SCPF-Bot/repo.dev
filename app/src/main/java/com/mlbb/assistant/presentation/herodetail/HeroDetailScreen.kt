@@ -2,6 +2,7 @@ package com.mlbb.assistant.presentation.herodetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable  // Pass 1: required for the clickableNoRipple extension; extension functions cannot be called via fully-qualified free-function syntax
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,7 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.ContentScale  // Pass 1: was missing — ContentScale.Crop used on AsyncImage without this import
+import androidx.compose.ui.layout.ContentScale  // Pass 1: was missing; ContentScale.Crop used on AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -269,15 +270,15 @@ private fun tierColor(tier: com.mlbb.assistant.domain.model.Tier) = when (tier) 
     else -> TierA
 }
 
+// Pass 1: clickable import added above; this.clickable(...) is the correct way to call
+// a Modifier extension function — the old fully-qualified free-function call was unresolvable.
 @Composable
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    return this.then(
-        androidx.compose.foundation.clickable(
-            indication        = null,
-            interactionSource = interactionSource,
-            onClick           = onClick
-        )
+    return this.clickable(
+        indication        = null,
+        interactionSource = interactionSource,
+        onClick           = onClick
     )
 }
 

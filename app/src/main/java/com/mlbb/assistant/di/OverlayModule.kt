@@ -23,6 +23,11 @@ object OverlayModule {
         override fun start() {
             if (Settings.canDrawOverlays(context)) OverlayService.start(context)
         }
-        override fun stop() = OverlayService.stop(context)
+        // Pass 3: OverlayService.stop() wraps Context.stopService() which returns Boolean.
+        // Expression body would infer Boolean, conflicting with interface's Unit return type.
+        // Block body discards the Boolean and satisfies fun stop(): Unit.
+        override fun stop() {
+            OverlayService.stop(context)
+        }
     }
 }

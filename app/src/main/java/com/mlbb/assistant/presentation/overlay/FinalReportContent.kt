@@ -2,6 +2,7 @@ package com.mlbb.assistant.presentation.overlay
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable  // Pass 1: was missing; clickable is a Modifier extension, not callable as a free function
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
