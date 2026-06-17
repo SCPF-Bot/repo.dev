@@ -15,9 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mlbb.assistant.domain.advisor.BuildAdvice
-import com.mlbb.assistant.domain.advisor.DraftScoreCalculator
 import com.mlbb.assistant.domain.advisor.FinalDraftScore
-import com.mlbb.assistant.domain.model.CoreItem
 import com.mlbb.assistant.presentation.common.theme.*
 
 @Composable

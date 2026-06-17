@@ -20,6 +20,7 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.setViewTreeLifecycleOwner
 import com.mlbb.assistant.domain.advisor.BanRecommender
 import com.mlbb.assistant.domain.advisor.BanSuggestion
 import com.mlbb.assistant.domain.advisor.CompositionAnalyzer

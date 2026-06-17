@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mlbb.assistant.domain.model.Hero
-import com.mlbb.assistant.domain.model.HeroRole
+
 import com.mlbb.assistant.presentation.common.theme.*
 
 @Composable

@@ -76,11 +76,15 @@ object DraftScorer {
         enemies: List<Hero>,
         weights: ScoreWeights
     ): Double {
-        val meta    = hero.winRate * weights.meta
-        val counter = if (enemies.isEmpty()) 0.0
-                      else enemies.count { e -> e.id in hero.counters }.toDouble() / enemies.size * weights.counter
-        val synergy = if (allies.isEmpty()) 0.0
-                      else allies.count { a -> a.id in hero.synergies }.toDouble() / allies.size * weights.synergy
+        // ScoreWeights fields are Float; hero stats are Double.
+        // Kotlin has no Double × Float operator — explicit .toDouble() required (Rule 2).
+        val meta: Double    = hero.winRate * weights.meta.toDouble()
+        val counter: Double = if (enemies.isEmpty()) 0.0
+                              else enemies.count { e -> e.id in hero.counters }.toDouble() /
+                                   enemies.size * weights.counter.toDouble()
+        val synergy: Double = if (allies.isEmpty()) 0.0
+                              else allies.count { a -> a.id in hero.synergies }.toDouble() /
+                                   allies.size * weights.synergy.toDouble()
         return meta + counter + synergy
     }
 
@@ -100,10 +104,11 @@ object DraftScorer {
     }
 
     private fun scoreMeta(hero: Hero): Float {
-        val winContrib  = ((hero.winRate  - 0.48f) / 0.08f).coerceIn(0f, 1f)
-        val banContrib  = (hero.banRate   / 0.40f).coerceIn(0f, 1f)
-        val pickContrib = (hero.pickRate  / 0.30f).coerceIn(0f, 1f)
-        val tierContrib = 1f - (hero.tier.order.toFloat() / 4f)
+        // hero.winRate / banRate / pickRate are Double — explicit .toFloat() required (Rule 2)
+        val winContrib:  Float = ((hero.winRate.toFloat()  - 0.48f) / 0.08f).coerceIn(0f, 1f)
+        val banContrib:  Float = (hero.banRate.toFloat()   / 0.40f).coerceIn(0f, 1f)
+        val pickContrib: Float = (hero.pickRate.toFloat()  / 0.30f).coerceIn(0f, 1f)
+        val tierContrib: Float = 1f - (hero.tier.order.toFloat() / 4f)
         return (winContrib * 0.35f + banContrib * 0.30f + pickContrib * 0.15f + tierContrib * 0.20f)
     }
 

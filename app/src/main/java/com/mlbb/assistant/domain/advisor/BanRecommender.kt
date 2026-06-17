@@ -23,14 +23,16 @@ object BanRecommender {
         val pool = availableHeroes.filter { it.id !in bannedIds && it.id !in pickedIds }
 
         return pool.map { hero ->
-            val metaScore    = (hero.winRate - 0.50f).coerceAtLeast(0f) * 2f +
-                               hero.banRate * 1.5f
-            val toxicBonus   = if (hero.isToxicMechanic) 0.30f else 0f
-            val opBonus      = if (hero.isOP) 0.25f else 0f
-            val laneBonus    = if (hero.lane.name in preferredLanes) 0.10f else 0f
+            // hero.winRate and hero.banRate are Double; arithmetic here is Float.
+            // Explicit .toFloat() required — Kotlin has no Double ± Float operator (Rule 2).
+            val metaScore:  Float = (hero.winRate.toFloat() - 0.50f).coerceAtLeast(0f) * 2f +
+                                     hero.banRate.toFloat() * 1.5f
+            val toxicBonus: Float = if (hero.isToxicMechanic) 0.30f else 0f
+            val opBonus:    Float = if (hero.isOP) 0.25f else 0f
+            val laneBonus:  Float = if (hero.lane.name in preferredLanes) 0.10f else 0f
 
-            val totalScore   = (metaScore + toxicBonus + opBonus + laneBonus)
-                                   .coerceIn(0f, 1f)
+            val totalScore: Float = (metaScore + toxicBonus + opBonus + laneBonus)
+                                        .coerceIn(0f, 1f)
 
             val reason = buildBanReason(hero)
             val badge  = when {

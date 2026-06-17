@@ -69,8 +69,10 @@ object PhaseDetector {
 
         if (samples == 0) return PhaseResult(DetectedPhase.UNKNOWN, 0f)
 
-        val redRatio  = redScore  / samples
-        val blueRatio = blueScore / samples
+        // Float / Int is defined and returns Float, but explicit types prevent
+        // silent inference drift if samples type changes later (Rule 4).
+        val redRatio:  Float = redScore  / samples
+        val blueRatio: Float = blueScore / samples
 
         return when {
             redRatio  > 0.06f -> PhaseResult(DetectedPhase.BAN,  redRatio.coerceAtMost(1f))
