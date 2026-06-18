@@ -26,7 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import com.mlbb.assistant.presentation.navigation.AppNavGraph
 import com.mlbb.assistant.presentation.navigation.AppRoute
 import com.mlbb.assistant.presentation.navigation.TOP_LEVEL_ROUTES
-import androidx.compose.material.icons.rounded.History as HistoryIcon
+import androidx.compose.material.icons.rounded.History
 
 data class BottomNavItem(
     val route: String,
@@ -38,7 +38,7 @@ private val NAV_ITEMS = listOf(
     BottomNavItem(AppRoute.Home.route,      Icons.Rounded.Home,        "Home"),
     BottomNavItem(AppRoute.HeroList.route,  Icons.Rounded.Person,      "Heroes"),
     BottomNavItem(AppRoute.MetaBoard.route, Icons.Rounded.Leaderboard, "Meta"),
-    BottomNavItem(AppRoute.History.route,   HistoryIcon,               "History"),
+    BottomNavItem(AppRoute.History.route,   Icons.Rounded.History,     "History"),
     BottomNavItem(AppRoute.Settings.route,  Icons.Rounded.Settings,    "Settings"),
 )
 

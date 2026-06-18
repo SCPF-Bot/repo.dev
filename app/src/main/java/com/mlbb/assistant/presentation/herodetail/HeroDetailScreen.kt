@@ -79,7 +79,6 @@ fun HeroDetailScreen(
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(hero.imageUrl)
-                    .crossfade(300)
                     .build(),
                 contentDescription = "${hero.name} splash art",
                 contentScale       = ContentScale.Crop,
