@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -36,10 +37,12 @@
             android:theme="@style/Theme.MLBBAssistant" />
 
         <!-- ── Overlay Service ─────────────────────────────────────────────── -->
+        <!-- foregroundServiceType includes mediaProjection so the service can
+             legally call MediaProjectionManager.getMediaProjection() on API 34+. -->
         <service
             android:name=".presentation.overlay.OverlayService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|mediaProjection">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="MLBB draft assistant overlay" />
