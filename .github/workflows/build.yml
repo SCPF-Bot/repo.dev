@@ -1,15 +1,14 @@
 name: Build APK
 
 on:
-  workflow_dispatch:                         # Keep manual trigger
+  workflow_dispatch:
   workflow_run:
-    workflows: ["Extract 7z"]                # Must exactly match the name of your Extract workflow
+    workflows: ["Extract 7z"]
     types:
       - completed
 
 jobs:
   build:
-    # Only run if the triggering workflow (Extract 7z) succeeded
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
@@ -34,11 +33,11 @@ jobs:
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
           $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-36"
 
-      - name: Build APK
-        run: ./gradlew assembleRelease
+      - name: Build debug APK (test signed)
+        run: ./gradlew assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mlbb-assistant-release
-          path: app/build/outputs/apk/release/*.apk
+          name: mlbb-assistant-debug
+          path: app/build/outputs/apk/debug/*.apk
