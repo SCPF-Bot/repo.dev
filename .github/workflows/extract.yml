@@ -17,8 +17,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install 7zz (official 7-Zip)
-        run: sudo apt-get update && sudo apt-get install -y 7zip
+      - name: Cache 7zz binary
+        id: cache-7zz
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/7zz
+          key: 7zz-2409
+
+      - name: Install 7zz
+        if: steps.cache-7zz.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.local/bin
+          wget https://www.7-zip.org/a/7z2409-linux-x64.tar.xz
+          tar -xf 7z2409-linux-x64.tar.xz
+          cp 7zz ~/.local/bin/
+          chmod +x ~/.local/bin/7zz
+
+      - name: Add 7zz to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Delete all files/folders except .github, .git, and *.7z
         run: |
