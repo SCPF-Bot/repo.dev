@@ -3,11 +3,11 @@ name: Extract 7z
 on:
   push:
     paths:
-      - '*.7z'               # Trigger only when a .7z file is pushed to the root folder
-  workflow_dispatch:         # Keep manual trigger for testing or re-runs
+      - '*.7z'
+  workflow_dispatch:
 
 permissions:
-  contents: write            # Required to push changes back to the repository
+  contents: write
 
 jobs:
   extract-and-push:
@@ -17,15 +17,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install p7zip (7z extraction tool)
-        run: sudo apt-get update && sudo apt-get install -y p7zip-full
+      - name: Install 7zz (official 7-Zip)
+        run: sudo apt-get update && sudo apt-get install -y 7zip
 
       - name: Delete all files/folders except .github, .git, and *.7z
         run: |
-          # Remove everything in the current directory except:
-          # - .github folder
-          # - .git folder (required for commit/push)
-          # - any .7z files
           find . -mindepth 1 -maxdepth 1 \
           ! -name '.github' \
           ! -name '.git' \
@@ -38,7 +34,7 @@ jobs:
           for archive in *.7z; do
             if [ -f "$archive" ]; then
               echo "Extracting $archive"
-              7z x -y "$archive"   # -y auto‑yes to overwrite files
+              7zz x -y "$archive"
             fi
           done
         working-directory: ${{ github.workspace }}
