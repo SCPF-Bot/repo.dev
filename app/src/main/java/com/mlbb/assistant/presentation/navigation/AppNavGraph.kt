@@ -4,12 +4,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -71,7 +71,8 @@ fun AppNavGraph(
         ) { backStack ->
             val heroId = backStack.arguments?.getInt(AppRoute.HeroDetail.ARG) ?: return@composable
             val vm: HeroListViewModel = hiltViewModel()
-            val state by vm.state.collectAsState()
+            // Pass 4 / UX fix: collectAsStateWithLifecycle — lifecycle-aware flow collection.
+            val state by vm.state.collectAsStateWithLifecycle()
             val heroMap = remember(state.heroes) { state.heroes.associateBy { it.id } }
             val hero = heroMap[heroId]
             if (hero != null) {
@@ -89,7 +90,8 @@ fun AppNavGraph(
 
         composable(AppRoute.MetaBoard.route) {
             val vm: HeroListViewModel = hiltViewModel()
-            val state by vm.state.collectAsState()
+            // Pass 4 / UX fix: collectAsStateWithLifecycle — lifecycle-aware flow collection.
+            val state by vm.state.collectAsStateWithLifecycle()
             MetaBoardScreen(
                 heroes      = state.heroes,
                 onHeroClick = { hero ->

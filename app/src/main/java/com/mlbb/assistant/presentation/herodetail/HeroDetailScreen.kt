@@ -2,32 +2,63 @@ package com.mlbb.assistant.presentation.herodetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import androidx.compose.ui.platform.LocalContext
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Tier
 import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
-import com.mlbb.assistant.presentation.common.theme.*
+import com.mlbb.assistant.presentation.common.theme.ErrorRed
+import com.mlbb.assistant.presentation.common.theme.InfoBlue
+import com.mlbb.assistant.presentation.common.theme.MLBBGold
+import com.mlbb.assistant.presentation.common.theme.MLBBRed
+import com.mlbb.assistant.presentation.common.theme.MLBBTeal
+import com.mlbb.assistant.presentation.common.theme.SuccessGreen
+import com.mlbb.assistant.presentation.common.theme.SurfaceCard
+import com.mlbb.assistant.presentation.common.theme.SurfaceDark
+import com.mlbb.assistant.presentation.common.theme.SurfaceElevated
+import com.mlbb.assistant.presentation.common.theme.SurfaceMid
+import com.mlbb.assistant.presentation.common.theme.TextDisabled
+import com.mlbb.assistant.presentation.common.theme.TextPrimary
+import com.mlbb.assistant.presentation.common.theme.TextSecondary
+import com.mlbb.assistant.presentation.common.theme.TierA
+import com.mlbb.assistant.presentation.common.theme.TierAPlus
+import com.mlbb.assistant.presentation.common.theme.TierB
+import com.mlbb.assistant.presentation.common.theme.TierS
+import com.mlbb.assistant.presentation.common.theme.TierSPlus
 
 enum class DetailTab { OVERVIEW, COUNTERS, SYNERGIES }
 
@@ -174,7 +205,9 @@ private fun StatRow(hero: Hero) {
 private fun StatItem(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        Text(label, color = TextDisabled, fontSize = 9.sp)
+        // UX fix: raised from 9.sp to 10.sp — minimum legible text size to meet
+        // WCAG readability guidance (small text ≥ 10sp on mobile displays).
+        Text(label, color = TextDisabled, fontSize = 10.sp)
     }
 }
 
@@ -220,7 +253,10 @@ private fun HeroRelationTab(
             }
         }
         if (idsA.isEmpty()) Text("No data", color = TextDisabled, fontSize = 12.sp)
-        Divider(color = SurfaceElevated)
+        // Pass 4 UX fix: renamed private Divider → ThinDivider to avoid shadowing
+        // M3's HorizontalDivider composable — shadowing causes silent import ambiguity
+        // and breaks future callers that expect the M3 component (Pass 4 import check).
+        ThinDivider()
         SectionTitle(sectionB)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             idsB.take(5).mapNotNull { related[it] }.forEach { h ->
@@ -234,9 +270,10 @@ private fun HeroRelationTab(
 @Composable private fun SectionTitle(t: String) =
     Text(t, color = MLBBGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
 
+// Pass 4 fix: renamed from Divider → ThinDivider to avoid shadowing M3's HorizontalDivider.
 @Composable
-private fun Divider(color: Color) =
-    Box(Modifier.fillMaxWidth().height(1.dp).background(color))
+private fun ThinDivider() =
+    Box(Modifier.fillMaxWidth().height(1.dp).background(SurfaceElevated))
 
 @Composable
 private fun InfoRow(label: String, value: String) {
@@ -266,7 +303,7 @@ private fun Chip(label: String, color: Color) {
 }
 
 // Exhaustive on sealed enum — compiler enforces all cases, no silent else fallback
-private fun tierColor(tier: Tier) = when (tier) {
+private fun tierColor(tier: Tier): Color = when (tier) {
     Tier.S_PLUS -> TierSPlus
     Tier.S      -> TierS
     Tier.A_PLUS -> TierAPlus

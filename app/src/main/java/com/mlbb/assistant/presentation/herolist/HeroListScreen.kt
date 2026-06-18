@@ -1,12 +1,21 @@
 package com.mlbb.assistant.presentation.herolist
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,10 +23,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.components.HeroGrid
-import com.mlbb.assistant.presentation.common.theme.*
+import com.mlbb.assistant.presentation.common.theme.MLBBGold
+import com.mlbb.assistant.presentation.common.theme.SurfaceDark
+import com.mlbb.assistant.presentation.common.theme.SurfaceMid
+import com.mlbb.assistant.presentation.common.theme.TextDisabled
+import com.mlbb.assistant.presentation.common.theme.TextSecondary
 
 @Composable
 fun HeroListScreen(
@@ -25,7 +39,8 @@ fun HeroListScreen(
     onBack: () -> Unit,
     viewModel: HeroListViewModel = hiltViewModel()
 ) {
-    val state by viewModel.state.collectAsState()
+    // Pass 4 / UX fix: collectAsStateWithLifecycle — lifecycle-aware flow collection.
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize().background(SurfaceDark)) {
         // Header — proper back button with 48dp touch target

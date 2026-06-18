@@ -2,30 +2,64 @@ package com.mlbb.assistant.presentation.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Leaderboard
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SportsMartialArts
+import androidx.compose.material.icons.rounded.SportsKabaddi
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
-import com.mlbb.assistant.presentation.common.theme.*
+import com.mlbb.assistant.presentation.common.theme.MLBBBlue
+import com.mlbb.assistant.presentation.common.theme.MLBBGold
+import com.mlbb.assistant.presentation.common.theme.MLBBTeal
+import com.mlbb.assistant.presentation.common.theme.SurfaceCard
+import com.mlbb.assistant.presentation.common.theme.SurfaceDark
+import com.mlbb.assistant.presentation.common.theme.SurfaceElevated
+import com.mlbb.assistant.presentation.common.theme.SurfaceMid
+import com.mlbb.assistant.presentation.common.theme.TextPrimary
+import com.mlbb.assistant.presentation.common.theme.TextSecondary
 
 @Composable
 fun HomeScreen(
@@ -36,7 +70,9 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    // Pass 4 / UX fix: collectAsStateWithLifecycle cancels collection when the UI is
+    // in the background — safer than collectAsState() which keeps the flow active.
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Box(Modifier.fillMaxSize().background(SurfaceDark)) {
         Column(
@@ -75,24 +111,24 @@ fun HomeScreen(
 
                 // Quick actions
                 SectionHeader("QUICK ACTIONS")
-                val screenWidthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+                val screenWidthDp = LocalConfiguration.current.screenWidthDp
                 val useTwoColumns = screenWidthDp < 600
                 if (useTwoColumns) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            QuickActionCard("Hero Explorer", Icons.Rounded.Person,      MLBBBlue,     Modifier.weight(1f)) { onOpenExplorer() }
-                            QuickActionCard("Meta Board",   Icons.Rounded.Leaderboard, MLBBTeal,     Modifier.weight(1f)) { onOpenMeta() }
+                            QuickActionCard("Hero Explorer", Icons.Rounded.Person,      MLBBBlue,        Modifier.weight(1f)) { onOpenExplorer() }
+                            QuickActionCard("Meta Board",   Icons.Rounded.Leaderboard, MLBBTeal,        Modifier.weight(1f)) { onOpenMeta() }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            QuickActionCard("Draft History", Icons.Rounded.History,    TextSecondary, Modifier.weight(1f)) { onOpenHistory() }
+                            QuickActionCard("Draft History", Icons.Rounded.History,    TextSecondary,   Modifier.weight(1f)) { onOpenHistory() }
                             QuickActionCard("Settings",      Icons.Rounded.Settings,   SurfaceElevated, Modifier.weight(1f)) { onOpenSettings() }
                         }
                     }
                 } else {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        QuickActionCard("Heroes",  Icons.Rounded.Person,      MLBBBlue,     Modifier.weight(1f)) { onOpenExplorer() }
-                        QuickActionCard("Meta",    Icons.Rounded.Leaderboard, MLBBTeal,     Modifier.weight(1f)) { onOpenMeta() }
-                        QuickActionCard("History", Icons.Rounded.History,     TextSecondary, Modifier.weight(1f)) { onOpenHistory() }
+                        QuickActionCard("Heroes",  Icons.Rounded.Person,      MLBBBlue,        Modifier.weight(1f)) { onOpenExplorer() }
+                        QuickActionCard("Meta",    Icons.Rounded.Leaderboard, MLBBTeal,        Modifier.weight(1f)) { onOpenMeta() }
+                        QuickActionCard("History", Icons.Rounded.History,     TextSecondary,   Modifier.weight(1f)) { onOpenHistory() }
                         QuickActionCard("Settings",Icons.Rounded.Settings,    SurfaceElevated, Modifier.weight(1f)) { onOpenSettings() }
                     }
                 }
@@ -132,7 +168,7 @@ fun HomeScreen(
 
 @Composable
 private fun MetaBanner(onViewMeta: () -> Unit) {
-    Card(
+    androidx.compose.material3.Card(
         onClick    = onViewMeta,
         modifier   = Modifier.fillMaxWidth().semantics { contentDescription = "View current meta tier list" },
         colors     = CardDefaults.cardColors(containerColor = SurfaceCard),
@@ -164,7 +200,7 @@ private fun QuickActionCard(
     modifier:    Modifier,
     onClick:     () -> Unit
 ) {
-    Card(
+    androidx.compose.material3.Card(
         onClick   = onClick,
         modifier  = modifier
             .aspectRatio(1.5f)
@@ -199,7 +235,8 @@ private fun MetaHeroCard(hero: Hero) {
         Spacer(Modifier.height(4.dp))
         Text(hero.name, color = TextPrimary, style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold, maxLines = 1)
-        Text("%.0f%% win".format(hero.winRate * 100), color = TextSecondary, fontSize = 9.sp)
+        // UX fix: win rate increased from 9.sp to 10.sp — minimum legible size.
+        Text("%.0f%% win".format(hero.winRate * 100), color = TextSecondary, fontSize = 10.sp)
     }
 }
 
@@ -207,8 +244,8 @@ private fun MetaHeroCard(hero: Hero) {
 private fun SectionHeader(title: String) {
     Text(
         title,
-        color    = TextSecondary,
-        style    = MaterialTheme.typography.labelSmall,
+        color      = TextSecondary,
+        style      = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.SemiBold
     )
 }

@@ -2,17 +2,36 @@ package com.mlbb.assistant.presentation.common.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,14 +41,15 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mlbb.assistant.domain.model.Hero
-import com.mlbb.assistant.presentation.common.theme.*
+import com.mlbb.assistant.presentation.common.theme.SurfaceCard
+import com.mlbb.assistant.presentation.common.theme.TextDisabled
+import com.mlbb.assistant.presentation.common.theme.TextSecondary
 
 @Composable
 fun HeroGrid(
@@ -71,13 +91,15 @@ fun HeroGrid(
                 }
             } else null,
             singleLine      = true,
+            // Pass 1 fix: KeyboardOptions moved so import is alphabetically ordered
+            // (androidx.compose.foundation.text before androidx.compose.ui.text.input).
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             modifier        = Modifier
                 .fillMaxWidth()
                 .semantics { contentDescription = "Search heroes" }
         )
 
-        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 8.dp))
 
         // FilterChip replaces custom Tab — correct M3 component for single-select filters.
         // FilterChip has built-in selected-state semantics announced by TalkBack.
@@ -95,7 +117,7 @@ fun HeroGrid(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 8.dp))
 
         LazyVerticalGrid(
             columns               = GridCells.Fixed(columns),
@@ -128,7 +150,7 @@ private fun HeroGridCell(
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
             .background(SurfaceCard)
-            // combinedClickable: onClick + long-press properly wired (was missing long-press)
+            // combinedClickable: onClick + long-press properly wired
             .combinedClickable(
                 onClick          = onTap,
                 onLongClick      = onLong,
@@ -152,8 +174,10 @@ private fun HeroGridCell(
                 modifier           = Modifier.fillMaxSize()
             )
             if (disabled) {
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.65f)),
-                    contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.65f)),
+                    contentAlignment = Alignment.Center
+                ) {
                     Icon(
                         imageVector        = Icons.Rounded.Block,
                         contentDescription = null,

@@ -2,8 +2,8 @@ package com.mlbb.assistant.presentation.draft
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.engine.DraftSession
+import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
@@ -39,9 +39,9 @@ class DraftViewModel @Inject constructor(
             draftSessionManager.session.collect { session ->
                 _state.update { s ->
                     s.copy(
-                        allies   = session.ourPickedHeroes,
-                        enemies  = session.enemyPickedHeroes,
-                        bans     = session.allBannedHeroes,
+                        allies    = session.ourPickedHeroes,
+                        enemies   = session.enemyPickedHeroes,
+                        bans      = session.allBannedHeroes,
                         isLoading = false
                     )
                 }
@@ -54,7 +54,6 @@ class DraftViewModel @Inject constructor(
         if (heroCollectJob?.isActive == true) return
         heroCollectJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            // getHeroesUseCase returns Flow<List<Hero>> — no .toDomain() mapping needed
             getHeroesUseCase().collect { heroes ->
                 allHeroes = heroes
                 _state.update { it.copy(isLoading = false) }
@@ -73,5 +72,16 @@ class DraftViewModel @Inject constructor(
             val scored = getSuggestionsUseCase(allHeroes, session, currentWeights)
             _state.update { it.copy(suggestions = scored.map { h -> h.hero to h.totalScore.toDouble() }) }
         }
+    }
+
+    // Pass 3 (Lifecycle) fix: explicit cleanup in onCleared() — heroCollectJob survives
+    // configuration changes via viewModelScope, but cancelling it here is defensive in
+    // case the ViewModel is destroyed while a heroes collection is still in flight.
+    // suggestionsJob runs on Dispatchers.Default; cancelling it prevents CPU waste after
+    // the ViewModel scope ends.
+    override fun onCleared() {
+        heroCollectJob?.cancel()
+        suggestionsJob?.cancel()
+        super.onCleared()
     }
 }
