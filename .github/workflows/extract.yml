@@ -22,14 +22,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.local/bin/7zz
-          key: 7zz-2409
+          key: 7zz-2601
 
       - name: Install 7zz
         if: steps.cache-7zz.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/.local/bin
-          wget https://www.7-zip.org/a/7z2409-linux-x64.tar.xz
-          tar -xf 7z2409-linux-x64.tar.xz
+          wget https://github.com/ip7z/7zip/releases/download/26.01/7z2601-linux-x64.tar.xz
+          tar -xf 7z2601-linux-x64.tar.xz
           cp 7zz ~/.local/bin/
           chmod +x ~/.local/bin/7zz
 
