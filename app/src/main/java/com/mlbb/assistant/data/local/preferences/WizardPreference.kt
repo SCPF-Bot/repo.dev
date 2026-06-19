@@ -10,8 +10,12 @@ import kotlinx.coroutines.flow.map
 /**
  * Thin DataStore accessor for the onboarding wizard completion flag.
  *
- * Replaces the previous [android.content.SharedPreferences] usage in [AppShell]
- * and [AppNavGraph] so the entire app uses a single async preferences solution.
+ * Uses the same DataStore file name ("mlbb_preferences") as the one provided
+ * by [com.mlbb.assistant.di.AppModule]. Using two different names would create
+ * two separate DataStore files on disk — the wizard flag would live in one file
+ * while score weights live in another, but both would bind to different
+ * DataStore<Preferences> instances injected by Hilt. Keeping the name identical
+ * ensures only one DataStore file is created for the entire app.
  *
  * Usage:
  *   // Read (in a Composable via produceState or collectAsStateWithLifecycle):
@@ -22,7 +26,7 @@ import kotlinx.coroutines.flow.map
  */
 object WizardPreference {
 
-    private val Context.dataStore by preferencesDataStore(name = "mlbb_prefs")
+    private val Context.dataStore by preferencesDataStore(name = "mlbb_preferences")
 
     private val WIZARD_DONE = booleanPreferencesKey("wizard_done")
 

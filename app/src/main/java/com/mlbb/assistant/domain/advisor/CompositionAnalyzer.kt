@@ -1,8 +1,17 @@
 package com.mlbb.assistant.domain.advisor
 
+import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
 
+/**
+ * Composition snapshot derived from the current set of heroes.
+ *
+ * @Stable tells the Compose compiler all public fields are stable types
+ * (Float, enum, List<String>), enabling skipping recomposition when the
+ * object reference is unchanged.
+ */
+@Stable
 data class CompositionProfile(
     val physicalPct: Float,
     val magicPct: Float,
@@ -18,7 +27,7 @@ enum class SustainLevel  { LOW, MEDIUM, HIGH }
 
 object CompositionAnalyzer {
 
-    private val magicRoles  = setOf("Mage", "Support")
+    private val magicRoles   = setOf("Mage", "Support")
     private val highMobRoles = setOf("Assassin")
     private val sustainRoles = setOf("Support", "Fighter")
     private val highCCRoles  = setOf("Tank", "Support")
@@ -33,14 +42,14 @@ object CompositionAnalyzer {
 
         val magicCount    = heroes.count { it.role in magicRoles }
         val physicalCount = heroes.size - magicCount
-        val magicPct      = magicCount.toFloat()  / heroes.size
-        val physicalPct   = physicalCount.toFloat()/ heroes.size
+        val magicPct      = magicCount.toFloat()   / heroes.size
+        val physicalPct   = physicalCount.toFloat() / heroes.size
 
-        val ccCount       = heroes.count { it.name in ccHeroes || it.role in highCCRoles }
-        val mobCount      = heroes.count { it.role in highMobRoles }
-        val sustainCount  = heroes.count { it.role in sustainRoles }
+        val ccCount      = heroes.count { it.name in ccHeroes || it.role in highCCRoles }
+        val mobCount     = heroes.count { it.role in highMobRoles }
+        val sustainCount = heroes.count { it.role in sustainRoles }
 
-        val ccLevel       = when {
+        val ccLevel = when {
             ccCount >= 3 -> CCLevel.HIGH
             ccCount == 2 -> CCLevel.MEDIUM
             ccCount == 1 -> CCLevel.LOW
@@ -69,9 +78,8 @@ object CompositionAnalyzer {
     }
 
     fun getLanesFilled(picks: List<Hero>): Map<Lane, Hero?> {
-        val result = Lane.entries.associateWith<Lane, Hero?> { null }.toMutableMap()
+        val result   = Lane.entries.associateWith<Lane, Hero?> { null }.toMutableMap()
         val assigned = mutableSetOf<Int>()
-        // Pass 1: filterNotNull() was redundant — picks is List<Hero> (non-nullable elements)
         picks.forEach { hero ->
             if (hero.id !in assigned) {
                 val preferred = hero.lane
@@ -95,16 +103,36 @@ object CompositionAnalyzer {
     }
 
     fun generateStrengths(profile: CompositionProfile): List<String> = buildList {
-        if (profile.ccLevel == CCLevel.HIGH)         add("✅ Strong CC chain")
-        if (profile.sustainLevel == SustainLevel.HIGH) add("✅ Excellent team sustain")
+        if (profile.ccLevel == CCLevel.HIGH)             add("✅ Strong CC chain")
+        if (profile.sustainLevel == SustainLevel.HIGH)   add("✅ Excellent team sustain")
         if (profile.mobilityLevel == MobilityLevel.HIGH) add("✅ High mobility — great rotations")
         if (profile.magicPct > 0.4f && profile.physicalPct > 0.4f) add("✅ Mixed damage — hard to itemize against")
     }
 
     fun generateWeaknesses(profile: CompositionProfile): List<String> = buildList {
-        if (profile.ccLevel     == CCLevel.NONE)      add("⚠️ Lack of CC")
-        if (profile.sustainLevel == SustainLevel.LOW) add("⚠️ Squishy lineup")
-        if (profile.physicalPct >= 0.80f)             add("⚠️ Full physical damage")
-        if (profile.magicPct    >= 0.80f)             add("⚠️ Full magic damage")
+        if (profile.ccLevel      == CCLevel.NONE)      add("⚠️ Lack of CC")
+        if (profile.sustainLevel == SustainLevel.LOW)  add("⚠️ Squishy lineup")
+        if (profile.physicalPct  >= 0.80f)             add("⚠️ Full physical damage")
+        if (profile.magicPct     >= 0.80f)             add("⚠️ Full magic damage")
+    }
+
+    /**
+     * Returns warning strings for each of [ourPicks] that is countered by at least
+     * one hero in [enemyPicks].  Used by the draft screen to surface counter-pick
+     * risk in real time.
+     *
+     * Example: "⚠️ Layla is countered by Saber (enemy pick)"
+     */
+    fun getCounterPickWarnings(ourPicks: List<Hero>, enemyPicks: List<Hero>): List<String> {
+        if (ourPicks.isEmpty() || enemyPicks.isEmpty()) return emptyList()
+        return buildList {
+            ourPicks.forEach { ally ->
+                val counters = enemyPicks.filter { enemy -> ally.id in enemy.counters }
+                if (counters.isNotEmpty()) {
+                    val names = counters.take(2).joinToString(", ") { it.name }
+                    add("⚠️ ${ally.name} is countered by $names")
+                }
+            }
+        }
     }
 }

@@ -1,8 +1,6 @@
 package com.mlbb.assistant.data.local.database
 
-import android.content.Context
 import androidx.room.Database
-import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
@@ -13,10 +11,14 @@ import androidx.room.TypeConverters
  * The generated JSON files in /schemas/ should be committed to version control
  * to enable safe migration authoring in future versions.
  *
- * IMPORTANT: When bumping [version], add a proper [Migration] object to the
- * builder call below. The [fallbackToDestructiveMigration] guard is here to
- * prevent a crash during development but MUST be replaced with real migrations
- * before a production release where user data must be preserved.
+ * Construction is exclusively via [com.mlbb.assistant.di.DatabaseModule] which
+ * applies MIGRATION_1_2 correctly.
+ *
+ * NOTE: The companion object factory that previously lived here was removed.
+ * It bypassed the Migration(1, 2) defined in DatabaseModule by calling
+ * fallbackToDestructiveMigration without migration objects, creating two
+ * divergent construction paths. The DI module is the single source of truth
+ * for database construction.
  */
 @Database(
     entities = [
@@ -30,12 +32,4 @@ import androidx.room.TypeConverters
 abstract class AppDatabase : RoomDatabase() {
     abstract fun heroDao(): HeroDao
     abstract fun draftSessionDao(): DraftSessionDao
-
-    companion object {
-        fun build(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_assistant.db")
-                // Replace with explicit Migration objects before a production release.
-                .fallbackToDestructiveMigration(dropAllTables = false)
-                .build()
-    }
 }

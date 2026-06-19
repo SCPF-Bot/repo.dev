@@ -1,10 +1,19 @@
 package com.mlbb.assistant.domain.scoring
 
+import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
 import com.mlbb.assistant.domain.engine.PickTurn
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
+import com.mlbb.assistant.domain.model.Tier
 
+/**
+ * Per-hero recommendation score emitted by [DraftScorer].
+ *
+ * @Stable tells the Compose compiler all public fields have stable types,
+ * enabling skipping of recomposition when the instance reference is unchanged.
+ */
+@Stable
 data class HeroScore(
     val hero: Hero,
     val totalScore: Float,
@@ -17,6 +26,16 @@ data class HeroScore(
 )
 
 object DraftScorer {
+
+    /**
+     * Maximum tier order value — used to normalise tier contribution inside
+     * [scoreMeta] so results are always in [0, 1].
+     *
+     * Bug fixed: the previous constant divisor of 4 caused Tier.B (order = 4)
+     * to yield exactly 0.0 and Tier.UNKNOWN (order = 5) to yield −0.25, a
+     * negative contribution that silently lowered scores for all unknown heroes.
+     */
+    private val TIER_MAX_ORDER: Float = Tier.entries.maxOf { it.order }.toFloat()
 
     fun score(
         candidate: Hero,
@@ -77,7 +96,7 @@ object DraftScorer {
         weights: ScoreWeights
     ): Double {
         // ScoreWeights fields are Float; hero stats are Double.
-        // Kotlin has no Double × Float operator — explicit .toDouble() required (Rule 2).
+        // Kotlin has no Double × Float operator — explicit .toDouble() required.
         val meta: Double    = hero.winRate * weights.meta.toDouble()
         val counter: Double = if (enemies.isEmpty()) 0.0
                               else enemies.count { e -> e.id in hero.counters }.toDouble() /
@@ -104,11 +123,12 @@ object DraftScorer {
     }
 
     private fun scoreMeta(hero: Hero): Float {
-        // hero.winRate / banRate / pickRate are Double — explicit .toFloat() required (Rule 2)
+        // hero.winRate / banRate / pickRate are Double — explicit .toFloat() required.
         val winContrib:  Float = ((hero.winRate.toFloat()  - 0.48f) / 0.08f).coerceIn(0f, 1f)
         val banContrib:  Float = (hero.banRate.toFloat()   / 0.40f).coerceIn(0f, 1f)
         val pickContrib: Float = (hero.pickRate.toFloat()  / 0.30f).coerceIn(0f, 1f)
-        val tierContrib: Float = 1f - (hero.tier.order.toFloat() / 4f)
+        // Divide by TIER_MAX_ORDER (5) so UNKNOWN (order=5) → 0.0 instead of the previous −0.25
+        val tierContrib: Float = (1f - hero.tier.order.toFloat() / TIER_MAX_ORDER).coerceIn(0f, 1f)
         return (winContrib * 0.35f + banContrib * 0.30f + pickContrib * 0.15f + tierContrib * 0.20f)
     }
 

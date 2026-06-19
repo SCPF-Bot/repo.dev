@@ -1,9 +1,18 @@
 package com.mlbb.assistant.domain.advisor
 
+import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.Hero
-import com.mlbb.assistant.domain.model.Lane
+import com.mlbb.assistant.domain.model.Tier
 import kotlin.math.roundToInt
 
+/**
+ * Immutable score snapshot for a completed draft session.
+ *
+ * @Stable tells the Compose compiler that all public fields are stable types
+ * (Int, List<String>), enabling skipping recomposition when the object's
+ * referential identity has not changed.
+ */
+@Stable
 data class FinalDraftScore(
     val overall: Int,           // 0–100
     val metaAdherence: Int,
@@ -20,6 +29,13 @@ data class FinalDraftScore(
 )
 
 object DraftScoreCalculator {
+
+    /**
+     * Maximum tier order value — used to normalise meta adherence so that
+     * Tier.UNKNOWN (order = 5) yields exactly 0.0 instead of the previous
+     * -0.25 caused by dividing by the hard-coded constant 4.
+     */
+    private val TIER_MAX_ORDER: Float = Tier.entries.maxOf { it.order }.toFloat()
 
     fun calculate(
         ourPicks: List<Hero>,
@@ -55,10 +71,20 @@ object DraftScoreCalculator {
         )
     }
 
+    /**
+     * Normalises tier order against [TIER_MAX_ORDER] so the result is always [0, 1].
+     *
+     * Bug fixed: the previous constant divisor of 4 caused Tier.B (order = 4) to
+     * yield exactly 0.0 and Tier.UNKNOWN (order = 5) to yield −0.25, a negative
+     * contribution that silently corrupted the overall draft score.
+     */
     private fun calcMetaAdherence(picks: List<Hero>): Float {
         if (picks.isEmpty()) return 0f
-        val tierScores = picks.map { 1f - it.tier.order.toFloat() / 4f }
-        return tierScores.average().toFloat()
+        return picks
+            .map { 1f - it.tier.order.toFloat() / TIER_MAX_ORDER }
+            .average()
+            .toFloat()
+            .coerceIn(0f, 1f)
     }
 
     private fun calcCounterEfficiency(ours: List<Hero>, enemies: List<Hero>): Float {

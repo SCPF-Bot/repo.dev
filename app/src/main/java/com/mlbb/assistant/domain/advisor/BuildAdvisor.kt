@@ -1,8 +1,16 @@
 package com.mlbb.assistant.domain.advisor
 
+import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.CoreItem
 import com.mlbb.assistant.domain.model.Hero
 
+/**
+ * Build recommendation for a single hero against a given enemy composition.
+ *
+ * @Stable tells the Compose compiler all public fields are stable types,
+ * enabling skipping recomposition when the object reference is unchanged.
+ */
+@Stable
 data class BuildAdvice(
     val battleSpell: String,
     val altSpell: String,
@@ -55,7 +63,6 @@ object BuildAdvisor {
     private fun adjustItems(hero: Hero, enemy: CompositionProfile): List<CoreItem> {
         val adjusted = hero.coreItems.toMutableList()
 
-        // Insert situational counter items
         if (enemy.physicalPct >= 0.70f) {
             val hasArmor = adjusted.any { it.name.contains("Cuirass") || it.name.contains("Dominance") }
             if (!hasArmor && hero.role in listOf("Tank", "Fighter")) {
@@ -84,10 +91,8 @@ object BuildAdvisor {
         if (hero.lane.name == "JUNGLE") add("Invade enemy jungle early if they have a weak early jungler")
         if (hero.lane.name == "GOLD")   add("Prioritise farm — reach item spikes before teamfights")
         if (hero.lane.name == "ROAM")   add("Rotate mid after every successful gank to maintain vision")
-        if (enemy.ccLevel == CCLevel.HIGH) add("Avoid solo engages — fight only as a group")
+        if (enemy.ccLevel == CCLevel.HIGH)         add("Avoid solo engages — fight only as a group")
         if (enemy.sustainLevel == SustainLevel.HIGH) add("Use burst combos to overwhelm before they sustain")
         if (enemy.mobilityLevel == MobilityLevel.HIGH) add("Place deep vision to track high-mobility enemies")
     }
 }
-
-

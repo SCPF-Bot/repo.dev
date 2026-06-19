@@ -1,8 +1,16 @@
 package com.mlbb.assistant.domain.advisor
 
+import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 
+/**
+ * Recommendation returned by [BanRecommender.rank].
+ *
+ * @Stable tells the Compose compiler all public fields are stable types,
+ * enabling skipping recomposition when the object reference is unchanged.
+ */
+@Stable
 data class BanSuggestion(
     val hero: Hero,
     val score: Float,
@@ -24,7 +32,7 @@ object BanRecommender {
 
         return pool.map { hero ->
             // hero.winRate and hero.banRate are Double; arithmetic here is Float.
-            // Explicit .toFloat() required — Kotlin has no Double ± Float operator (Rule 2).
+            // Explicit .toFloat() required — Kotlin has no Double ± Float operator.
             val metaScore:  Float = (hero.winRate.toFloat() - 0.50f).coerceAtLeast(0f) * 2f +
                                      hero.banRate.toFloat() * 1.5f
             val toxicBonus: Float = if (hero.isToxicMechanic) 0.30f else 0f
@@ -38,7 +46,7 @@ object BanRecommender {
             val badge  = when {
                 hero.isToxicMechanic -> "Toxic"
                 hero.isOP            -> "OP Meta"
-                hero.banRate > 0.25  -> "High Ban"   // Pass 4: Double compared to Double literal (was 0.25f → Float mismatch)
+                hero.banRate > 0.25  -> "High Ban"
                 else                 -> "Counter"
             }
 
@@ -50,11 +58,11 @@ object BanRecommender {
 
     private fun buildBanReason(hero: Hero): String = when {
         hero.isToxicMechanic -> "Toxic mechanics — difficult for most players to deal with"
-        hero.isOP && hero.banRate > 0.25 ->   // Pass 4: was 0.25f
+        hero.isOP && hero.banRate > 0.25 ->
             "OP in current meta — %.0f%% ban rate".format(hero.banRate * 100)
         hero.isOP ->
             "Strong pick — %.0f%% win rate this patch".format(hero.winRate * 100)
-        hero.banRate > 0.20 ->               // Pass 4: was 0.20f
+        hero.banRate > 0.20 ->
             "Community consensus ban — %.0f%% ban rate".format(hero.banRate * 100)
         else ->
             "Counters common team compositions"

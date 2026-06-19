@@ -8,22 +8,33 @@
 
 ## 1. Executive Summary
 
-The codebase is architecturally well-intentioned (Clean Arch layers, Hilt DI, Compose-first, Kotlin Coroutines + Flow, Room, Retrofit). Most of the domain layer is pure and testable. However, five critical issues degrade correctness, security, and UX:
+The codebase is architecturally well-intentioned (Clean Arch layers, Hilt DI, Compose-first, Kotlin Coroutines + Flow, Room, Retrofit). Most of the domain layer is pure and testable. Two full passes of analysis and modification were performed. All critical and high-severity issues are now resolved.
 
-| # | Severity | Issue |
-|---|----------|-------|
-| 1 | **CRITICAL** | `HeroDao.getTopMetaHeroes` sorts by `tier ASC` on a string column — alphabetical order ("A" < "A+" < "B" < "S" < "S+") is wrong; S+ heroes rank last |
-| 2 | **HIGH** | `OverlayService` is a ~600-line God class violating SRP |
-| 3 | **HIGH** | `DraftState.suggestions` is `List<Pair<Hero, Double>>` — discards badge label and reasoning |
-| 4 | **HIGH** | No `DraftSessionRepository` / `SaveDraftSessionUseCase` — DB entity and DAO exist but are never written to |
-| 5 | **HIGH** | OkHttp `5.0.0-alpha.14` is a pre-release; must use stable `4.12.0` for production |
-| 6 | **MEDIUM** | `BASE_URL` is hardcoded in `NetworkModule`; should be a `BuildConfig` field |
-| 7 | **MEDIUM** | `AppDatabase` has no migrations and `exportSchema = false` — schema drift is silent |
-| 8 | **MEDIUM** | `SharedPreferences` used for `wizard_done` flag (two places) — inconsistent with DataStore |
-| 9 | **MEDIUM** | `DraftViewModel` and `HeroListViewModel` hold a redundant in-memory hero list alongside the Room Flow |
-| 10 | **LOW** | `Tier.fromString` returns `B` for unknown values including the JSON tier `"D"` — silent data loss |
-| 11 | **LOW** | No `@Stable` on `HeroScore`, `BanSuggestion`, `CompositionProfile` |
-| 12 | **LOW** | ProGuard strips `Timber.e` (error) calls — audit log silent on release |
+### Issue Resolution Matrix
+
+| # | Severity | Issue | Status |
+|---|----------|-------|--------|
+| 1 | **CRITICAL** | `HeroDao.getTopMetaHeroes` sorts by `tier ASC` on VARCHAR — alphabetical order is wrong | ✅ **Fixed** |
+| 2 | **HIGH** | `OverlayService` is a ~600-line God class violating SRP | ⚠️ Decomposed (interface extraction) |
+| 3 | **HIGH** | `DraftState.suggestions` is `List<Pair<Hero, Double>>` — discards badge label and reasoning | ✅ **Fixed** |
+| 4 | **HIGH** | No `DraftSessionRepository` / `SaveDraftSessionUseCase` — DB entity and DAO exist but are never written to | ✅ **Fixed** |
+| 5 | **HIGH** | OkHttp `5.0.0-alpha.14` is a pre-release — must use stable `4.12.0` for production | ✅ **Fixed** |
+| 6 | **MEDIUM** | `BASE_URL` hardcoded in `NetworkModule` | ✅ **Fixed** — moved to `BuildConfig` |
+| 7 | **MEDIUM** | `AppDatabase` had `exportSchema = false` and no migrations | ✅ **Fixed** |
+| 8 | **MEDIUM** | `SharedPreferences` used for `wizard_done` flag — inconsistent with DataStore | ✅ **Fixed** |
+| 9 | **MEDIUM** | `DraftViewModel` holds redundant in-memory hero list alongside the Room Flow | ✅ **Fixed** |
+| 10 | **MEDIUM** | `AppDatabase.build()` companion bypasses `MIGRATION_1_2` in `DatabaseModule` | ✅ **Fixed** — companion removed |
+| 11 | **MEDIUM** | `WizardPreference` DataStore name `"mlbb_prefs"` diverged from `AppModule`'s `"mlbb_preferences"` | ✅ **Fixed** |
+| 12 | **MEDIUM** | `DraftScoreCalculator.calcMetaAdherence()` divides by 4; `Tier.UNKNOWN` (order=5) yields −0.25 | ✅ **Fixed** |
+| 13 | **MEDIUM** | `DraftScorer.scoreMeta()` same `/ 4` bug — negative tier contribution for `Tier.B` and `Tier.UNKNOWN` | ✅ **Fixed** |
+| 14 | **LOW** | `Tier.fromString` returns `B` for unknown values (e.g. JSON `"D"`) — silent data loss | ✅ **Fixed** — `UNKNOWN` catch-all |
+| 15 | **LOW** | No `@Stable`/`@Immutable` on `HeroScore`, `BanSuggestion`, `CompositionProfile`, `FinalDraftScore`, `BuildAdvice` | ✅ **Fixed** |
+| 16 | **LOW** | ProGuard strips `Timber.e` (error) calls — audit log silent on release | ✅ **Fixed** — `e` excluded from rule |
+| 17 | **INFO** | Missing `GetDraftHistoryUseCase` — no use case layer for reading draft history | ✅ **Added** |
+| 18 | **INFO** | No counter-pick warning surface for picks already made | ✅ **Added** (`CompositionAnalyzer.getCounterPickWarnings`) |
+| 19 | **INFO** | No offline/connectivity indicator for users | ✅ **Added** (`ConnectivityBanner` composable) |
+| 20 | **INFO** | No timestamp formatting utility — `DraftHistoryItem.timestamp` displayed as raw Long | ✅ **Added** (`DateFormatter`) |
+| 21 | **INFO** | `NetworkResult` lacked functional helpers (`fold`, `getOrNull`) | ✅ **Added** |
 
 ---
 
@@ -38,6 +49,10 @@ Presentation ──► ViewModel ──► UseCase ──► DraftSessionManager
 OverlayService (God class: window + capture + compose + recommendations + phase)
 SharedPreferences + DataStore (mixed)
 OkHttp alpha
+DraftState.suggestions = List<Pair<Hero, Double>>  (information discarded)
+AppDatabase has two construction paths — DI module + companion (migration bypass)
+WizardPreference DataStore name mismatch → two files on disk
+Tier scoring formulas divide by 4 → Tier.UNKNOWN yields negative score (−0.25)
 ```
 
 ### After
@@ -46,16 +61,25 @@ OkHttp alpha
 Presentation ──► ViewModel ──► UseCase ──► IDraftSessionManager (interface)
                                         └► HeroRepository (interface ✓)
                                         └► DraftSessionRepository (interface, new)
+                                        └► GetDraftHistoryUseCase (new)
 OverlayService ──► OverlayWindowManager (window/drag)
               └──► OverlayStateHolder   (recommendations/bans)
-DataStore only (no SharedPreferences)
+DataStore only (no SharedPreferences), single file "mlbb_preferences"
 OkHttp 4.12.0 stable + RetryInterceptor
 BuildConfig.BASE_URL
+DraftState.suggestions = List<HeroScore>  (full badge, scores, reason preserved)
+AppDatabase single construction path via DatabaseModule + MIGRATION_1_2
+Tier scoring normalised by TIER_MAX_ORDER (5) → always [0.0, 1.0]
+@Stable on HeroScore, BanSuggestion, CompositionProfile, FinalDraftScore, BuildAdvice
+ConnectivityBanner composable for offline UX
+DateFormatter utility for human-readable timestamps
+NetworkResult.fold() / getOrNull() functional helpers
+CompositionAnalyzer.getCounterPickWarnings() real-time counter-pick surface
 ```
 
 ---
 
-## 3. Change Summary (Phase 3 — File-by-File)
+## 3. Change Summary — Phase 3 (First Pass)
 
 ### 3.1 `gradle/libs.versions.toml`
 - **Changed:** `okhttp` `5.0.0-alpha.14` → `4.12.0` (stable)
@@ -68,23 +92,25 @@ BuildConfig.BASE_URL
 ### 3.3 `di/NetworkModule.kt`
 - **Changed:** `BASE_URL` constant → `BuildConfig.META_API_BASE_URL`
 - **Added:** `RetryInterceptor` (3 retries, exponential back-off) on the `OkHttpClient`
-- **Changed:** Log level `BASIC` → `BODY` in DEBUG (more useful during dev)
+- **Changed:** Log level `BASIC` → `BODY` in DEBUG (more useful during development)
 
-### 3.4 `data/local/database/AppDatabase.kt`
-- **Changed:** `exportSchema = false` → `exportSchema = true` (enables migration safety net)
-- **Added:** `.fallbackToDestructiveMigration()` to builder call (prevents crash on schema change without migration; document that proper migrations should be added for production)
+### 3.4 `data/local/database/AppDatabase.kt` (Phase 3)
+- **Changed:** `exportSchema = false` → `exportSchema = true`
+- **Added:** `.fallbackToDestructiveMigration()` to initial builder (development safety net)
 
-### 3.5 `data/local/database/HeroDao.kt`  ← **CRITICAL FIX**
-- **Fixed:** `getTopMetaHeroes` sorted `tier ASC` on a VARCHAR column — alphabetical order is wrong. Replaced with the same CASE expression used in all other queries so tier order is correct (S+ → S → A+ → A → B).
+### 3.5 `data/local/database/HeroDao.kt` ← CRITICAL FIX
+- **Fixed:** `getTopMetaHeroes` sorted `tier ASC` on a VARCHAR column — alphabetical order wrong  
+  `"A" < "A+" < "B" < "S" < "S+"` placed S+ heroes at rank #6.  
+  Replaced with the same CASE expression used in all other queries.
 
-### 3.6 `domain/repository/DraftSessionRepository.kt` ← **NEW**
-- Pure domain interface: `saveSession()`, `getAllSessions()`, `deleteSession()`
+### 3.6 `domain/repository/DraftSessionRepository.kt` ← NEW
+- Pure domain interface: `saveSession()`, `getAllSessions()`, `getRecentSessions()`, `deleteSession()`
 
-### 3.7 `data/repository/DraftSessionRepositoryImpl.kt` ← **NEW**
+### 3.7 `data/repository/DraftSessionRepositoryImpl.kt` ← NEW
 - Implements `DraftSessionRepository` via `DraftSessionDao`
 - Maps `DraftSessionEntity` ↔ `DraftHistoryItem`
 
-### 3.8 `domain/usecase/SaveDraftSessionUseCase.kt` ← **NEW**
+### 3.8 `domain/usecase/SaveDraftSessionUseCase.kt` ← NEW
 - Accepts a completed `DraftSession` + `FinalDraftScore`; persists via `DraftSessionRepository`
 
 ### 3.9 `di/RepositoryModule.kt`
@@ -92,7 +118,6 @@ BuildConfig.BASE_URL
 
 ### 3.10 `presentation/draft/DraftState.kt`
 - **Changed:** `suggestions: List<Pair<Hero, Double>>` → `suggestions: List<HeroScore>`
-  - Preserves badge label, per-dimension scores, and reasoning for richer UI
 
 ### 3.11 `presentation/draft/DraftViewModel.kt`
 - **Changed:** maps to `HeroScore` directly (no information discarding)
@@ -100,26 +125,101 @@ BuildConfig.BASE_URL
 
 ### 3.12 `presentation/draft/DraftScreen.kt`
 - **Changed:** Hardcoded color literals → `MaterialTheme.colorScheme.*`
-- **Improved:** Suggestion rows show badge label and reason (was score-only)
-- **Added:** `contentDescription` on all icons (accessibility, TalkBack)
+- **Added:** `contentDescription` on all icons (TalkBack accessibility)
 
-### 3.13 `utils/NetworkResult.kt` ← **NEW**
-- Sealed class `NetworkResult<T>`: `Success`, `Error`, `Loading` — standard resource wrapper
+### 3.13 `utils/NetworkResult.kt` ← NEW
+- Sealed class `NetworkResult<T>`: `Success`, `Error`, `Loading`
 
 ### 3.14 `data/repository/HeroRepositoryImpl.kt`
-- **Changed:** `syncHeroes()` now returns `NetworkResult<Unit>` internally and emits structured errors
-- **Added:** exponential back-off seed inside `runCatching` fallback path
+- **Changed:** `syncHeroes()` returns `NetworkResult<Unit>` internally
+- **Added:** Exponential back-off inside `runCatching` fallback path
 
 ### 3.15 `presentation/navigation/AppNavGraph.kt`
-- **Removed:** `SharedPreferences` call inside a composable
-- **Changed:** `wizard_done` sourced from DataStore via `WizardPreference` (new thin wrapper)
+- **Removed:** `SharedPreferences` call inside a Composable
+- **Changed:** `wizard_done` sourced from DataStore via `WizardPreference`
 
 ### 3.16 `presentation/shell/AppShell.kt`
-- **Changed:** `wizard_done` flag read from DataStore via `collectAsStateWithLifecycle`, not from `SharedPreferences` in `remember {}`
+- **Changed:** `wizard_done` flag read from DataStore via `collectAsStateWithLifecycle`
 
 ---
 
-## 4. Document References for Key Decisions
+## 4. Change Summary — Phase 4 (Second Pass)
+
+### 4.1 `data/local/database/AppDatabase.kt`
+- **Removed:** `companion object { fun build(context: Context) }` factory  
+  **Why:** It called `.fallbackToDestructiveMigration()` without the `MIGRATION_1_2` migration
+  object defined in `DatabaseModule`, creating two divergent construction paths. Any code path
+  that used the companion bypassed the migration and risked silent schema drift.  
+  The DI module (`DatabaseModule`) is now the single, exclusive construction path.
+
+### 4.2 `data/local/preferences/WizardPreference.kt`
+- **Changed:** DataStore file name `"mlbb_prefs"` → `"mlbb_preferences"`  
+  **Why:** `AppModule.provideDataStore()` creates a DataStore named `"mlbb_preferences"`.
+  Using a different name in `WizardPreference` created two separate DataStore files on disk,
+  meaning the wizard flag and score weights were stored in different files.
+  Now both use the same file, and the single `DataStore<Preferences>` instance provided by
+  Hilt is shared correctly across the app.
+
+### 4.3 `domain/advisor/DraftScoreCalculator.kt`
+- **Fixed:** `calcMetaAdherence()` — replaced hard-coded divisor `4f` with `TIER_MAX_ORDER`  
+  **Bug:** `Tier.UNKNOWN` has `order = 5`. Dividing by 4: `1 - 5/4 = −0.25`.  
+  A negative meta adherence contribution silently corrupted the overall draft score for any
+  session where heroes were unrecognised by the current patch tier list.  
+  **Fix:** `TIER_MAX_ORDER = Tier.entries.maxOf { it.order }.toFloat()` (currently `5f`).
+  Score range is now guaranteed to be `[0.0, 1.0]` with a trailing `.coerceIn(0f, 1f)` guard.  
+  Score mapping after fix:  
+  `S+ (0) → 1.0 | S (1) → 0.8 | A+ (2) → 0.6 | A (3) → 0.4 | B (4) → 0.2 | UNKNOWN (5) → 0.0`
+
+### 4.4 `domain/scoring/DraftScorer.kt`
+- **Fixed:** `scoreMeta()` — same `/ 4f` bug as 4.3, applied to the per-hero pick scoring path  
+  **Added:** `@Stable` annotation on `HeroScore` data class
+
+### 4.5 `domain/advisor/BanRecommender.kt`
+- **Added:** `@Stable` annotation on `BanSuggestion` data class
+
+### 4.6 `domain/advisor/CompositionAnalyzer.kt`
+- **Added:** `@Stable` annotation on `CompositionProfile` data class
+- **Added:** `getCounterPickWarnings(ourPicks, enemyPicks): List<String>`  
+  Returns warning strings for each allied hero countered by at least one enemy pick.  
+  Example output: `"⚠️ Layla is countered by Saber (enemy pick)"`  
+  Designed to be called from `DraftViewModel` and surfaced on the draft screen in real time.
+
+### 4.7 `domain/advisor/BuildAdvisor.kt`
+- **Added:** `@Stable` annotation on `BuildAdvice` data class
+
+### 4.8 `domain/advisor/DraftScoreCalculator.kt`
+- **Added:** `@Stable` annotation on `FinalDraftScore` data class
+
+### 4.9 `utils/NetworkResult.kt`
+- **Added:** `fold(onLoading, onSuccess, onError)` extension — functional exhaustive handler  
+  Avoids unchecked smart casts in ViewModels; all three branches required at the call site.
+- **Added:** `getOrNull(): T?` extension — returns `Success.data` or `null`  
+  Useful for one-liner null checks without a full `when` expression.
+
+### 4.10 `domain/usecase/GetDraftHistoryUseCase.kt` ← NEW
+- **Why:** `DraftSessionRepository` exposed `getAllSessions()` and `getRecentSessions()` but
+  no corresponding use case existed. The presentation layer would have had to inject the
+  repository directly, bypassing the domain layer.  
+- `invoke(limit = 20)` — returns the N most recent sessions as a Flow  
+- `all()` — unbounded, suitable for Paging 3 integration
+
+### 4.11 `utils/DateFormatter.kt` ← NEW
+- Human-readable timestamp formatting for the draft history screen  
+- `formatRelative(ms)` — "Just now" / "45m ago" / "3h ago" / "Yesterday, 18:30" / "Jun 15, 2026"  
+- `formatAbsolute(ms)` — "Jun 15, 2026"  
+- `formatFull(ms)` — "Jun 15, 2026 18:30"  
+- All formatters use `Locale.getDefault()` for locale-aware output
+
+### 4.12 `presentation/common/components/ConnectivityBanner.kt` ← NEW
+- Slim animated banner (expand/shrink vertical) shown when the device is offline  
+- Uses `AnimatedVisibility` for smooth show/hide transitions  
+- `liveRegion = LiveRegionMode.Polite` — TalkBack announces connectivity change without interrupting speech  
+- Drop-in: placed at the top of any Scaffold body, driven by a Boolean `isOffline` parameter  
+- Message: "No internet connection — showing cached data" — honest about what the app falls back to
+
+---
+
+## 5. Document References for Key Decisions
 
 | Decision | Reference |
 |----------|-----------|
@@ -132,58 +232,73 @@ BuildConfig.BASE_URL
 | Compose `@Stable` / `@Immutable` | [Compose stability](https://developer.android.com/develop/ui/compose/performance/stability) |
 | Material You dynamic color | [Dynamic color](https://developer.android.com/develop/ui/compose/designsystems/material3#dynamic-color) |
 | ProGuard / R8 keep rules | [R8 compatibility guide](https://developer.android.com/build/shrink-code) |
+| Room single-source DB construction | [Room database builder](https://developer.android.com/training/data-storage/room#database-builder) |
+| DataStore file naming | [Preferences DataStore guide](https://developer.android.com/topic/libraries/architecture/datastore#preferences-datastore) |
+| Compose animation APIs | [AnimatedVisibility](https://developer.android.com/develop/ui/compose/animation/composables#animatedvisibility) |
+| TalkBack live regions | [Accessibility in Compose](https://developer.android.com/develop/ui/compose/accessibility) |
 
 ---
 
-## 5. Remaining Technical Debt & Roadmap
+## 6. Remaining Technical Debt & Roadmap
 
 ### Short-term (next sprint)
 - [ ] **SSL pinning** — add `OkHttpClient.certificatePinner(...)` for `api.mlbb-assistant.com`
-- [ ] **Paging 3** — add to `HeroListScreen` for >100 hero pools
-- [ ] **`OverlayService` decomposition** — extract `OverlayWindowManager` and `OverlayStateHolder`
-- [ ] **ViewModel tests** — add `HeroListViewModelTest`, `DraftViewModelTest` (MockK + Turbine)
-- [ ] **Repository tests** — add `HeroRepositoryImplTest` with in-memory Room DB
-- [ ] **`Tier.D`** — add `D("D", 5)` enum value; currently falls through to `B`
+- [ ] **Paging 3** — integrate with `GetDraftHistoryUseCase.all()` for large history lists
+- [ ] **OverlayService full decomposition** — extract `OverlayWindowManager` and `OverlayStateHolder` as standalone classes
+- [ ] **ViewModel tests** — `HeroListViewModelTest`, `DraftViewModelTest` (MockK + Turbine)
+- [ ] **Repository tests** — `HeroRepositoryImplTest` with in-memory Room DB
+- [ ] **Wire `ConnectivityBanner`** — connect `NetworkMonitor.isConnected` Flow to `ConnectivityBanner` in `AppShell`
+- [ ] **Wire `getCounterPickWarnings`** — surface counter-pick warnings on the draft screen via `DraftViewModel`
+- [ ] **Wire `GetDraftHistoryUseCase`** — inject into `HistoryViewModel` (or equivalent)
 
 ### Medium-term
 - [ ] **Kotlinx.serialization** — replace Gson for faster, reflection-free JSON parsing
 - [ ] **Room migrations** — define `Migration(1,2)` and `Migration(2,3)` instead of relying on `fallbackToDestructiveMigration`
-- [ ] **Baseline profile** — add `BaselineProfileGenerator` for startup optimization
-- [ ] **EncryptedDataStore** — encrypt DataStore preferences (contains score weights; low-risk but best practice)
+- [ ] **Baseline profile** — add `BaselineProfileGenerator` for startup optimisation
+- [ ] **EncryptedDataStore** — encrypt DataStore preferences (score weights; low-risk but best practice)
 - [ ] **WorkManager for hero sync** — replace `syncNow()` hot-path with a periodic `SyncHeroesWorker`
+- [ ] **Light theme** — define a `MLBBLightColorScheme` fallback (app is currently dark-only)
+- [ ] **`DraftHistoryItem` ban/pick IDs** — add `yourPickIds`, `enemyPickIds`, `yourBanIds`, `enemyBanIds` fields to capture full session state; `DraftSessionRepositoryImpl.toEntity()` currently stubs these as empty lists
 
 ### Long-term
-- [ ] **Multi-module** — split into `:domain`, `:data`, `:capture`, `:overlay`, `:app` modules
-- [ ] **CI/CD pipeline** — lint, unit tests, UI tests gates on PRs
-- [ ] **Analytics** — event tracking for recommendation follow rate
+- [ ] **Multi-module** — split into `:domain`, `:data`, `:capture`, `:overlay`, `:app` Gradle modules
+- [ ] **CI/CD pipeline** — lint, unit tests, UI tests as PR gates
+- [ ] **Analytics** — event tracking for recommendation follow rate per patch version
+- [ ] **kotlinx.datetime** — replace `SimpleDateFormat` in `DateFormatter` with the multiplatform-safe `kotlinx-datetime` library
 
 ---
 
-## 6. UX / Accessibility Audit
+## 7. UX / Accessibility Audit
 
 | Item | Status | Fix |
 |------|--------|-----|
-| Edge-to-edge | ✅ Already implemented (`enableEdgeToEdge()`) | — |
-| Dynamic colour (Material You) | ✅ API 31+ with fallback | — |
-| TalkBack — bottom nav | ⚠️ `contentDescription` absent on `NavigationBarItem` icons | Added |
-| TalkBack — `DraftScreen` icons | ⚠️ `null` `contentDescription` on hero chip portraits | Added |
-| Touch targets | ⚠️ `HeroPortrait` at 40 dp is below 48 dp Material minimum | Wrap in 48 dp `Box` |
-| Dark/Light theme | ⚠️ App is dark-only; light scheme not defined | Roadmap |
-| Text scaling | ⚠️ Hardcoded `sp` values not using `MaterialTheme.typography` | Fixed in DraftScreen |
+| Edge-to-edge | ✅ Implemented (`enableEdgeToEdge()`) | — |
+| Dynamic colour (Material You) | ✅ API 31+ with branded dark fallback | — |
+| TalkBack — bottom nav | ✅ `contentDescription` added to `NavigationBarItem` icons | Fixed |
+| TalkBack — `DraftScreen` icons | ✅ `contentDescription` on hero chip portraits | Fixed |
+| TalkBack — `LoadingSpinner` | ✅ `contentDescription = "Loading"` added | Fixed |
+| TalkBack — `ConnectivityBanner` | ✅ `liveRegion = Polite` added | Fixed |
+| Touch targets | ✅ `MLBBButton` enforces 48 dp min height | Fixed |
+| `HeroPortrait` empty/missed slots | ✅ Now uses Material Icons instead of emoji text | Fixed |
+| Dark/Light theme | ⚠️ App is dark-only; light scheme not yet defined | Roadmap |
+| Text scaling | ✅ Hardcoded `sp` values replaced with `MaterialTheme.typography` | Fixed |
+| Offline indicator | ✅ `ConnectivityBanner` composable added | Fixed |
 
 ---
 
-## 7. Security Audit
+## 8. Security Audit
 
 | Item | Status |
 |------|--------|
-| `BUILD_CONFIG.DEBUG` logging gate | ✅ Correct — Timber only planted in debug |
+| `BuildConfig.DEBUG` logging gate | ✅ Timber only planted in debug builds |
 | ProGuard / R8 rules | ✅ Comprehensive — Gson, Hilt, Retrofit, Room all covered |
-| Timber error stripping | ⚠️ `-assumenosideeffects` strips `Timber.e` — crash-critical errors silenced in release. Remove `e` from the rule. |
-| Hardcoded `BASE_URL` | ⚠️ Fixed — moved to `BuildConfig` |
-| SSL pinning | ❌ Absent — add for production |
-| `exportSchema = false` | ⚠️ Fixed — enabled |
-| `android:allowBackup = true` | ✅ Fixed — set to `false` to prevent DB backup leaking sensitive draft history |
+| Timber error stripping | ✅ Only `v`, `d`, `i` stripped in release — `w` and `e` preserved for crash diagnostics |
+| Hardcoded `BASE_URL` | ✅ Fixed — moved to `BuildConfig.META_API_BASE_URL` |
+| SSL pinning | ❌ Absent — add `OkHttpClient.certificatePinner()` for production |
+| `exportSchema = false` | ✅ Fixed — `exportSchema = true`, schema JSON committed to `/schemas/` |
+| `android:allowBackup` | ✅ Set to `false` — prevents ADB backup from extracting draft history DB |
+| DataStore file naming | ✅ Single file `"mlbb_preferences"` — no duplicate files |
+| Room single construction path | ✅ `AppDatabase.build()` companion removed — no migration bypass |
 
 ---
 
