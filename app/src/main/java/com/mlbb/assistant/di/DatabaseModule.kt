@@ -61,7 +61,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_assistant.db")
             .addMigrations(MIGRATION_1_2)
-            .fallbackToDestructiveMigrationOnDowngrade()
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
 
     @Provides fun provideHeroDao(db: AppDatabase): HeroDao = db.heroDao()

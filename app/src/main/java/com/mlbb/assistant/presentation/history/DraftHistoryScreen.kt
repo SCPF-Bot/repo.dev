@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.ListAlt
+import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -84,7 +84,7 @@ fun DraftHistoryScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Rounded.ListAlt, contentDescription = null,
+                    Icon(Icons.AutoMirrored.Rounded.ListAlt, contentDescription = null,
                         tint = TextDisabled, modifier = Modifier.size(48.dp))
                     Text("No drafts saved yet", color = TextSecondary, fontSize = 14.sp)
                     Text("Complete a draft to see it here", color = TextDisabled, fontSize = 12.sp)

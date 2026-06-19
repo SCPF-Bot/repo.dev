@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Leaderboard
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -157,7 +157,7 @@ private fun TrendingRow(hero: Hero, onHeroClick: (Hero) -> Unit) {
             Column(horizontalAlignment = Alignment.End) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     Icon(
-                        Icons.Rounded.TrendingUp,
+                        Icons.AutoMirrored.Rounded.TrendingUp,
                         contentDescription = if (isRising) "Rising" else "Falling",
                         tint   = if (isRising) SuccessGreen else ErrorRed,
                         modifier = Modifier.size(14.dp)
