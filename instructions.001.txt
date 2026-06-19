@@ -80,7 +80,7 @@ Before making any changes, create a detailed plan. This plan will guide your ref
 
 **Step 5: Audit Documentation**
 - After completing all modifications, create a detailed audit report.
-- **File:** Save the report as `AUDIT.md` in the root folder of the codebase.
+- **File:** Save the report as `AUDIT.md` in the root folder of the codebase. If file already exists, modify it.
 - **Content:** The audit must include:
     1.  **Executive Summary:** A brief overview of the project's original state and the primary goals of the refactoring and enhancement.
     2.  **Detailed Changes Log:** A comprehensive, file-by-file (or module-by-module) list of all changes made.
