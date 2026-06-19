@@ -1,5 +1,9 @@
 # ── Kotlin ───────────────────────────────────────────────────────────────────
 -keep class kotlin.Metadata { *; }
+-dontwarn kotlin.**
+-keepclassmembers class **$WhenMappings {
+    <fields>;
+}
 
 # ── Gson ─────────────────────────────────────────────────────────────────────
 -keepattributes Signature
@@ -21,17 +25,43 @@
 -keep class * extends androidx.room.RoomDatabase { *; }
 -keep @androidx.room.Entity class *
 -keep @androidx.room.Dao class *
+-keepclassmembers @androidx.room.Dao interface * { *; }
 
-# ── Hilt ─────────────────────────────────────────────────────────────────────
+# ── Hilt / Dagger ────────────────────────────────────────────────────────────
 -keep class dagger.hilt.** { *; }
 -keep class javax.inject.** { *; }
+-keep class * extends dagger.hilt.android.lifecycle.HiltViewModel
+-keepnames @dagger.hilt.android.lifecycle.HiltViewModel class *
 
 # ── Retrofit ─────────────────────────────────────────────────────────────────
 -keepattributes RuntimeVisibleAnnotations
 -keepclassmembers,allowshrinking,allowobfuscation interface * {
     @retrofit2.http.* <methods>;
 }
+-dontwarn retrofit2.**
+
+# ── OkHttp ───────────────────────────────────────────────────────────────────
+-dontwarn okhttp3.**
+-dontwarn okio.**
 
 # ── Coroutines ────────────────────────────────────────────────────────────────
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembernames class kotlinx.** {
+    volatile <fields>;
+}
+
+# ── Coil 3 ───────────────────────────────────────────────────────────────────
+-dontwarn coil3.**
+
+# ── Timber ───────────────────────────────────────────────────────────────────
+# Strip all Timber log calls in release builds to eliminate log overhead
+-assumenosideeffects class timber.log.Timber {
+    public static *** v(...);
+    public static *** d(...);
+    public static *** i(...);
+    public static *** w(...);
+}
+
+# ── DataStore ────────────────────────────────────────────────────────────────
+-keep class androidx.datastore.** { *; }

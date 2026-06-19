@@ -95,6 +95,19 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.savedstate)
 
-    // Tests
+    // Logging
+    implementation(libs.timber)
+
+    // Unit tests
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.turbine)
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // Instrumented tests
+    androidTestImplementation(libs.junit.ext)
+    androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

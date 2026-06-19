@@ -7,6 +7,7 @@ import com.mlbb.assistant.domain.repository.HeroRepository
 import com.mlbb.assistant.utils.JsonParser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import timber.log.Timber
 import javax.inject.Inject
 
 class HeroRepositoryImpl @Inject constructor(
@@ -32,17 +33,27 @@ class HeroRepositoryImpl @Inject constructor(
 
     override suspend fun syncHeroes() {
         runCatching {
+            Timber.d("syncHeroes: fetching meta snapshot from network")
             val snapshot = metaApi.getMetaSnapshot()
             heroDao.replaceAll(snapshot.heroes.map { it.toEntity() })
-        }.onFailure {
-            // Network failure — seed from local JSON if DB is empty
+            Timber.i("syncHeroes: synced ${snapshot.heroes.size} heroes from network")
+        }.onFailure { error ->
+            Timber.w(error, "syncHeroes: network failed — falling back to local JSON seed")
             val existing = heroDao.getTopMetaHeroes(1)
-            if (existing.isEmpty()) seedFromJson()
+            if (existing.isEmpty()) {
+                Timber.d("syncHeroes: DB empty, seeding from bundled JSON")
+                seedFromJson()
+            }
         }
     }
 
     private suspend fun seedFromJson() {
         val heroes = jsonParser.parseHeroes()
-        if (heroes.isNotEmpty()) heroDao.replaceAll(heroes)
+        if (heroes.isNotEmpty()) {
+            heroDao.replaceAll(heroes)
+            Timber.i("seedFromJson: inserted ${heroes.size} heroes from bundled JSON")
+        } else {
+            Timber.w("seedFromJson: bundled JSON parse returned empty list")
+        }
     }
 }

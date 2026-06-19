@@ -1,14 +1,14 @@
 package com.mlbb.assistant.presentation.navigation
 
 sealed class AppRoute(val route: String) {
-    object Wizard    : AppRoute("wizard")
-    object Home      : AppRoute("home")
-    object HeroList  : AppRoute("hero_list")
-    object MetaBoard : AppRoute("meta_board")
-    object History   : AppRoute("history")
-    object Settings  : AppRoute("settings")
+    data object Wizard    : AppRoute("wizard")
+    data object Home      : AppRoute("home")
+    data object HeroList  : AppRoute("hero_list")
+    data object MetaBoard : AppRoute("meta_board")
+    data object History   : AppRoute("history")
+    data object Settings  : AppRoute("settings")
 
-    object HeroDetail : AppRoute("hero_detail/{heroId}") {
+    data object HeroDetail : AppRoute("hero_detail/{heroId}") {
         const val ARG = "heroId"
         fun create(heroId: Int) = "hero_detail/$heroId"
     }

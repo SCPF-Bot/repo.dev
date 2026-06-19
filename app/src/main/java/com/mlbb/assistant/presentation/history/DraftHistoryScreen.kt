@@ -14,8 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mlbb.assistant.data.local.database.DraftSessionEntity
+import com.mlbb.assistant.domain.model.DraftHistoryItem
 import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.theme.ErrorRed
 import com.mlbb.assistant.presentation.common.theme.MLBBBlue
@@ -56,11 +56,9 @@ fun DraftHistoryScreen(
     onBack: () -> Unit,
     viewModel: DraftHistoryViewModel = hiltViewModel()
 ) {
-    // Pass 4 / UX fix: collectAsStateWithLifecycle — lifecycle-aware flow collection.
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize().background(SurfaceDark)) {
-        // Header
         Row(
             Modifier
                 .fillMaxWidth()
@@ -107,8 +105,7 @@ private val DATE_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.getDefault())
 
 @Composable
-private fun DraftHistoryCard(session: DraftSessionEntity) {
-    // java.time replaces SimpleDateFormat — thread-safe and minSdk 29+ safe
+private fun DraftHistoryCard(session: DraftHistoryItem) {
     val dateStr = remember(session.timestamp) {
         Instant.ofEpochMilli(session.timestamp)
             .atZone(ZoneId.systemDefault())
@@ -137,7 +134,6 @@ private fun DraftHistoryCard(session: DraftSessionEntity) {
                         fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     Text(dateStr, color = TextSecondary, fontSize = 10.sp)
                 }
-                // Score badge — sized to not overflow at 100
                 Box(
                     Modifier
                         .background(scoreColor.copy(0.15f), RoundedCornerShape(6.dp))
@@ -148,7 +144,6 @@ private fun DraftHistoryCard(session: DraftSessionEntity) {
                 }
             }
 
-            // Stat chips — increased from 9sp (unreadable) to SuggestionChip's labelMedium
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatBadge("Meta",    "${session.metaScore}%",    MLBBGold)
                 StatBadge("Counter", "${session.counterScore}%", MLBBBlue)

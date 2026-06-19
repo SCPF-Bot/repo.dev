@@ -1,7 +1,9 @@
 package com.mlbb.assistant.presentation.draft
 
+import androidx.compose.runtime.Immutable
 import com.mlbb.assistant.domain.model.Hero
 
+@Immutable
 data class DraftState(
     val allies: List<Hero>                    = emptyList(),
     val enemies: List<Hero>                   = emptyList(),
