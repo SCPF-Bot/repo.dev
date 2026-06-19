@@ -217,23 +217,30 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      * It renders FloatingBubble in collapsed mode and MiniWidget in expanded mode.
      *
      * Drag is handled at the View level so it works in both modes without
-     * interfering with child-composable click events. The trick:
-     *  - ACTION_DOWN  → record finger + window start position, return true
-     *  - ACTION_MOVE  → if moved > drag threshold (10 dp), drag the window
-     *  - ACTION_UP    → if it was NOT a drag, re-dispatch synthetic DOWN+UP so
-     *                   Compose sees a normal click on whatever was underneath
+     * interfering with child-composable click events.
+     *
+     * Implementation notes:
+     *  ─ We use a **delta-from-last** approach (track rawX/rawY from each MOVE event)
+     *    rather than delta-from-initial. This prevents accumulated drift when the
+     *    WindowManager clamps position at screen edges and then the user drags back.
+     *  ─ ACTION_DOWN records the initial touch so we can compute the total movement
+     *    for the drag-threshold check (< 10 dp → treat as tap, not drag).
+     *  ─ ACTION_UP clamps the widget to screen after a drag so it never lands
+     *    partially off-screen.
+     *  ─ ACTION_CANCEL resets state cleanly (system gesture intercept, multi-touch).
+     *  ─ isForwardingClick guards against re-entrant dispatch when we synthetically
+     *    re-send DOWN+UP so Compose sees the tap.
+     *  ─ FLAG_LAYOUT_NO_LIMITS is kept for BOTH bubble and widget so the window
+     *    manager never clips the view while a finger is still moving; clampToScreen()
+     *    is called on ACTION_UP instead.
      */
     private fun addOverlayView() {
         overlayParams = buildBubbleParams()
 
-        var startX    = 0;   var startY    = 0
-        var touchX    = 0f;  var touchY    = 0f
-        var isDragging = false
-        // Guard against the re-entry that happens when we synthetically re-dispatch
-        // a tap DOWN+UP after an ACTION_UP that wasn't a drag. Without this flag,
-        // dispatchTouchEvent(fakeDown) re-invokes setOnTouchListener on the same
-        // ComposeView instance, consuming the fake event and causing Compose never
-        // to see the click (or, worse, an infinite dispatch loop).
+        // Touch-tracking state — captured at ACTION_DOWN, updated each MOVE.
+        var downRawX      = 0f;  var downRawY      = 0f   // initial touch (for threshold)
+        var lastRawX      = 0f;  var lastRawY      = 0f   // previous MOVE position (for delta)
+        var isDragging    = false
         var isForwardingClick = false
 
         overlayView = ComposeView(this).apply {
@@ -252,7 +259,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             enemyWarnings   = enemyWarnings.toList(),
                             onMinimize      = { collapseTobubble() },
                             onClose         = { stopSelf() },
-                            onHeroSelected  = { hero -> handleManualHeroSelection(hero) }
+                            onHeroSelected  = { hero -> handleManualHeroSelection(hero) },
+                            onStartDraft    = { ourTeamFirst -> handleManualDraftStart(ourTeamFirst) }
                         )
                     } else {
                         FloatingBubble(
@@ -264,39 +272,57 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             }
 
             setOnTouchListener { v, event ->
-                // Let synthetic re-dispatched click events through to Compose untouched.
+                // Let synthetic re-dispatched tap events pass straight to Compose.
                 if (isForwardingClick) return@setOnTouchListener false
 
-                val dragThresholdPx = 10 * resources.displayMetrics.density
+                val dragThresholdPx = 10f * resources.displayMetrics.density
 
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        startX  = overlayParams.x;  startY  = overlayParams.y
-                        touchX  = event.rawX;       touchY  = event.rawY
+                        downRawX  = event.rawX;  downRawY  = event.rawY
+                        lastRawX  = event.rawX;  lastRawY  = event.rawY
                         isDragging = false
-                        true  // claim the sequence so we receive MOVE + UP
+                        // Claim the touch sequence so we receive MOVE + UP.
+                        true
                     }
 
                     MotionEvent.ACTION_MOVE -> {
-                        val dx = event.rawX - touchX
-                        val dy = event.rawY - touchY
-                        if (!isDragging && abs(dx) < dragThresholdPx && abs(dy) < dragThresholdPx) {
-                            // Not yet dragging — do not move the window
+                        val totalDx = event.rawX - downRawX
+                        val totalDy = event.rawY - downRawY
+
+                        if (!isDragging &&
+                            abs(totalDx) < dragThresholdPx &&
+                            abs(totalDy) < dragThresholdPx
+                        ) {
+                            // Finger hasn't moved far enough — not a drag yet.
                             return@setOnTouchListener true
                         }
+
+                        // Delta-from-last: move the window by exactly how far the finger
+                        // moved since the previous MOVE event. This avoids drift when the
+                        // WindowManager previously clamped the position.
                         isDragging = true
-                        overlayParams.x = startX + dx.toInt()
-                        overlayParams.y = startY + dy.toInt()
-                        if (isExpanded.value) clampToScreen()
-                        windowManager.updateViewLayout(v, overlayParams)
+                        val deltaX = (event.rawX - lastRawX).toInt()
+                        val deltaY = (event.rawY - lastRawY).toInt()
+                        lastRawX = event.rawX
+                        lastRawY = event.rawY
+
+                        overlayParams.x += deltaX
+                        overlayParams.y += deltaY
+                        runCatching { windowManager.updateViewLayout(v, overlayParams) }
                         true
                     }
 
                     MotionEvent.ACTION_UP -> {
-                        if (!isDragging) {
-                            // It was a tap — re-dispatch so Compose handles the click.
-                            // isForwardingClick prevents this listener from consuming
-                            // the synthetic events before Compose can see them.
+                        if (isDragging) {
+                            // Snap to screen bounds only after the finger lifts — smooth drag,
+                            // safe final position.
+                            clampToScreen()
+                            runCatching { windowManager.updateViewLayout(v, overlayParams) }
+                        } else {
+                            // It was a tap — re-dispatch as synthetic DOWN+UP so Compose
+                            // handles the click. isForwardingClick prevents this listener
+                            // from consuming the synthetic events before Compose sees them.
                             isForwardingClick = true
                             val fakeDown = MotionEvent.obtain(
                                 event.downTime, event.eventTime,
@@ -313,6 +339,13 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             fakeUp.recycle()
                             isForwardingClick = false
                         }
+                        isDragging = false
+                        true
+                    }
+
+                    MotionEvent.ACTION_CANCEL -> {
+                        // System intercepted the gesture (e.g. navigation gesture, multi-touch).
+                        // Reset state without re-dispatching.
                         isDragging = false
                         true
                     }
@@ -371,13 +404,15 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
 
     /**
-     * Widget flags: drop FLAG_LAYOUT_NO_LIMITS so the expanded card cannot
-     * overflow off-screen; keep NOT_TOUCH_MODAL so touches outside the widget
-     * still reach the MLBB game underneath.
+     * Widget flags: keep FLAG_LAYOUT_NO_LIMITS so the window manager never
+     * clips position while a finger is mid-drag. We call clampToScreen() on
+     * ACTION_UP instead, which gives smooth dragging with a safe resting place.
+     * FLAG_NOT_TOUCH_MODAL ensures touches outside the widget reach MLBB below.
      */
     private fun widgetFlags() =
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
     /**
      * After expanding, clamp the window position so the widget (≈280 dp wide)
@@ -391,6 +426,27 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val widgetH = (200 * dm.density).toInt()
         overlayParams.x = overlayParams.x.coerceIn(0, (screenW - widgetW).coerceAtLeast(0))
         overlayParams.y = overlayParams.y.coerceIn(0, (screenH - widgetH).coerceAtLeast(0))
+    }
+
+    // ── Manual draft controls from mini-widget ────────────────────────────────
+
+    /**
+     * Called when the user taps "START DRAFT" in the mini-widget's idle body.
+     *
+     * Initialises a new session with [Rank.UNKNOWN] (auto-upgraded once ban
+     * counts are observed) and immediately transitions to BAN_ROUND_1 so the
+     * widget shows live recommendations without waiting for screen-capture
+     * phase detection.
+     *
+     * @param ourTeamFirst true = allied team picks first (ally button selected);
+     *                     false = enemy team picks first (enemy button selected).
+     */
+    private fun handleManualDraftStart(ourTeamFirst: Boolean) {
+        resetDraftTracking()
+        draftSessionManager.initSession(Rank.UNKNOWN, ourTeamFirst = ourTeamFirst)
+        draftSessionManager.startBanPhase()
+        // Ensure widget is expanded and on-screen.
+        if (!isExpanded.value) expandToWidget()
     }
 
     // ── Manual hero selection from mini-widget tap ────────────────────────────

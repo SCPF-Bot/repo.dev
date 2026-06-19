@@ -219,7 +219,76 @@ CompositionAnalyzer.getCounterPickWarnings() real-time counter-pick surface
 
 ---
 
-## 5. Document References for Key Decisions
+## 5. Change Summary — Phase 5 (Third Pass)
+
+**Date:** 2026-06-19  
+**Scope:** Permission wizard expansion · Mini-widget manual draft controls · Overlay drag system rewrite · Manifest additions
+
+---
+
+### 5.1 `presentation/welcome/PermissionWizardScreen.kt`
+
+**Added four new permission steps** — wizard now has 8 steps total (up from 4):
+
+| Step | Title | Mechanism |
+|------|-------|-----------|
+| 5 | Disable Battery Optimisation | `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` with fallback to `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`. Checks `PowerManager.isIgnoringBatteryOptimizations()` before launching to avoid a redundant prompt. |
+| 6 | App Auto-Start | Manufacturer-specific intents: Xiaomi MIUI → `com.miui.permcenter.autostart.AutoStartManagementActivity`; OPPO ColorOS (2 variants); Vivo FuntouchOS; Huawei EMUI (2 variants); Samsung One UI; OnePlus OxygenOS; Realme UI; Meizu Flyme. Falls back to standard App Info if no OEM screen resolves. |
+| 7 | Unrestricted / Restricted Settings | Android 12 and newer can block sideloaded apps from granting overlay / accessibility permissions until the user taps "Allow restricted settings" in App Info. Step opens `ACTION_APPLICATION_DETAILS_SETTINGS` with an explanatory prompt. |
+| 8 | Allow Background Running | Separate OEM-specific background-activity intents (Xiaomi PowerKeeper, Huawei Protected Apps, Samsung Device Care, Asus Mobile Manager). Falls back to `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` then App Info. |
+
+**Added helpers** `openAutoStartSettings(ctx)` and `openBackgroundRunningSettings(ctx)` — both use a `tryStartActivity` trampoline that iterates candidate Intents and silently swallows `ActivityNotFoundException` for each, guaranteeing a launch on any device.
+
+**Why:** Auto-start and background-running restrictions are the #1 cause of the overlay service dying mid-draft on Chinese OEM ROMs. Battery optimisation is the standard Android mechanism that achieves the same effect on AOSP/Pixel devices. "Restricted Settings" (Android 12+) is the main blocker for sideloaded APK distributions.
+
+---
+
+### 5.2 `AndroidManifest.xml`
+
+- **Added:** `android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` — required for `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` intent to work without a `SecurityException`.
+- **Added:** `android.permission.RECEIVE_BOOT_COMPLETED` — enables future auto-restart of the overlay service after device reboot, used by auto-start-style OEM features.
+
+---
+
+### 5.3 `presentation/overlay/MiniWidget.kt`
+
+**Added `onStartDraft: (ourTeamFirst: Boolean) -> Unit` parameter.**
+
+**Redesigned `IdleBody`** — the idle/standby body now contains three interactive elements:
+
+1. **"Waiting for draft to begin…" status label** (unchanged, preserved for visual context).
+2. **"WHO PICKS FIRST?" team selector** — two side-by-side tappable cards:
+   - `🔵 ALLY` on the **left** (teal highlight when selected; maps to `ourTeamFirst = true`).
+   - `🔴 ENEMY` on the **right** (red highlight when selected; maps to `ourTeamFirst = false`).
+   - Selection is remembered as local `remember { mutableStateOf(true) }` state so it persists across recompositions without leaking into the service layer.
+   - Layout rationale: ally on left mirrors MLBB's own draft UI where allied picks appear on the left side of the screen.
+3. **`▶  START DRAFT` button** — gold border/background, fires `onStartDraft(ourTeamFirst)` on tap. Provides an explicit manual trigger for when screen-capture phase detection is unavailable or disabled.
+
+---
+
+### 5.4 `presentation/overlay/OverlayService.kt`
+
+#### 5.4.1 Drag system rewrite (`addOverlayView`)
+
+**Problem (before):**  
+The previous implementation tracked the delta from the initial touch position (`overlayParams.x = startX + (rawX - touchX)`). This causes *accumulated drift*: when the WindowManager clamps the window to screen bounds during a drag (e.g. the user drags toward an edge), `overlayParams.x` advances past the clamped position. On the return stroke, the finger must travel the full accumulated overshoot before the window visibly moves again — the overlay appears "stuck".
+
+Additionally, the widget mode dropped `FLAG_LAYOUT_NO_LIMITS`, so the WindowManager could silently clamp position *during* a MOVE, de-synchronising `overlayParams` from the actual rendered position and compounding the drift.
+
+**Fix (after):**  
+- **Delta-from-last:** Each `ACTION_MOVE` event now computes `deltaX = rawX − lastRawX` and applies `overlayParams.x += deltaX`, then updates `lastRawX = rawX`. The initial touch is still recorded (`downRawX/downRawY`) solely for the drag-threshold check.
+- **Clamp-on-up:** `clampToScreen()` is called only in `ACTION_UP` (after a drag), not during MOVE. This gives completely fluid dragging with a safe final resting position.
+- **`FLAG_LAYOUT_NO_LIMITS` on both modes:** Both `bubbleFlags()` and `widgetFlags()` now include the flag so the WindowManager never clips mid-drag.
+- **`ACTION_CANCEL` handler:** Resets `isDragging = false` cleanly when a system gesture (navigation bar swipe, multi-touch) intercepts the sequence. Previously `isDragging` could remain `true` across gestures, permanently disabling tap forwarding.
+- **`runCatching` around `updateViewLayout`:** Guards against `IllegalArgumentException: View not attached` on rapid expand/collapse.
+
+#### 5.4.2 `handleManualDraftStart(ourTeamFirst: Boolean)` — new method
+
+Called from `MiniWidget.onStartDraft`. Calls `resetDraftTracking()`, then `draftSessionManager.initSession(Rank.UNKNOWN, ourTeamFirst)`, then `draftSessionManager.startBanPhase()`. Also ensures the widget is expanded. This gives users a one-tap way to start the draft assistant when screen-capture detection is not available.
+
+---
+
+## 6. Document References for Key Decisions
 
 | Decision | Reference |
 |----------|-----------|

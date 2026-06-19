@@ -26,10 +26,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,8 +64,8 @@ import com.mlbb.assistant.presentation.common.theme.WarningAmber
  *  ┌─────────────────────────────────────────────────┐
  *  │  MLBB DRAFT · PHASE LABEL          [─]  [✕]   │ ← drag handle / header
  *  │  divider                                        │
- *  │  turn indicator (YOUR / ENEMY TURN)             │
- *  │  top 3 hero recommendations (small portraits)   │
+ *  │  [IDLE] team-picker + START DRAFT button        │ ← manual draft controls
+ *  │  [ACTIVE] turn indicator + hero recommendations │
  *  │  slot-fill dots  E:[■][■][ ]  Y:[■][■][ ]      │
  *  └─────────────────────────────────────────────────┘
  *
@@ -77,7 +82,8 @@ fun MiniWidget(
     enemyWarnings:   List<String>,
     onMinimize:      () -> Unit,
     onClose:         () -> Unit,
-    onHeroSelected:  (Hero) -> Unit
+    onHeroSelected:  (Hero) -> Unit,
+    onStartDraft:    (ourTeamFirst: Boolean) -> Unit
 ) {
     val phaseLabel = when (session.phase) {
         DraftPhase.IDLE        -> "STANDBY"
@@ -121,7 +127,10 @@ fun MiniWidget(
                 ) {
                     when (phase) {
                         DraftPhase.IDLE, DraftPhase.SETUP -> {
-                            IdleBody(session = session)
+                            IdleBody(
+                                session       = session,
+                                onStartDraft  = onStartDraft
+                            )
                         }
                         DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
                             BanBody(
@@ -221,12 +230,31 @@ private fun IconBtn(
 
 // ── Phase bodies ───────────────────────────────────────────────────────────────
 
+/**
+ * Idle body — shown when no draft is active.
+ *
+ * Contains:
+ *  1. A "who picks first?" team selector:
+ *       [  ALLY  ] ←selected left→  [  ENEMY  ]
+ *  2. A "START DRAFT" button that fires [onStartDraft] with the chosen side.
+ *
+ * The team selector follows the user's mental model:
+ *   Ally team = LEFT side (matches typical MLBB UI: allied picks on the left)
+ *   Enemy team = RIGHT side
+ */
 @Composable
-private fun IdleBody(session: DraftSession) {
+private fun IdleBody(
+    session:      DraftSession,
+    onStartDraft: (ourTeamFirst: Boolean) -> Unit
+) {
+    // Local state: true = ally picks first (default), false = enemy picks first
+    var ourTeamFirst by remember { mutableStateOf(true) }
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier            = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // ── "Has drafting started?" prompt ───────────────────────────────────
         Box(
             Modifier
                 .fillMaxWidth()
@@ -235,11 +263,120 @@ private fun IdleBody(session: DraftSession) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                "Waiting for draft to begin...",
+                "Waiting for draft to begin…",
                 color    = TextSecondary,
                 fontSize = 10.sp
             )
         }
+
+        // ── Team picker label ────────────────────────────────────────────────
+        Text(
+            "WHO PICKS FIRST?",
+            color      = MLBBGold,
+            fontSize   = 9.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier   = Modifier.align(Alignment.CenterHorizontally)
+        )
+
+        // ── ALLY (left) | ENEMY (right) toggle ───────────────────────────────
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // ── ALLY button (left) ───────────────────────────────────────────
+            val allySelected = ourTeamFirst
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (allySelected) MLBBTeal.copy(alpha = 0.25f)
+                        else SurfaceMid,
+                        RoundedCornerShape(8.dp)
+                    )
+                    .border(
+                        width = if (allySelected) 1.5.dp else 0.5.dp,
+                        color = if (allySelected) MLBBTeal else TextDisabled.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .clickable { ourTeamFirst = true }
+                    .padding(vertical = 7.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        "🔵",
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        "ALLY",
+                        color      = if (allySelected) MLBBTeal else TextSecondary,
+                        fontSize   = 9.sp,
+                        fontWeight = if (allySelected) FontWeight.Bold else FontWeight.Normal,
+                        textAlign  = TextAlign.Center
+                    )
+                }
+            }
+
+            // ── ENEMY button (right) ─────────────────────────────────────────
+            val enemySelected = !ourTeamFirst
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (enemySelected) ErrorRed.copy(alpha = 0.20f)
+                        else SurfaceMid,
+                        RoundedCornerShape(8.dp)
+                    )
+                    .border(
+                        width = if (enemySelected) 1.5.dp else 0.5.dp,
+                        color = if (enemySelected) ErrorRed else TextDisabled.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .clickable { ourTeamFirst = false }
+                    .padding(vertical = 7.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        "🔴",
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        "ENEMY",
+                        color      = if (enemySelected) ErrorRed else TextSecondary,
+                        fontSize   = 9.sp,
+                        fontWeight = if (enemySelected) FontWeight.Bold else FontWeight.Normal,
+                        textAlign  = TextAlign.Center
+                    )
+                }
+            }
+        }
+
+        // ── START DRAFT button ───────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MLBBGold.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                .border(1.5.dp, MLBBGold.copy(alpha = 0.70f), RoundedCornerShape(8.dp))
+                .clickable { onStartDraft(ourTeamFirst) }
+                .padding(vertical = 9.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "▶  START DRAFT",
+                color      = MLBBGold,
+                fontSize   = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // ── Slot overview (shows empty slots while idle) ──────────────────────
         SlotOverview(
             enemySlots = buildSlotList(session.enemyBansR1, session.enemyBansR2),
             ourSlots   = buildSlotList(session.ourBansR1, session.ourBansR2),
@@ -264,7 +401,6 @@ private fun BanBody(
     isBanTurn:      Boolean,
     onHeroSelected: (Hero) -> Unit
 ) {
-    // Turn indicator
     AnimatedVisibility(
         visible = isBanTurn,
         enter   = fadeIn() + slideInVertically { -it },
@@ -289,7 +425,6 @@ private fun BanBody(
         Text("Enemy is banning...", color = TextSecondary, fontSize = 10.sp)
     }
 
-    // Top ban suggestions
     if (banSuggestions.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("TOP BANS", color = MLBBGold, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
@@ -301,7 +436,6 @@ private fun BanBody(
         }
     }
 
-    // Slot overview
     SlotOverview(
         enemySlots = buildSlotList(session.enemyBansR1, session.enemyBansR2),
         ourSlots   = buildSlotList(session.ourBansR1, session.ourBansR2),
@@ -321,7 +455,6 @@ private fun PickBody(
     val isOurTurn = session.currentTurn?.side?.name == "OUR_TEAM"
     val pickLabel = session.currentTurn?.let { "Pick ${it.pickNumber}/10" } ?: ""
 
-    // Turn indicator
     Row(
         Modifier
             .fillMaxWidth()
@@ -344,7 +477,6 @@ private fun PickBody(
         }
     }
 
-    // Top pick suggestions
     if (recommendations.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("TOP PICKS", color = MLBBGold, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
@@ -356,7 +488,6 @@ private fun PickBody(
         }
     }
 
-    // Enemy warning (first only to keep it compact)
     if (enemyWarnings.isNotEmpty()) {
         Text(
             enemyWarnings.first(),
@@ -367,7 +498,6 @@ private fun PickBody(
         )
     }
 
-    // Slot overview
     SlotOverview(
         enemySlots = session.enemyPicks,
         ourSlots   = session.ourPicks,
