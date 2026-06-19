@@ -1,9 +1,9 @@
-name: Extract 7z
+name: Extract Zip
 
 on:
   push:
     paths:
-      - '*.7z'
+      - '*.zip'
   workflow_dispatch:
 
 permissions:
@@ -17,46 +17,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cache 7zz binary
-        id: cache-7zz
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/bin/7zz
-          key: 7zz-2601
-
-      - name: Install 7zz
-        if: steps.cache-7zz.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p ~/.local/bin
-          wget https://github.com/ip7z/7zip/releases/download/26.01/7z2601-linux-x64.tar.xz
-          tar -xf 7z2601-linux-x64.tar.xz
-          cp 7zz ~/.local/bin/
-          chmod +x ~/.local/bin/7zz
-
-      - name: Add 7zz to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Delete all files/folders except .github, .git, and *.7z
+      - name: Delete all files/folders except .github, .git, and *.zip
         run: |
           find . -mindepth 1 -maxdepth 1 \
           ! -name '.github' \
           ! -name '.git' \
-          ! -name '*.7z' \
+          ! -name '*.zip' \
           -exec rm -rf {} +
         working-directory: ${{ github.workspace }}
 
-      - name: Extract all .7z archives
+      - name: Extract all .zip archives
         run: |
-          for archive in *.7z; do
+          for archive in *.zip; do
             if [ -f "$archive" ]; then
               echo "Extracting $archive"
-              7zz x -y "$archive"
+              unzip -o "$archive"
             fi
           done
         working-directory: ${{ github.workspace }}
 
-      - name: Delete extracted .7z files
-        run: rm -f *.7z
+      - name: Delete extracted .zip files
+        run: rm -f *.zip
         working-directory: ${{ github.workspace }}
 
       - name: Commit and push changes to main branch
@@ -67,6 +48,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Extract 7z archive and cleanup [skip ci]"
+            git commit -m "Extract zip archive and cleanup [skip ci]"
             git push origin main
           fi
