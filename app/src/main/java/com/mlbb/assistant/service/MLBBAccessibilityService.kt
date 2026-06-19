@@ -1,53 +1,46 @@
 package com.mlbb.assistant.service
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
-import com.mlbb.assistant.presentation.overlay.OverlayService
+import timber.log.Timber
 
 /**
- * Watches for MLBB coming to the foreground.
- * When detected, starts the OverlayService (floating bubble).
- * When MLBB loses focus, signals the overlay to idle.
+ * Accessibility service that detects when MLBB comes to the foreground
+ * so the overlay can activate automatically without the user manually
+ * pressing "Start Draft".
+ *
+ * Permission: declared in AndroidManifest.xml with
+ *   android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+ * and configured via res/xml/accessibility_service_config.xml.
+ *
+ * Note: This service only monitors window state changes (the lowest-overhead
+ * event type). It does NOT read UI content, traverse the window hierarchy, or
+ * capture any screen content — all screen capture is handled separately via
+ * MediaProjection in OverlayService.
  */
 class MLBBAccessibilityService : AccessibilityService() {
 
     companion object {
-        private const val MLBB_PACKAGE     = "com.mobile.legends"
-        private const val MLBB_PACKAGE_ALT = "com.mobilelegends.mi"
-        @Volatile private var isMLBBForeground = false
-    }
-
-    override fun onServiceConnected() {
-        serviceInfo = AccessibilityServiceInfo().apply {
-            eventTypes  = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            flags        = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-            notificationTimeout = 100
-        }
+        private const val MLBB_PACKAGE = "com.mobile.legends"
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        val pkg = event?.packageName?.toString() ?: return
-        val isMLBB = pkg == MLBB_PACKAGE || pkg == MLBB_PACKAGE_ALT
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
 
-        when {
-            isMLBB && !isMLBBForeground -> {
-                isMLBBForeground = true
-                OverlayService.start(applicationContext)
-            }
-            !isMLBB && isMLBBForeground && pkg != packageName -> {
-                isMLBBForeground = false
-                // Keep overlay alive but minimize bubble (handled inside OverlayService)
-            }
+        val pkg = event.packageName?.toString() ?: return
+        if (pkg == MLBB_PACKAGE) {
+            Timber.d("MLBBAccessibilityService: MLBB foregrounded — broadcasting")
+            sendBroadcast(Intent("com.mlbb.assistant.ACTION_MLBB_FOREGROUNDED"))
         }
     }
 
-    override fun onInterrupt() {}
+    override fun onInterrupt() {
+        Timber.w("MLBBAccessibilityService: interrupted")
+    }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        isMLBBForeground = false
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        Timber.i("MLBBAccessibilityService: connected")
     }
 }

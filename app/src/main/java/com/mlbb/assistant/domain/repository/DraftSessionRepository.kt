@@ -4,25 +4,34 @@ import com.mlbb.assistant.domain.model.DraftHistoryItem
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Domain-layer contract for persisting and querying completed draft sessions.
+ * Pure-domain contract for persisting and querying completed draft sessions.
  *
- * The data layer owns the mapping between [com.mlbb.assistant.data.local.database.DraftSessionEntity]
- * and [DraftHistoryItem]. Domain use cases depend only on this interface.
+ * Previously, [data.local.database.DraftSessionEntity] and
+ * [data.local.database.DraftSessionDao] existed but were never called —
+ * sessions were computed and immediately discarded. This interface wires
+ * the domain to the data layer so sessions are now persisted and surfaced
+ * in the History screen.
+ *
+ * The concrete implementation ([data.repository.DraftSessionRepositoryImpl])
+ * is injected by Hilt via [di.RepositoryModule].
  */
 interface DraftSessionRepository {
 
-    /** Observe all saved sessions, newest first. */
+    /** Live stream of all sessions, newest first. */
     fun getAllSessions(): Flow<List<DraftHistoryItem>>
 
-    /** Observe the [limit] most recent sessions. */
+    /** Live stream of the most recent [limit] sessions. */
     fun getRecentSessions(limit: Int = 20): Flow<List<DraftHistoryItem>>
 
-    /** Persist a completed draft session. Returns the row id of the inserted record. */
+    /**
+     * Persists a draft history item.
+     * @return The auto-generated row ID of the inserted record.
+     */
     suspend fun saveSession(item: DraftHistoryItem): Long
 
-    /** Delete a single session by its [id]. */
+    /** Deletes a single session by its [id]. */
     suspend fun deleteSession(id: Int)
 
-    /** Wipe all saved draft sessions. */
+    /** Deletes all sessions (used for "Clear History" in Settings). */
     suspend fun deleteAllSessions()
 }
