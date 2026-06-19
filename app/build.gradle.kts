@@ -16,6 +16,14 @@ android {
         targetSdk     = 36
         versionCode   = 2
         versionName   = "2.0.0"
+
+        // BASE_URL sourced from BuildConfig so it can be overridden per build variant
+        // without changing source code. Override in local.properties or CI env.
+        buildConfigField(
+            "String",
+            "META_API_BASE_URL",
+            "\"https://api.mlbb-assistant.com/\""
+        )
     }
 
     buildTypes {
@@ -23,6 +31,10 @@ android {
             isMinifyEnabled   = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
         }
     }
 
@@ -40,6 +52,13 @@ android {
         buildConfig = true
     }
 
+    // Export Room schema to allow proper migrations to be authored.
+    // The generated JSON files should be checked into version control.
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+        arg("room.incremental",    "true")
+    }
+
     packaging {
         resources {
             pickFirsts += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
@@ -55,7 +74,7 @@ dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.runtime.compose)   // collectAsStateWithLifecycle
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
@@ -66,7 +85,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.extended)      // full Material icon set
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.animation)
     implementation(libs.navigation.compose)
     debugImplementation(libs.compose.ui.tooling)
@@ -97,6 +116,9 @@ dependencies {
 
     // Logging
     implementation(libs.timber)
+
+    // Memory leak detection (debug only)
+    debugImplementation(libs.leakcanary)
 
     // Unit tests
     testImplementation(libs.junit)

@@ -55,12 +55,11 @@
 -dontwarn coil3.**
 
 # ── Timber ───────────────────────────────────────────────────────────────────
-# Strip all Timber log calls in release builds to eliminate log overhead
+# Strip only verbose/debug/info log calls in release; keep warn/error for crash diagnostics.
 -assumenosideeffects class timber.log.Timber {
     public static *** v(...);
     public static *** d(...);
     public static *** i(...);
-    public static *** w(...);
 }
 
 # ── DataStore ────────────────────────────────────────────────────────────────

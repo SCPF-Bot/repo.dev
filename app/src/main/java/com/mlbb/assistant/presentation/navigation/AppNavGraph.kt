@@ -1,12 +1,11 @@
 package com.mlbb.assistant.presentation.navigation
 
-import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -17,6 +16,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.mlbb.assistant.data.local.preferences.WizardPreference
 import com.mlbb.assistant.presentation.herodetail.HeroDetailScreen
 import com.mlbb.assistant.presentation.herolist.HeroListScreen
 import com.mlbb.assistant.presentation.herolist.HeroListViewModel
@@ -25,6 +25,7 @@ import com.mlbb.assistant.presentation.home.HomeScreen
 import com.mlbb.assistant.presentation.metaboard.MetaBoardScreen
 import com.mlbb.assistant.presentation.settings.SettingsScreen
 import com.mlbb.assistant.presentation.welcome.PermissionWizardScreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavGraph(
@@ -41,11 +42,14 @@ fun AppNavGraph(
     ) {
         composable(AppRoute.Wizard.route) {
             val context = LocalContext.current
+            val scope   = rememberCoroutineScope()
+
             PermissionWizardScreen(
                 onComplete = {
-                    // Persist wizard-done flag so we never show the wizard again.
-                    context.getSharedPreferences("mlbb_prefs", Context.MODE_PRIVATE)
-                        .edit().putBoolean("wizard_done", true).apply()
+                    scope.launch {
+                        // Persist via DataStore (async, non-blocking, consistent with AppShell).
+                        WizardPreference.setDone(context, done = true)
+                    }
                     navController.navigate(AppRoute.Home.route) {
                         popUpTo(AppRoute.Wizard.route) { inclusive = true }
                     }
@@ -78,10 +82,9 @@ fun AppNavGraph(
         ) { backStack ->
             val heroId = backStack.arguments?.getInt(AppRoute.HeroDetail.ARG) ?: return@composable
             val vm: HeroListViewModel = hiltViewModel()
-            // Pass 4 / UX fix: collectAsStateWithLifecycle — lifecycle-aware flow collection.
             val state by vm.state.collectAsStateWithLifecycle()
-            val heroMap = remember(state.heroes) { state.heroes.associateBy { it.id } }
-            val hero = heroMap[heroId]
+            val heroMap = state.heroes.associateBy { it.id }
+            val hero    = heroMap[heroId]
             if (hero != null) {
                 HeroDetailScreen(
                     hero          = hero,
@@ -97,7 +100,6 @@ fun AppNavGraph(
 
         composable(AppRoute.MetaBoard.route) {
             val vm: HeroListViewModel = hiltViewModel()
-            // Pass 4 / UX fix: collectAsStateWithLifecycle — lifecycle-aware flow collection.
             val state by vm.state.collectAsStateWithLifecycle()
             MetaBoardScreen(
                 heroes      = state.heroes,

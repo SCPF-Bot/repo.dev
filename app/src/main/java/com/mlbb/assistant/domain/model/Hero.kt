@@ -1,6 +1,7 @@
 package com.mlbb.assistant.domain.model
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 
 @Immutable
 data class Hero(
@@ -45,15 +46,21 @@ enum class Tier(val display: String, val order: Int) {
     S("S",       1),
     A_PLUS("A+", 2),
     A("A",       3),
-    B("B",       4);
+    B("B",       4),
+    /**
+     * Catch-all for data values not represented above (e.g. "D" in some JSON feeds).
+     * Displayed as-is; treated as lowest priority in scoring.
+     */
+    UNKNOWN("?", 5);
 
     companion object {
-        fun fromString(value: String): Tier = when (value.uppercase()) {
+        fun fromString(value: String): Tier = when (value.uppercase().trim()) {
             "S+" -> S_PLUS
             "S"  -> S
             "A+" -> A_PLUS
             "A"  -> A
-            else -> B
+            "B"  -> B
+            else -> UNKNOWN
         }
     }
 }
