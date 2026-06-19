@@ -14,12 +14,12 @@
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       19,
-      38
+      36
     ],
     "synergies": [
       3,
@@ -65,18 +65,17 @@
     "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_4df4ce8528166d6e1cc94480f4f0e910.png",
     "counters": [
       6,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
-      55,
-      60,
-      72
+      53,
+      58,
+      70
     ],
     "synergies": [
       12,
-      15,
-      28
+      15
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -114,7 +113,7 @@
     "winRate": 0.51,
     "pickRate": 0.15,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/saber/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_6bbfac806f29d29f17fea9e98d2d2fee.png",
     "counters": [
       1,
       4,
@@ -123,12 +122,11 @@
     "counteredBy": [
       14,
       27,
-      46
+      44
     ],
     "synergies": [
       9,
-      13,
-      28
+      13
     ],
     "recommendedSpells": [
       "Retribution",
@@ -166,21 +164,20 @@
     "winRate": 0.5,
     "pickRate": 0.12,
     "banRate": 0.04,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/alice/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_2_1_18/100_18300163a5a912a84adb52b8d59b4618.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       3,
       17,
-      46
+      44
     ],
     "synergies": [
       5,
-      11,
-      28
+      11
     ],
     "recommendedSpells": [
       "Flicker",
@@ -218,21 +215,20 @@
     "winRate": 0.52,
     "pickRate": 0.18,
     "banRate": 0.1,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/nana/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_ee1e0d80d87bb614a0c552ef028f85ce.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
-      46,
-      55
+      44,
+      53
     ],
     "synergies": [
       1,
-      21,
-      28
+      21
     ],
     "recommendedSpells": [
       "Flicker",
@@ -270,21 +266,20 @@
     "winRate": 0.52,
     "pickRate": 0.25,
     "banRate": 0.15,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/tigreal/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_8b30576754be1a4f8bebd09df8d6bec7.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       21,
-      28,
-      48
+      46
     ],
     "recommendedSpells": [
       "Flicker",
@@ -322,20 +317,19 @@
     "winRate": 0.48,
     "pickRate": 0.14,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/alucard/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_0f51b6906e08897aa02330d65b0deeac.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       3,
       19,
-      55
+      53
     ],
     "synergies": [
       5,
-      28,
       9
     ],
     "recommendedSpells": [
@@ -374,7 +368,7 @@
     "winRate": 0.51,
     "pickRate": 0.17,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/karina/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_f49394186dc0e55d545da8377be83280.png",
     "counters": [
       1,
       4,
@@ -383,12 +377,11 @@
     "counteredBy": [
       14,
       27,
-      46
+      44
     ],
     "synergies": [
       6,
-      22,
-      28
+      22
     ],
     "recommendedSpells": [
       "Retribution",
@@ -426,7 +419,7 @@
     "winRate": 0.5,
     "pickRate": 0.13,
     "banRate": 0.06,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/eudora/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_60956060c4cbb86f3c6343da05b70568.png",
     "counters": [
       1,
       6,
@@ -435,12 +428,11 @@
     "counteredBy": [
       3,
       27,
-      46
+      44
     ],
     "synergies": [
       5,
-      22,
-      28
+      22
     ],
     "recommendedSpells": [
       "Flicker",
@@ -478,21 +470,20 @@
     "winRate": 0.5,
     "pickRate": 0.12,
     "banRate": 0.04,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/zilong/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_9db57da4f0daef6d432676e4f19101ed.png",
     "counters": [
       6,
       22,
-      33
+      32
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Inspire",
@@ -530,16 +521,16 @@
     "winRate": 0.51,
     "pickRate": 0.18,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/layla/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_b2b38e9406ea0de0b866db7674feea0f.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       19,
-      38
+      36
     ],
     "synergies": [
       3,
@@ -582,20 +573,20 @@
     "winRate": 0.5,
     "pickRate": 0.11,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/minotaur/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_3ecd2c0843df7ec85044dafff6bf4553.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       21,
-      48,
+      46,
       6
     ],
     "recommendedSpells": [
@@ -634,7 +625,7 @@
     "winRate": 0.52,
     "pickRate": 0.14,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/lolita/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_474cea36a4bfdc7bf7d94530853a99b2.png",
     "counters": [
       1,
       4,
@@ -642,8 +633,8 @@
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
@@ -686,21 +677,20 @@
     "winRate": 0.53,
     "pickRate": 0.22,
     "banRate": 0.35,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/hayabusa/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_9cc074562291a02644a0ddae28eeaa42.png",
     "counters": [
       1,
       6,
-      33
+      32
     ],
     "counteredBy": [
       13,
       27,
-      46
+      44
     ],
     "synergies": [
       8,
-      22,
-      28
+      22
     ],
     "recommendedSpells": [
       "Retribution",
@@ -738,21 +728,20 @@
     "winRate": 0.48,
     "pickRate": 0.09,
     "banRate": 0.02,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/freya/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_85ecfab713c877196d4b9e44a2aa2f6a.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
-      12,
-      28
+      12
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -790,7 +779,7 @@
     "winRate": 0.48,
     "pickRate": 0.11,
     "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/gord/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_47/100_9513f5e10ec33f76747732eaf2082259.png",
     "counters": [
       1,
       6,
@@ -799,12 +788,11 @@
     "counteredBy": [
       3,
       8,
-      55
+      53
     ],
     "synergies": [
       5,
-      22,
-      28
+      22
     ],
     "recommendedSpells": [
       "Flicker",
@@ -842,16 +830,16 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.04,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/rafaela/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_68277dce415742c4a98883151c693a07.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       1,
@@ -894,16 +882,16 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.06,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/clint/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_5a8345c69a4c9c611fdfce91089fe74a.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       19,
-      38
+      36
     ],
     "synergies": [
       3,
@@ -946,16 +934,16 @@
     "winRate": 0.5,
     "pickRate": 0.12,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/moskov/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_a60a866ab6752a7f66766e720da987ea.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -998,20 +986,20 @@
     "winRate": 0.52,
     "pickRate": 0.16,
     "banRate": 0.2,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/johnson/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_85ff988c6660b4d04f8dd3d40df988bb.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       9,
-      48,
+      46,
       21
     ],
     "recommendedSpells": [
@@ -1050,16 +1038,16 @@
     "winRate": 0.51,
     "pickRate": 0.15,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/cyclops/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_68da456f9c01b2f88d29ee320db181ed.png",
     "counters": [
       1,
       6,
-      33
+      32
     ],
     "counteredBy": [
       14,
       27,
-      46
+      44
     ],
     "synergies": [
       5,
@@ -1102,11 +1090,11 @@
     "winRate": 0.53,
     "pickRate": 0.2,
     "banRate": 0.25,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/estes/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_ff4de3b0aabd1d2f6e184db1c831f6a9.png",
     "counters": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "counteredBy": [
       3,
@@ -1154,21 +1142,20 @@
     "winRate": 0.5,
     "pickRate": 0.11,
     "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/hilda/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_acd700708dc515f5c63a08f8835a9941.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       5,
-      12,
-      28
+      12
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -1206,7 +1193,7 @@
     "winRate": 0.51,
     "pickRate": 0.12,
     "banRate": 0.06,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/aurora/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_f9b2be0150361018bb98f941b9667c42.png",
     "counters": [
       1,
       6,
@@ -1215,7 +1202,7 @@
     "counteredBy": [
       14,
       27,
-      46
+      44
     ],
     "synergies": [
       5,
@@ -1258,21 +1245,20 @@
     "winRate": 0.5,
     "pickRate": 0.13,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/lapu-lapu/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_28036c4584c914c5aad4d2feeafb2452.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -1310,21 +1296,20 @@
     "winRate": 0.48,
     "pickRate": 0.08,
     "banRate": 0.02,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/vexana/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_743edd1702084c4ed247908d698bca77.png",
     "counters": [
       1,
       6,
-      33
+      32
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
-      22,
-      28
+      22
     ],
     "recommendedSpells": [
       "Flicker",
@@ -1362,7 +1347,7 @@
     "winRate": 0.53,
     "pickRate": 0.2,
     "banRate": 0.22,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/kagura/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_da424b020b8ac8235d64a1b8a09aa749.png",
     "counters": [
       1,
       6,
@@ -1371,7 +1356,7 @@
     "counteredBy": [
       3,
       27,
-      46
+      44
     ],
     "synergies": [
       5,
@@ -1405,58 +1390,6 @@
   },
   {
     "id": 28,
-    "name": "Karina",
-    "role": "Assassin",
-    "secondaryRole": null,
-    "lane": "JUNGLE",
-    "tier": "A",
-    "patchTrend": 0.01,
-    "winRate": 0.51,
-    "pickRate": 0.17,
-    "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/karina/portrait.png",
-    "counters": [
-      1,
-      4,
-      21
-    ],
-    "counteredBy": [
-      14,
-      27,
-      46
-    ],
-    "synergies": [
-      6,
-      22,
-      9
-    ],
-    "recommendedSpells": [
-      "Retribution",
-      "Flicker"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Calamity Reaper",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Blade of Despair",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Holy Crystal",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 29,
     "name": "Fanny",
     "role": "Assassin",
     "secondaryRole": null,
@@ -1466,16 +1399,16 @@
     "winRate": 0.54,
     "pickRate": 0.18,
     "banRate": 0.4,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/fanny/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_3391df36d6dcc54dd1c417098e15ec59.png",
     "counters": [
       1,
       6,
-      33
+      32
     ],
     "counteredBy": [
       13,
       27,
-      46
+      44
     ],
     "synergies": [
       8,
@@ -1508,7 +1441,7 @@
     "isOP": true
   },
   {
-    "id": 30,
+    "id": 29,
     "name": "Chou",
     "role": "Fighter",
     "secondaryRole": "Assassin",
@@ -1518,21 +1451,20 @@
     "winRate": 0.52,
     "pickRate": 0.22,
     "banRate": 0.3,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/chou/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_158209b180032c4564b8f3bde8c48888.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
       27,
-      55
+      53
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Inspire",
@@ -1560,7 +1492,7 @@
     "isOP": true
   },
   {
-    "id": 31,
+    "id": 30,
     "name": "Sun",
     "role": "Fighter",
     "secondaryRole": null,
@@ -1570,21 +1502,20 @@
     "winRate": 0.49,
     "pickRate": 0.12,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/sun/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_117b5cdcc13232157075ce7b7f6177e9.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -1612,7 +1543,7 @@
     "isOP": false
   },
   {
-    "id": 32,
+    "id": 31,
     "name": "Alpha",
     "role": "Fighter",
     "secondaryRole": null,
@@ -1622,16 +1553,16 @@
     "winRate": 0.5,
     "pickRate": 0.11,
     "banRate": 0.04,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/alpha/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_86c9f91f530727db6498f920d19180d1.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
@@ -1664,7 +1595,7 @@
     "isOP": false
   },
   {
-    "id": 33,
+    "id": 32,
     "name": "Ruby",
     "role": "Fighter",
     "secondaryRole": "Tank",
@@ -1674,21 +1605,20 @@
     "winRate": 0.52,
     "pickRate": 0.2,
     "banRate": 0.18,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/ruby/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_4b96c75b136290576d849309722d4d20.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      12,
-      28
+      12
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -1716,7 +1646,7 @@
     "isOP": false
   },
   {
-    "id": 34,
+    "id": 33,
     "name": "Yi Sun-shin",
     "role": "Marksman",
     "secondaryRole": "Assassin",
@@ -1726,21 +1656,20 @@
     "winRate": 0.51,
     "pickRate": 0.15,
     "banRate": 0.09,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/yi-sun-shin/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_961378be3f498d42c25b3defd1635ad1.png",
     "counters": [
       6,
       22,
-      33
+      32
     ],
     "counteredBy": [
       14,
       27,
-      55
+      53
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Retribution",
@@ -1770,59 +1699,7 @@
     "isOP": false
   },
   {
-    "id": 35,
-    "name": "Moskov",
-    "role": "Marksman",
-    "secondaryRole": null,
-    "lane": "GOLD",
-    "tier": "A",
-    "patchTrend": 0.01,
-    "winRate": 0.5,
-    "pickRate": 0.13,
-    "banRate": 0.06,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/moskov/portrait.png",
-    "counters": [
-      14,
-      27,
-      55
-    ],
-    "counteredBy": [
-      7,
-      3,
-      38
-    ],
-    "synergies": [
-      6,
-      22,
-      9
-    ],
-    "recommendedSpells": [
-      "Inspire",
-      "Flicker"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Scarlet Phantom",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Berserker's Fury",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Malefic Roar",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 36,
+    "id": 34,
     "name": "Gusion",
     "role": "Assassin",
     "secondaryRole": null,
@@ -1832,7 +1709,7 @@
     "winRate": 0.53,
     "pickRate": 0.2,
     "banRate": 0.32,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/gusion/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_c6cd232de60da5372a7101a203e56554.png",
     "counters": [
       1,
       6,
@@ -1841,7 +1718,7 @@
     "counteredBy": [
       13,
       27,
-      46
+      44
     ],
     "synergies": [
       8,
@@ -1874,7 +1751,7 @@
     "isOP": true
   },
   {
-    "id": 37,
+    "id": 35,
     "name": "Valir",
     "role": "Mage",
     "secondaryRole": null,
@@ -1884,7 +1761,7 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/valir/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_bf16690876761b80822df90eb3320d69.png",
     "counters": [
       1,
       6,
@@ -1893,7 +1770,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -1926,7 +1803,7 @@
     "isOP": false
   },
   {
-    "id": 38,
+    "id": 36,
     "name": "Martis",
     "role": "Fighter",
     "secondaryRole": null,
@@ -1936,21 +1813,20 @@
     "winRate": 0.51,
     "pickRate": 0.16,
     "banRate": 0.1,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/martis/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_cc8124b0eb6ca22d950b000744d69fbf.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -1978,7 +1854,7 @@
     "isOP": false
   },
   {
-    "id": 39,
+    "id": 37,
     "name": "Helcurt",
     "role": "Assassin",
     "secondaryRole": null,
@@ -1988,7 +1864,7 @@
     "winRate": 0.52,
     "pickRate": 0.14,
     "banRate": 0.12,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/helcurt/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_6abf0c552b59b8ca4cbc1af3662ef176.png",
     "counters": [
       1,
       6,
@@ -1997,7 +1873,7 @@
     "counteredBy": [
       13,
       27,
-      46
+      44
     ],
     "synergies": [
       8,
@@ -2030,7 +1906,7 @@
     "isOP": false
   },
   {
-    "id": 40,
+    "id": 38,
     "name": "Pharsa",
     "role": "Mage",
     "secondaryRole": null,
@@ -2040,7 +1916,7 @@
     "winRate": 0.53,
     "pickRate": 0.22,
     "banRate": 0.2,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/pharsa/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_10151d43910e62f7aa9ce08df481a20f.png",
     "counters": [
       1,
       6,
@@ -2049,7 +1925,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       6,
@@ -2082,7 +1958,7 @@
     "isOP": false
   },
   {
-    "id": 41,
+    "id": 39,
     "name": "Lesley",
     "role": "Marksman",
     "secondaryRole": "Assassin",
@@ -2092,16 +1968,16 @@
     "winRate": 0.52,
     "pickRate": 0.2,
     "banRate": 0.18,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/lesley/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_08770893183018333f54a98e63c41ee3.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -2134,7 +2010,7 @@
     "isOP": false
   },
   {
-    "id": 42,
+    "id": 40,
     "name": "Jawhead",
     "role": "Tank",
     "secondaryRole": "Fighter",
@@ -2144,21 +2020,20 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/jawhead/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_bd87c30b6c7de6ae3b5aa56162c48c8b.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
-      21,
-      28
+      21
     ],
     "recommendedSpells": [
       "Flicker",
@@ -2186,7 +2061,7 @@
     "isOP": false
   },
   {
-    "id": 43,
+    "id": 41,
     "name": "Angela",
     "role": "Support",
     "secondaryRole": null,
@@ -2196,21 +2071,21 @@
     "winRate": 0.54,
     "pickRate": 0.22,
     "banRate": 0.3,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/angela/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_c7e0183956b2c2fd6d3fa0b18fe46917.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       1,
       11,
-      41
+      39
     ],
     "recommendedSpells": [
       "Flicker",
@@ -2238,7 +2113,7 @@
     "isOP": true
   },
   {
-    "id": 44,
+    "id": 42,
     "name": "Grock",
     "role": "Tank",
     "secondaryRole": null,
@@ -2248,21 +2123,20 @@
     "winRate": 0.5,
     "pickRate": 0.12,
     "banRate": 0.06,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/grock/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_902/100_f8b8c8964d3202b7b762947ac96f1ed3.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
-      21,
-      28
+      21
     ],
     "recommendedSpells": [
       "Flicker",
@@ -2290,7 +2164,7 @@
     "isOP": false
   },
   {
-    "id": 45,
+    "id": 43,
     "name": "Hylos",
     "role": "Tank",
     "secondaryRole": null,
@@ -2300,16 +2174,16 @@
     "winRate": 0.5,
     "pickRate": 0.11,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/hylos/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_195ad9af866afaab415ae23a6be13b45.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
@@ -2342,7 +2216,7 @@
     "isOP": false
   },
   {
-    "id": 46,
+    "id": 44,
     "name": "Diggie",
     "role": "Support",
     "secondaryRole": null,
@@ -2352,16 +2226,16 @@
     "winRate": 0.52,
     "pickRate": 0.18,
     "banRate": 0.22,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/diggie/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_b1bdf46136cb8a7903dae6d58e8349cb.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       1,
@@ -2394,7 +2268,7 @@
     "isOP": false
   },
   {
-    "id": 47,
+    "id": 45,
     "name": "Natan",
     "role": "Marksman",
     "secondaryRole": null,
@@ -2404,16 +2278,16 @@
     "winRate": 0.54,
     "pickRate": 0.18,
     "banRate": 0.28,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/natan/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_da02742f59013365923b216420bc4082.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -2446,7 +2320,7 @@
     "isOP": true
   },
   {
-    "id": 48,
+    "id": 46,
     "name": "Odette",
     "role": "Mage",
     "secondaryRole": null,
@@ -2456,7 +2330,7 @@
     "winRate": 0.52,
     "pickRate": 0.17,
     "banRate": 0.15,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/odette/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_47/100_d9251718a8894546ba04cfa9ca68dedc.png",
     "counters": [
       20,
       6,
@@ -2465,7 +2339,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       6,
@@ -2498,7 +2372,7 @@
     "isOP": false
   },
   {
-    "id": 49,
+    "id": 47,
     "name": "Hanzo",
     "role": "Assassin",
     "secondaryRole": null,
@@ -2508,16 +2382,16 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.1,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/hanzo/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_47/100_d2d28d2fcb060726fa27553920ca1a33.png",
     "counters": [
       1,
       6,
-      33
+      32
     ],
     "counteredBy": [
       14,
       27,
-      46
+      44
     ],
     "synergies": [
       8,
@@ -2550,7 +2424,7 @@
     "isOP": false
   },
   {
-    "id": 50,
+    "id": 48,
     "name": "Lunox",
     "role": "Mage",
     "secondaryRole": null,
@@ -2560,7 +2434,7 @@
     "winRate": 0.54,
     "pickRate": 0.2,
     "banRate": 0.3,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/lunox/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_e162688afdcaf3f6498af30badfe31c5.png",
     "counters": [
       1,
       6,
@@ -2569,7 +2443,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -2602,7 +2476,7 @@
     "isOP": true
   },
   {
-    "id": 51,
+    "id": 49,
     "name": "Kaja",
     "role": "Support",
     "secondaryRole": "Fighter",
@@ -2612,16 +2486,16 @@
     "winRate": 0.52,
     "pickRate": 0.17,
     "banRate": 0.18,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/kaja/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_a23983833ad5bee7c83422c8ff727115.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       1,
@@ -2654,7 +2528,7 @@
     "isOP": false
   },
   {
-    "id": 52,
+    "id": 50,
     "name": "Selena",
     "role": "Assassin",
     "secondaryRole": "Mage",
@@ -2664,7 +2538,7 @@
     "winRate": 0.52,
     "pickRate": 0.19,
     "banRate": 0.25,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/selena/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_c3f967121519ae40509c5b2fdf52b19d.png",
     "counters": [
       1,
       6,
@@ -2673,7 +2547,7 @@
     "counteredBy": [
       13,
       27,
-      46
+      44
     ],
     "synergies": [
       8,
@@ -2706,7 +2580,7 @@
     "isOP": false
   },
   {
-    "id": 53,
+    "id": 51,
     "name": "Hanabi",
     "role": "Marksman",
     "secondaryRole": null,
@@ -2716,16 +2590,16 @@
     "winRate": 0.5,
     "pickRate": 0.15,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/hanabi/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_8a9c1966feb34e85d7bdcc1ed01ffb5d.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -2758,7 +2632,7 @@
     "isOP": false
   },
   {
-    "id": 54,
+    "id": 52,
     "name": "Claude",
     "role": "Marksman",
     "secondaryRole": "Fighter",
@@ -2768,16 +2642,16 @@
     "winRate": 0.53,
     "pickRate": 0.21,
     "banRate": 0.32,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/claude/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_e1097b9d3e1d5e9f14600d32e8b18acd.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -2810,7 +2684,7 @@
     "isOP": true
   },
   {
-    "id": 55,
+    "id": 53,
     "name": "Khufra",
     "role": "Tank",
     "secondaryRole": null,
@@ -2820,16 +2694,16 @@
     "winRate": 0.53,
     "pickRate": 0.22,
     "banRate": 0.25,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/khufra/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_2fe99f4001211d18b3d2b95d0d3dc395.png",
     "counters": [
       14,
-      29,
-      36
+      28,
+      34
     ],
     "counteredBy": [
       3,
       22,
-      60
+      58
     ],
     "synergies": [
       1,
@@ -2862,7 +2736,7 @@
     "isOP": false
   },
   {
-    "id": 56,
+    "id": 54,
     "name": "Esmeralda",
     "role": "Tank",
     "secondaryRole": "Mage",
@@ -2872,21 +2746,20 @@
     "winRate": 0.52,
     "pickRate": 0.18,
     "banRate": 0.2,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/esmeralda/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_4661a64a2c6b724e7b67032fcbface27.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -2914,7 +2787,7 @@
     "isOP": false
   },
   {
-    "id": 57,
+    "id": 55,
     "name": "Terizla",
     "role": "Fighter",
     "secondaryRole": null,
@@ -2924,21 +2797,20 @@
     "winRate": 0.49,
     "pickRate": 0.11,
     "banRate": 0.04,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/terizla/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_c4bb270c28c7be663f57e993b0d6d3d8.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -2966,7 +2838,7 @@
     "isOP": false
   },
   {
-    "id": 58,
+    "id": 56,
     "name": "X.Borg",
     "role": "Fighter",
     "secondaryRole": null,
@@ -2976,16 +2848,16 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/xborg/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_efe9c7ed8d8f84f1bb0f88a3e08de5fc.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
@@ -3018,7 +2890,7 @@
     "isOP": false
   },
   {
-    "id": 59,
+    "id": 57,
     "name": "Ling",
     "role": "Assassin",
     "secondaryRole": null,
@@ -3028,7 +2900,7 @@
     "winRate": 0.54,
     "pickRate": 0.2,
     "banRate": 0.38,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/ling/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_92/100_017bade52b9fc94bbc12615de6d75c08.png",
     "counters": [
       1,
       6,
@@ -3036,8 +2908,8 @@
     ],
     "counteredBy": [
       13,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       8,
@@ -3070,7 +2942,7 @@
     "isOP": true
   },
   {
-    "id": 60,
+    "id": 58,
     "name": "Wanwan",
     "role": "Marksman",
     "secondaryRole": null,
@@ -3080,16 +2952,16 @@
     "winRate": 0.53,
     "pickRate": 0.19,
     "banRate": 0.22,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/wanwan/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_47/100_44bfa1dc44deb8d7620605faaa9ffae7.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -3122,7 +2994,7 @@
     "isOP": false
   },
   {
-    "id": 61,
+    "id": 59,
     "name": "Baxia",
     "role": "Tank",
     "secondaryRole": null,
@@ -3132,21 +3004,20 @@
     "winRate": 0.51,
     "pickRate": 0.12,
     "banRate": 0.06,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/baxia/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_80e408203869ca99302af195ac4f756c.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
-      21,
-      28
+      21
     ],
     "recommendedSpells": [
       "Flicker",
@@ -3174,7 +3045,7 @@
     "isOP": false
   },
   {
-    "id": 62,
+    "id": 60,
     "name": "Masha",
     "role": "Fighter",
     "secondaryRole": null,
@@ -3184,21 +3055,20 @@
     "winRate": 0.49,
     "pickRate": 0.1,
     "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/masha/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_c97a314dc260dfad1311512ddc03f936.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Sprint",
@@ -3226,7 +3096,7 @@
     "isOP": false
   },
   {
-    "id": 63,
+    "id": 61,
     "name": "Cecilion",
     "role": "Mage",
     "secondaryRole": null,
@@ -3236,7 +3106,7 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/cecilion/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_045399c265021d47da6512e6de20b64f.png",
     "counters": [
       1,
       6,
@@ -3245,7 +3115,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -3278,7 +3148,7 @@
     "isOP": false
   },
   {
-    "id": 64,
+    "id": 62,
     "name": "Carmilla",
     "role": "Support",
     "secondaryRole": "Tank",
@@ -3288,16 +3158,16 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/carmilla/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_6fb8f120dafdcbc1b5da2a2667016ad5.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       6,
@@ -3330,7 +3200,7 @@
     "isOP": false
   },
   {
-    "id": 65,
+    "id": 63,
     "name": "Atlas",
     "role": "Tank",
     "secondaryRole": null,
@@ -3340,21 +3210,21 @@
     "winRate": 0.53,
     "pickRate": 0.21,
     "banRate": 0.2,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/atlas/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_d974ac796678180ff8724b88e192898b.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
       21,
-      48
+      46
     ],
     "recommendedSpells": [
       "Flicker",
@@ -3382,7 +3252,7 @@
     "isOP": false
   },
   {
-    "id": 66,
+    "id": 64,
     "name": "Popol and Kupa",
     "role": "Marksman",
     "secondaryRole": "Support",
@@ -3392,16 +3262,16 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/popol-and-kupa/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_1acbb23b9a50f412104047a60eb18808.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -3434,7 +3304,7 @@
     "isOP": false
   },
   {
-    "id": 67,
+    "id": 65,
     "name": "Yu Zhong",
     "role": "Fighter",
     "secondaryRole": null,
@@ -3444,21 +3314,20 @@
     "winRate": 0.52,
     "pickRate": 0.18,
     "banRate": 0.16,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/yu-zhong/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_92/100_9823ce4fe5eb89c0082b24f6d5ea67f6.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -3486,7 +3355,7 @@
     "isOP": false
   },
   {
-    "id": 68,
+    "id": 66,
     "name": "Luo Yi",
     "role": "Mage",
     "secondaryRole": null,
@@ -3496,7 +3365,7 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/luo-yi/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_103541726507f5ce102689f04fe215e8.png",
     "counters": [
       1,
       6,
@@ -3505,7 +3374,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -3538,7 +3407,7 @@
     "isOP": false
   },
   {
-    "id": 69,
+    "id": 67,
     "name": "Benedetta",
     "role": "Assassin",
     "secondaryRole": null,
@@ -3548,7 +3417,7 @@
     "winRate": 0.53,
     "pickRate": 0.19,
     "banRate": 0.28,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/benedetta/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_b4a5e537894bdc00787e80e4d3ada5dd.png",
     "counters": [
       1,
       6,
@@ -3557,12 +3426,11 @@
     "counteredBy": [
       14,
       27,
-      55
+      53
     ],
     "synergies": [
       8,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Retribution",
@@ -3592,7 +3460,7 @@
     "isOP": true
   },
   {
-    "id": 70,
+    "id": 68,
     "name": "Mathilda",
     "role": "Support",
     "secondaryRole": "Assassin",
@@ -3602,16 +3470,16 @@
     "winRate": 0.53,
     "pickRate": 0.2,
     "banRate": 0.22,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/mathilda/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_24d08ed788a9f5984bcf3b732ddcaf04.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       1,
@@ -3644,7 +3512,7 @@
     "isOP": false
   },
   {
-    "id": 71,
+    "id": 69,
     "name": "Paquito",
     "role": "Fighter",
     "secondaryRole": "Assassin",
@@ -3654,21 +3522,20 @@
     "winRate": 0.52,
     "pickRate": 0.17,
     "banRate": 0.18,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/paquito/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_e2b6d9c6d82b4a27f0bb2710c8ead3e8.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -3696,7 +3563,7 @@
     "isOP": false
   },
   {
-    "id": 72,
+    "id": 70,
     "name": "Yve",
     "role": "Mage",
     "secondaryRole": null,
@@ -3706,7 +3573,7 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.09,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/yve/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_92/100_d9b0a1d92b1c4b3643d6332fd66aa8e6.png",
     "counters": [
       1,
       6,
@@ -3715,7 +3582,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -3748,7 +3615,7 @@
     "isOP": false
   },
   {
-    "id": 73,
+    "id": 71,
     "name": "Brody",
     "role": "Marksman",
     "secondaryRole": null,
@@ -3758,16 +3625,16 @@
     "winRate": 0.52,
     "pickRate": 0.18,
     "banRate": 0.16,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/brody/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_f18e45a9a4cb45897e1f614593ff4497.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -3800,7 +3667,7 @@
     "isOP": false
   },
   {
-    "id": 74,
+    "id": 72,
     "name": "Gloo",
     "role": "Tank",
     "secondaryRole": null,
@@ -3810,21 +3677,20 @@
     "winRate": 0.5,
     "pickRate": 0.11,
     "banRate": 0.04,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/gloo/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_642/100_c472fe0233e5ef84a3ac9ba4a229d09f.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
-      21,
-      28
+      21
     ],
     "recommendedSpells": [
       "Flicker",
@@ -3852,7 +3718,7 @@
     "isOP": false
   },
   {
-    "id": 75,
+    "id": 73,
     "name": "Beatrix",
     "role": "Marksman",
     "secondaryRole": null,
@@ -3862,16 +3728,16 @@
     "winRate": 0.53,
     "pickRate": 0.22,
     "banRate": 0.31,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/beatrix/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_4687eca874feec9017b448a0b9110d65.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -3904,7 +3770,7 @@
     "isOP": true
   },
   {
-    "id": 76,
+    "id": 74,
     "name": "Phoveus",
     "role": "Fighter",
     "secondaryRole": null,
@@ -3914,21 +3780,20 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/phoveus/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_06/100_af21c0dd8b5308c27974bff900803a9a.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -3956,59 +3821,7 @@
     "isOP": false
   },
   {
-    "id": 77,
-    "name": "Natan",
-    "role": "Marksman",
-    "secondaryRole": null,
-    "lane": "GOLD",
-    "tier": "S+",
-    "patchTrend": 0.04,
-    "winRate": 0.54,
-    "pickRate": 0.18,
-    "banRate": 0.28,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/natan/portrait.png",
-    "counters": [
-      14,
-      27,
-      55
-    ],
-    "counteredBy": [
-      7,
-      3,
-      38
-    ],
-    "synergies": [
-      6,
-      22,
-      9
-    ],
-    "recommendedSpells": [
-      "Inspire",
-      "Flicker"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Demon Hunter Sword",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Wind of Nature",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Malefic Roar",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": true
-  },
-  {
-    "id": 78,
+    "id": 75,
     "name": "Aulus",
     "role": "Fighter",
     "secondaryRole": null,
@@ -4018,21 +3831,20 @@
     "winRate": 0.49,
     "pickRate": 0.1,
     "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/aulus/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/test/homepage_2_1_88_1201_1/100_1366d775809e52ee6526b5b58d93cdff.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Inspire",
@@ -4060,7 +3872,7 @@
     "isOP": false
   },
   {
-    "id": 79,
+    "id": 76,
     "name": "Valentina",
     "role": "Mage",
     "secondaryRole": null,
@@ -4070,7 +3882,7 @@
     "winRate": 0.52,
     "pickRate": 0.16,
     "banRate": 0.18,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/valentina/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_24837021ec9d7aaf41b13fa55b6d13c9.png",
     "counters": [
       1,
       6,
@@ -4079,7 +3891,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -4112,7 +3924,7 @@
     "isOP": false
   },
   {
-    "id": 80,
+    "id": 77,
     "name": "Edith",
     "role": "Tank",
     "secondaryRole": "Marksman",
@@ -4122,16 +3934,16 @@
     "winRate": 0.52,
     "pickRate": 0.16,
     "banRate": 0.18,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/edith/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_daab57918de01a6d5bb2ed6f45808a7e.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
@@ -4166,7 +3978,7 @@
     "isOP": false
   },
   {
-    "id": 81,
+    "id": 78,
     "name": "Yin",
     "role": "Fighter",
     "secondaryRole": "Assassin",
@@ -4176,21 +3988,20 @@
     "winRate": 0.53,
     "pickRate": 0.19,
     "banRate": 0.25,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/yin/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_92/100_ee1c12c84f49514a30e405fb5c617796.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -4218,7 +4029,7 @@
     "isOP": true
   },
   {
-    "id": 82,
+    "id": 79,
     "name": "Julian",
     "role": "Fighter",
     "secondaryRole": "Assassin",
@@ -4228,21 +4039,20 @@
     "winRate": 0.52,
     "pickRate": 0.17,
     "banRate": 0.15,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/julian/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_5511ddc0ad2789b525f32ef572b017eb.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -4270,7 +4080,7 @@
     "isOP": false
   },
   {
-    "id": 83,
+    "id": 80,
     "name": "Xavier",
     "role": "Mage",
     "secondaryRole": null,
@@ -4280,7 +4090,7 @@
     "winRate": 0.52,
     "pickRate": 0.17,
     "banRate": 0.15,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/xavier/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_df0a8dfc494f85ed9bbc4512cc1e5d3c.png",
     "counters": [
       1,
       6,
@@ -4289,7 +4099,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -4322,7 +4132,7 @@
     "isOP": false
   },
   {
-    "id": 84,
+    "id": 81,
     "name": "Melissa",
     "role": "Marksman",
     "secondaryRole": "Mage",
@@ -4332,16 +4142,16 @@
     "winRate": 0.52,
     "pickRate": 0.16,
     "banRate": 0.14,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/melissa/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_1fa7436301fea3f13fbcd4772051d22d.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -4374,8 +4184,8 @@
     "isOP": false
   },
   {
-    "id": 85,
-    "name": "Fredrinn",
+    "id": 82,
+    "name": "Fredrin",
     "role": "Fighter",
     "secondaryRole": "Tank",
     "lane": "EXP",
@@ -4384,21 +4194,20 @@
     "winRate": 0.53,
     "pickRate": 0.18,
     "banRate": 0.2,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/fredrinn/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_dea170bfd5f26c41fb04e5edf72afedb.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -4426,7 +4235,7 @@
     "isOP": false
   },
   {
-    "id": 86,
+    "id": 83,
     "name": "Joy",
     "role": "Assassin",
     "secondaryRole": null,
@@ -4436,7 +4245,7 @@
     "winRate": 0.54,
     "pickRate": 0.19,
     "banRate": 0.35,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/joy/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_d3a3a55c22000ae78732fed8cba2efef.png",
     "counters": [
       1,
       6,
@@ -4444,8 +4253,8 @@
     ],
     "counteredBy": [
       13,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       8,
@@ -4478,7 +4287,7 @@
     "isOP": true
   },
   {
-    "id": 87,
+    "id": 84,
     "name": "Arlott",
     "role": "Fighter",
     "secondaryRole": "Assassin",
@@ -4488,21 +4297,20 @@
     "winRate": 0.53,
     "pickRate": 0.18,
     "banRate": 0.2,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/arlott/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_f666faa5ec6be5353f10dcd1d8997a42.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -4530,7 +4338,7 @@
     "isOP": false
   },
   {
-    "id": 88,
+    "id": 85,
     "name": "Novaria",
     "role": "Mage",
     "secondaryRole": null,
@@ -4540,7 +4348,7 @@
     "winRate": 0.52,
     "pickRate": 0.15,
     "banRate": 0.14,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/novaria/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_57eeea6d5bd8d21229de8df79751db9f.png",
     "counters": [
       1,
       6,
@@ -4549,7 +4357,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -4582,7 +4390,7 @@
     "isOP": false
   },
   {
-    "id": 89,
+    "id": 86,
     "name": "Ixia",
     "role": "Marksman",
     "secondaryRole": null,
@@ -4592,16 +4400,16 @@
     "winRate": 0.52,
     "pickRate": 0.17,
     "banRate": 0.16,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/ixia/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_f070d82521ecd2e14d4ef3f25880830a.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -4634,7 +4442,7 @@
     "isOP": false
   },
   {
-    "id": 90,
+    "id": 87,
     "name": "Chip",
     "role": "Support",
     "secondaryRole": "Tank",
@@ -4644,16 +4452,16 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/chip/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_79224d297f14377ad2eda8543432330d.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       1,
@@ -4686,7 +4494,7 @@
     "isOP": false
   },
   {
-    "id": 91,
+    "id": 88,
     "name": "Zhuxin",
     "role": "Mage",
     "secondaryRole": null,
@@ -4696,7 +4504,7 @@
     "winRate": 0.51,
     "pickRate": 0.12,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/zhuxin/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_92/100_595f85bc90df3889c711c6b1f02dc02d.png",
     "counters": [
       1,
       6,
@@ -4705,7 +4513,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -4738,7 +4546,7 @@
     "isOP": false
   },
   {
-    "id": 92,
+    "id": 89,
     "name": "Lukas",
     "role": "Fighter",
     "secondaryRole": null,
@@ -4748,21 +4556,20 @@
     "winRate": 0.53,
     "pickRate": 0.16,
     "banRate": 0.18,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/lukas/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_20/100_63040edd0cf15b815fcbbb8b2d08d7f7.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -4790,7 +4597,7 @@
     "isOP": false
   },
   {
-    "id": 93,
+    "id": 90,
     "name": "Suyou",
     "role": "Assassin",
     "secondaryRole": null,
@@ -4800,7 +4607,7 @@
     "winRate": 0.54,
     "pickRate": 0.17,
     "banRate": 0.3,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/suyou/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_20/100_5e4ca70172332dde18bb1dc158ccc5c8.png",
     "counters": [
       1,
       6,
@@ -4808,8 +4615,8 @@
     ],
     "counteredBy": [
       13,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       8,
@@ -4842,7 +4649,7 @@
     "isOP": true
   },
   {
-    "id": 94,
+    "id": 91,
     "name": "Cici",
     "role": "Fighter",
     "secondaryRole": null,
@@ -4852,21 +4659,20 @@
     "winRate": 0.52,
     "pickRate": 0.15,
     "banRate": 0.14,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/cici/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_60e3e11da30f404c77fff9e22d3bdc72.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Inspire",
@@ -4894,7 +4700,7 @@
     "isOP": false
   },
   {
-    "id": 95,
+    "id": 92,
     "name": "Kalea",
     "role": "Tank",
     "secondaryRole": "Support",
@@ -4904,21 +4710,20 @@
     "winRate": 0.51,
     "pickRate": 0.12,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/kalea/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_64/100_4f3d4649e301c76daf20bd8811f3095c.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       6,
-      21,
-      28
+      21
     ],
     "recommendedSpells": [
       "Flicker",
@@ -4946,7 +4751,7 @@
     "isOP": false
   },
   {
-    "id": 96,
+    "id": 93,
     "name": "Granger",
     "role": "Marksman",
     "secondaryRole": null,
@@ -4956,16 +4761,16 @@
     "winRate": 0.51,
     "pickRate": 0.15,
     "banRate": 0.12,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/granger/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_22/100_a7729262d5b4abdc34ae5181e964c235.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -5000,7 +4805,7 @@
     "isOP": false
   },
   {
-    "id": 97,
+    "id": 94,
     "name": "Lylia",
     "role": "Mage",
     "secondaryRole": null,
@@ -5010,7 +4815,7 @@
     "winRate": 0.51,
     "pickRate": 0.12,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/lylia/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_706573f138055c3df3df94948b4f26bd.png",
     "counters": [
       1,
       6,
@@ -5019,7 +4824,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -5052,7 +4857,7 @@
     "isOP": false
   },
   {
-    "id": 98,
+    "id": 95,
     "name": "Dyrroth",
     "role": "Fighter",
     "secondaryRole": null,
@@ -5062,21 +4867,20 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.09,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/dyrroth/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_2_1_18/100_8ec13b59871b2862d773beac2d69fa3e.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -5104,59 +4908,7 @@
     "isOP": false
   },
   {
-    "id": 99,
-    "name": "Masha",
-    "role": "Fighter",
-    "secondaryRole": null,
-    "lane": "EXP",
-    "tier": "A",
-    "patchTrend": 0.0,
-    "winRate": 0.49,
-    "pickRate": 0.1,
-    "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/masha/portrait.png",
-    "counters": [
-      6,
-      22,
-      41
-    ],
-    "counteredBy": [
-      14,
-      55,
-      60
-    ],
-    "synergies": [
-      3,
-      9,
-      28
-    ],
-    "recommendedSpells": [
-      "Sprint",
-      "Vengeance"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Blade of Despair",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Endless Battle",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Immortality",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 100,
+    "id": 96,
     "name": "Minsitthar",
     "role": "Fighter",
     "secondaryRole": "Tank",
@@ -5166,21 +4918,20 @@
     "winRate": 0.5,
     "pickRate": 0.11,
     "banRate": 0.04,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/minsitthar/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_c5d24a1dad6cef21de2698a4ed1d80ce.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -5208,7 +4959,7 @@
     "isOP": false
   },
   {
-    "id": 101,
+    "id": 97,
     "name": "Kadita",
     "role": "Mage",
     "secondaryRole": "Assassin",
@@ -5218,7 +4969,7 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/kadita/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_42b40ae7741d2eb81148c8f1e1ff614c.png",
     "counters": [
       1,
       6,
@@ -5227,7 +4978,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -5260,7 +5011,7 @@
     "isOP": false
   },
   {
-    "id": 102,
+    "id": 98,
     "name": "Faramis",
     "role": "Support",
     "secondaryRole": "Mage",
@@ -5270,16 +5021,16 @@
     "winRate": 0.5,
     "pickRate": 0.11,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/faramis/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_04e575d648d7f7ac1174f4369595c3a2.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       6,
@@ -5312,7 +5063,7 @@
     "isOP": false
   },
   {
-    "id": 103,
+    "id": 99,
     "name": "Badang",
     "role": "Fighter",
     "secondaryRole": null,
@@ -5322,21 +5073,20 @@
     "winRate": 0.49,
     "pickRate": 0.1,
     "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/badang/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_9fb1784545a48aef42241fc7a719c575.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -5364,7 +5114,7 @@
     "isOP": false
   },
   {
-    "id": 104,
+    "id": 100,
     "name": "Guinevere",
     "role": "Fighter",
     "secondaryRole": "Mage",
@@ -5374,21 +5124,20 @@
     "winRate": 0.52,
     "pickRate": 0.16,
     "banRate": 0.14,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/guinevere/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_901bdd5d4432a2c0290dfc71df615a5a.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -5416,59 +5165,7 @@
     "isOP": false
   },
   {
-    "id": 105,
-    "name": "Esmeralda",
-    "role": "Tank",
-    "secondaryRole": "Mage",
-    "lane": "EXP",
-    "tier": "S",
-    "patchTrend": 0.02,
-    "winRate": 0.52,
-    "pickRate": 0.18,
-    "banRate": 0.2,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/esmeralda/portrait.png",
-    "counters": [
-      6,
-      22,
-      41
-    ],
-    "counteredBy": [
-      14,
-      55,
-      60
-    ],
-    "synergies": [
-      3,
-      9,
-      28
-    ],
-    "recommendedSpells": [
-      "Vengeance",
-      "Inspire"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Cursed Helmet",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Dominance Ice",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Immortality",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 106,
+    "id": 101,
     "name": "Silvanna",
     "role": "Fighter",
     "secondaryRole": "Mage",
@@ -5478,21 +5175,20 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.09,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/silvanna/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_5e7b297af7c6e32a420b897aa4998071.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -5520,7 +5216,7 @@
     "isOP": false
   },
   {
-    "id": 107,
+    "id": 102,
     "name": "Barats",
     "role": "Tank",
     "secondaryRole": "Fighter",
@@ -5530,21 +5226,20 @@
     "winRate": 0.5,
     "pickRate": 0.12,
     "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/barats/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_6495be044c2d28106e200f6918391d54.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -5572,7 +5267,7 @@
     "isOP": false
   },
   {
-    "id": 108,
+    "id": 103,
     "name": "Khaleed",
     "role": "Fighter",
     "secondaryRole": null,
@@ -5582,21 +5277,20 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/khaleed/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_540a6a9d343842674ce002082366ec9d.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -5624,7 +5318,7 @@
     "isOP": false
   },
   {
-    "id": 109,
+    "id": 104,
     "name": "Floryn",
     "role": "Support",
     "secondaryRole": null,
@@ -5634,16 +5328,16 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/floryn/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_5a57b91e4914cf071a3849e352e530a5.png",
     "counters": [
       22,
-      33,
-      60
+      32,
+      58
     ],
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       6,
@@ -5676,7 +5370,7 @@
     "isOP": false
   },
   {
-    "id": 110,
+    "id": 105,
     "name": "Aamon",
     "role": "Assassin",
     "secondaryRole": null,
@@ -5686,7 +5380,7 @@
     "winRate": 0.52,
     "pickRate": 0.16,
     "banRate": 0.15,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/aamon/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_b3a7602fe7ffd1e54bf8ea79ceadfa72.png",
     "counters": [
       1,
       6,
@@ -5695,7 +5389,7 @@
     "counteredBy": [
       13,
       27,
-      46
+      44
     ],
     "synergies": [
       8,
@@ -5728,7 +5422,7 @@
     "isOP": false
   },
   {
-    "id": 111,
+    "id": 106,
     "name": "Bane",
     "role": "Fighter",
     "secondaryRole": "Mage",
@@ -5738,21 +5432,20 @@
     "winRate": 0.49,
     "pickRate": 0.09,
     "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/bane/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_7e4e74bb161da0f477cc0d1819fa39e6.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -5780,7 +5473,7 @@
     "isOP": false
   },
   {
-    "id": 112,
+    "id": 107,
     "name": "Irithel",
     "role": "Marksman",
     "secondaryRole": null,
@@ -5790,16 +5483,16 @@
     "winRate": 0.49,
     "pickRate": 0.1,
     "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/irithel/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/test/homepage_2_1_88_1201_1/100_a65d1e2ced64fbfdfcefdcfba719b3fd.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -5832,7 +5525,7 @@
     "isOP": false
   },
   {
-    "id": 113,
+    "id": 108,
     "name": "Franco",
     "role": "Tank",
     "secondaryRole": null,
@@ -5842,21 +5535,20 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.1,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/franco/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_2928027062e3c2a97bc3fd4a84897012.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
-      21,
-      28
+      21
     ],
     "recommendedSpells": [
       "Flicker",
@@ -5884,59 +5576,7 @@
     "isOP": false
   },
   {
-    "id": 114,
-    "name": "Valla",
-    "role": "Marksman",
-    "secondaryRole": null,
-    "lane": "GOLD",
-    "tier": "A+",
-    "patchTrend": 0.01,
-    "winRate": 0.51,
-    "pickRate": 0.13,
-    "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/valla/portrait.png",
-    "counters": [
-      14,
-      27,
-      55
-    ],
-    "counteredBy": [
-      7,
-      3,
-      38
-    ],
-    "synergies": [
-      6,
-      22,
-      9
-    ],
-    "recommendedSpells": [
-      "Inspire",
-      "Flicker"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Demon Hunter Sword",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Malefic Roar",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Wind of Nature",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 115,
+    "id": 109,
     "name": "Zhask",
     "role": "Mage",
     "secondaryRole": null,
@@ -5946,7 +5586,7 @@
     "winRate": 0.49,
     "pickRate": 0.1,
     "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/zhask/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_d8f170087cb2d5b71bb22a0a4664a927.png",
     "counters": [
       1,
       6,
@@ -5955,7 +5595,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -5988,7 +5628,7 @@
     "isOP": false
   },
   {
-    "id": 116,
+    "id": 110,
     "name": "Harith",
     "role": "Mage",
     "secondaryRole": null,
@@ -5998,7 +5638,7 @@
     "winRate": 0.52,
     "pickRate": 0.17,
     "banRate": 0.16,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/harith/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_d228a823b477fdf6c458c829c2e62bcf.png",
     "counters": [
       1,
       6,
@@ -6007,7 +5647,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -6040,7 +5680,7 @@
     "isOP": false
   },
   {
-    "id": 117,
+    "id": 111,
     "name": "Thamuz",
     "role": "Fighter",
     "secondaryRole": null,
@@ -6050,21 +5690,20 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/thamuz/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_2_1_18/100_b5ad55e408b68acf6a86e7ff76f5f569.png",
     "counters": [
       6,
       22,
-      41
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       3,
-      9,
-      28
+      9
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -6092,7 +5731,7 @@
     "isOP": false
   },
   {
-    "id": 118,
+    "id": 112,
     "name": "Belerick",
     "role": "Tank",
     "secondaryRole": null,
@@ -6102,21 +5741,20 @@
     "winRate": 0.5,
     "pickRate": 0.11,
     "banRate": 0.04,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/belerick/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_5f2a9eca0bafd4ed8dc39a93c771b3af.png",
     "counters": [
       22,
-      33,
-      41
+      32,
+      39
     ],
     "counteredBy": [
       14,
-      55,
-      60
+      53,
+      58
     ],
     "synergies": [
       6,
-      21,
-      28
+      21
     ],
     "recommendedSpells": [
       "Vengeance",
@@ -6144,7 +5782,7 @@
     "isOP": false
   },
   {
-    "id": 119,
+    "id": 113,
     "name": "Kimmy",
     "role": "Marksman",
     "secondaryRole": "Mage",
@@ -6154,16 +5792,16 @@
     "winRate": 0.51,
     "pickRate": 0.13,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/kimmy/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_642/100_61295dfefd369004e5e4a7f4fc86647b.png",
     "counters": [
       14,
       27,
-      55
+      53
     ],
     "counteredBy": [
       7,
       3,
-      38
+      36
     ],
     "synergies": [
       6,
@@ -6196,423 +5834,7 @@
     "isOP": false
   },
   {
-    "id": 120,
-    "name": "Tondo",
-    "role": "Assassin",
-    "secondaryRole": null,
-    "lane": "JUNGLE",
-    "tier": "S+",
-    "patchTrend": 0.04,
-    "winRate": 0.54,
-    "pickRate": 0.16,
-    "banRate": 0.28,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/tondo/portrait.png",
-    "counters": [
-      1,
-      6,
-      21
-    ],
-    "counteredBy": [
-      13,
-      55,
-      60
-    ],
-    "synergies": [
-      8,
-      22,
-      9
-    ],
-    "recommendedSpells": [
-      "Retribution",
-      "Flicker"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Blade of Despair",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Hunter Strike",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Endless Battle",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": true,
-    "isOP": true
-  },
-  {
-    "id": 121,
-    "name": "Garen",
-    "role": "Fighter",
-    "secondaryRole": null,
-    "lane": "EXP",
-    "tier": "A",
-    "patchTrend": 0.0,
-    "winRate": 0.49,
-    "pickRate": 0.1,
-    "banRate": 0.03,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/garen/portrait.png",
-    "counters": [
-      6,
-      22,
-      41
-    ],
-    "counteredBy": [
-      14,
-      55,
-      60
-    ],
-    "synergies": [
-      3,
-      9,
-      28
-    ],
-    "recommendedSpells": [
-      "Vengeance",
-      "Inspire"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Blade of Despair",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Endless Battle",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Immortality",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 122,
-    "name": "Yuki",
-    "role": "Support",
-    "secondaryRole": null,
-    "lane": "ROAM",
-    "tier": "A",
-    "patchTrend": 0.01,
-    "winRate": 0.5,
-    "pickRate": 0.11,
-    "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/yuki/portrait.png",
-    "counters": [
-      22,
-      33,
-      60
-    ],
-    "counteredBy": [
-      3,
-      14,
-      55
-    ],
-    "synergies": [
-      6,
-      21,
-      22
-    ],
-    "recommendedSpells": [
-      "Flicker",
-      "Flameshot"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Fleeting Time",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Oracle",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Immortality",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 123,
-    "name": "Zhuxin",
-    "role": "Mage",
-    "secondaryRole": null,
-    "lane": "MID",
-    "tier": "A+",
-    "patchTrend": 0.01,
-    "winRate": 0.51,
-    "pickRate": 0.12,
-    "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/zhuxin/portrait.png",
-    "counters": [
-      1,
-      6,
-      21
-    ],
-    "counteredBy": [
-      3,
-      14,
-      55
-    ],
-    "synergies": [
-      5,
-      22,
-      9
-    ],
-    "recommendedSpells": [
-      "Flicker",
-      "Flameshot"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Holy Crystal",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Divine Glaive",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Fleeting Time",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 124,
-    "name": "Chou",
-    "role": "Fighter",
-    "secondaryRole": "Assassin",
-    "lane": "EXP",
-    "tier": "S",
-    "patchTrend": 0.02,
-    "winRate": 0.52,
-    "pickRate": 0.22,
-    "banRate": 0.3,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/chou/portrait.png",
-    "counters": [
-      6,
-      22,
-      41
-    ],
-    "counteredBy": [
-      14,
-      27,
-      55
-    ],
-    "synergies": [
-      3,
-      9,
-      28
-    ],
-    "recommendedSpells": [
-      "Inspire",
-      "Flicker"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Blade of Despair",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Hunter Strike",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Endless Battle",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": true
-  },
-  {
-    "id": 125,
-    "name": "Chip",
-    "role": "Support",
-    "secondaryRole": "Tank",
-    "lane": "ROAM",
-    "tier": "A+",
-    "patchTrend": 0.01,
-    "winRate": 0.51,
-    "pickRate": 0.13,
-    "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/chip/portrait.png",
-    "counters": [
-      22,
-      33,
-      60
-    ],
-    "counteredBy": [
-      3,
-      14,
-      55
-    ],
-    "synergies": [
-      1,
-      6,
-      21
-    ],
-    "recommendedSpells": [
-      "Flicker",
-      "Vengeance"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Oracle",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Fleeting Time",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Immortality",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 126,
-    "name": "Moskov",
-    "role": "Marksman",
-    "secondaryRole": null,
-    "lane": "GOLD",
-    "tier": "A",
-    "patchTrend": 0.01,
-    "winRate": 0.5,
-    "pickRate": 0.12,
-    "banRate": 0.05,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/moskov/portrait.png",
-    "counters": [
-      14,
-      27,
-      55
-    ],
-    "counteredBy": [
-      7,
-      3,
-      38
-    ],
-    "synergies": [
-      6,
-      22,
-      9
-    ],
-    "recommendedSpells": [
-      "Inspire",
-      "Flicker"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Scarlet Phantom",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Berserker's Fury",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Malefic Roar",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 127,
-    "name": "Jawhead",
-    "role": "Tank",
-    "secondaryRole": "Fighter",
-    "lane": "ROAM",
-    "tier": "A",
-    "patchTrend": 0.01,
-    "winRate": 0.51,
-    "pickRate": 0.13,
-    "banRate": 0.07,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/jawhead/portrait.png",
-    "counters": [
-      22,
-      33,
-      41
-    ],
-    "counteredBy": [
-      14,
-      55,
-      60
-    ],
-    "synergies": [
-      6,
-      21,
-      28
-    ],
-    "recommendedSpells": [
-      "Flicker",
-      "Vengeance"
-    ],
-    "coreItems": [
-      {
-        "id": 1,
-        "name": "Cursed Helmet",
-        "priority": 1
-      },
-      {
-        "id": 2,
-        "name": "Immortality",
-        "priority": 2
-      },
-      {
-        "id": 3,
-        "name": "Dominance Ice",
-        "priority": 3
-      }
-    ],
-    "flexLanes": [],
-    "isToxicMechanic": false,
-    "isOP": false
-  },
-  {
-    "id": 128,
+    "id": 114,
     "name": "Vale",
     "role": "Mage",
     "secondaryRole": null,
@@ -6622,7 +5844,7 @@
     "winRate": 0.51,
     "pickRate": 0.14,
     "banRate": 0.08,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/vale/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_2a7a8d1531a1c4f8524880413535348d.png",
     "counters": [
       1,
       6,
@@ -6631,7 +5853,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -6664,7 +5886,7 @@
     "isOP": false
   },
   {
-    "id": 129,
+    "id": 115,
     "name": "Harley",
     "role": "Mage",
     "secondaryRole": "Assassin",
@@ -6674,7 +5896,7 @@
     "winRate": 0.52,
     "pickRate": 0.17,
     "banRate": 0.16,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/harley/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_3aa6964c07a70f9b125da447f320e1ac.png",
     "counters": [
       1,
       6,
@@ -6683,7 +5905,7 @@
     "counteredBy": [
       3,
       14,
-      55
+      53
     ],
     "synergies": [
       5,
@@ -6718,7 +5940,7 @@
     "isOP": false
   },
   {
-    "id": 130,
+    "id": 116,
     "name": "Lancelot",
     "role": "Assassin",
     "secondaryRole": null,
@@ -6728,7 +5950,7 @@
     "winRate": 0.52,
     "pickRate": 0.18,
     "banRate": 0.18,
-    "imageUrl": "https://akamai.mobalegends.shop/mlbb/heroes/lancelot/portrait.png",
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_dc4b821e49b904715172136017798da3.png",
     "counters": [
       1,
       6,
@@ -6737,7 +5959,7 @@
     "counteredBy": [
       13,
       27,
-      46
+      44
     ],
     "synergies": [
       8,
@@ -6765,6 +5987,390 @@
         "priority": 3
       }
     ],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 117,
+    "name": "Akai",
+    "role": "Tank",
+    "secondaryRole": null,
+    "lane": "ROAM",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_28f223447f0174336ff0922d364d81d3.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Execute"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 118,
+    "name": "Bruno",
+    "role": "Marksman",
+    "secondaryRole": null,
+    "lane": "GOLD",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_ff39deb9c6afec3d977fdbe9d86f78cb.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Inspire",
+      "Flicker"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 119,
+    "name": "Natalia",
+    "role": "Assassin",
+    "secondaryRole": null,
+    "lane": "JUNGLE",
+    "tier": "C",
+    "patchTrend": -0.01,
+    "winRate": 0.46,
+    "pickRate": 0.06,
+    "banRate": 0.01,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_fbb5065b6ff174d1a20ccf5b7f523514.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Retribution"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 120,
+    "name": "Roger",
+    "role": "Fighter",
+    "secondaryRole": "Marksman",
+    "lane": "EXP",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_b40e578f13465b3ae99d0a9baac7ecc9.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Execute"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 121,
+    "name": "Karrie",
+    "role": "Marksman",
+    "secondaryRole": null,
+    "lane": "GOLD",
+    "tier": "A",
+    "patchTrend": 0.01,
+    "winRate": 0.5,
+    "pickRate": 0.13,
+    "banRate": 0.06,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_294576f2bd0dcbcc9041031969d0eb09.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Inspire",
+      "Flicker"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 122,
+    "name": "Gatotkaca",
+    "role": "Tank",
+    "secondaryRole": "Fighter",
+    "lane": "ROAM",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_96f9dbbc096e0f0a28f9b9e587d06a9c.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Execute"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 123,
+    "name": "Argus",
+    "role": "Fighter",
+    "secondaryRole": null,
+    "lane": "EXP",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_0bd96658e5b8ec578226ea1622bd7231.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Execute"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 124,
+    "name": "Uranus",
+    "role": "Tank",
+    "secondaryRole": null,
+    "lane": "EXP",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_2e15a0a506aaecd9b3de40a8cc9f7ec7.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Execute"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 125,
+    "name": "Chang'e",
+    "role": "Mage",
+    "secondaryRole": null,
+    "lane": "MID",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_46cfe9c30e8a14f85b4d022496aca274.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Flameshot"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 126,
+    "name": "Aldous",
+    "role": "Fighter",
+    "secondaryRole": null,
+    "lane": "JUNGLE",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_0eb32187d08f14779585a8be53b83f01.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Retribution"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 127,
+    "name": "Leomord",
+    "role": "Fighter",
+    "secondaryRole": null,
+    "lane": "EXP",
+    "tier": "B",
+    "patchTrend": 0.0,
+    "winRate": 0.48,
+    "pickRate": 0.1,
+    "banRate": 0.03,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_554cdf13a7587fe08c5deed60132c61c.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Execute"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 128,
+    "name": "Nolan",
+    "role": "Assassin",
+    "secondaryRole": null,
+    "lane": "JUNGLE",
+    "tier": "A",
+    "patchTrend": 0.01,
+    "winRate": 0.5,
+    "pickRate": 0.13,
+    "banRate": 0.06,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_9012ee9f73fbb4db4e1953e5fb5172e1.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Retribution"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 129,
+    "name": "Zetian",
+    "role": "Mage",
+    "secondaryRole": "Support",
+    "lane": "MID",
+    "tier": "A",
+    "patchTrend": 0.01,
+    "winRate": 0.5,
+    "pickRate": 0.13,
+    "banRate": 0.06,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_90/100_8d965f05f84621a51f799aeb8fb5f4c4.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Flameshot"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 130,
+    "name": "Obsidia",
+    "role": "Mage",
+    "secondaryRole": "Tank",
+    "lane": "MID",
+    "tier": "A",
+    "patchTrend": 0.01,
+    "winRate": 0.5,
+    "pickRate": 0.13,
+    "banRate": 0.06,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_2_1_18/100_9c3daef5625bfade5c4cb8a219845dd3.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Flameshot"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 131,
+    "name": "Marcel",
+    "role": "Mage",
+    "secondaryRole": "Assassin",
+    "lane": "MID",
+    "tier": "A",
+    "patchTrend": 0.01,
+    "winRate": 0.5,
+    "pickRate": 0.13,
+    "banRate": 0.06,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/test/homepage_2_1_88_1201_1/100_df7603c292198bf4aa7b551d401ea5c1.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Flameshot"
+    ],
+    "coreItems": [],
+    "flexLanes": [],
+    "isToxicMechanic": false,
+    "isOP": false
+  },
+  {
+    "id": 132,
+    "name": "Hirara",
+    "role": "Support",
+    "secondaryRole": "Mage",
+    "lane": "ROAM",
+    "tier": "A",
+    "patchTrend": 0.01,
+    "winRate": 0.5,
+    "pickRate": 0.13,
+    "banRate": 0.06,
+    "imageUrl": "https://akmweb.youngjoygame.com/web/svnres/img/test/homepage_2_1_88_1201_1/100_71224844b111f09367df00e4f9b97753.png",
+    "counters": [],
+    "counteredBy": [],
+    "synergies": [],
+    "recommendedSpells": [
+      "Flicker",
+      "Vengeance"
+    ],
+    "coreItems": [],
     "flexLanes": [],
     "isToxicMechanic": false,
     "isOP": false
