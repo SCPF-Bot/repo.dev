@@ -105,7 +105,7 @@ Gloo https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_642/100_c4
 Beatrix https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_4687eca874feec9017b448a0b9110d65.png
 Phoveus https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage_1_9_06/100_af21c0dd8b5308c27974bff900803a9a.png
 Natan https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_da02742f59013365923b216420bc4082.png
-Aulus https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_40839957990dbb59a9e5ec4da9f85a8e.png
+Aulus https://akmweb.youngjoygame.com/web/svnres/img/test/homepage_2_1_88_1201_1/100_1366d775809e52ee6526b5b58d93cdff.png
 Aamon https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_b3a7602fe7ffd1e54bf8ea79ceadfa72.png
 Valentina https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_24837021ec9d7aaf41b13fa55b6d13c9.png
 Edith https://akmweb.youngjoygame.com/web/svnres/img/mlbb/homepage/100_daab57918de01a6d5bb2ed6f45808a7e.png
