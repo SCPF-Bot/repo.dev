@@ -9,7 +9,6 @@ import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.os.Build
-import android.os.Bundle
 import android.os.IBinder
 import android.view.Gravity
 import android.view.MotionEvent
@@ -58,31 +57,40 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlin.math.abs
 
 @AndroidEntryPoint
 class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
-    // ── Hilt injections ───────────────────────────────────────────────────────
+    // ── Hilt ──────────────────────────────────────────────────────────────────
     @Inject lateinit var draftSessionManager: DraftSessionManager
     @Inject lateinit var getHeroesUseCase: GetHeroesUseCase
 
-    // ── Lifecycle + SavedState (required for ComposeView in a Service) ────────
+    // ── Lifecycle + SavedState (ComposeView in a Service requires both) ───────
     private val lifecycleRegistry = LifecycleRegistry(this)
     override val lifecycle: Lifecycle get() = lifecycleRegistry
 
     private val ssr = SavedStateRegistryController.create(this)
     override val savedStateRegistry: SavedStateRegistry get() = ssr.savedStateRegistry
 
-    // ── Android plumbing ──────────────────────────────────────────────────────
+    // ── Window / view ─────────────────────────────────────────────────────────
     private lateinit var windowManager: WindowManager
+
+    /** The single ComposeView that renders either FloatingBubble or MiniWidget. */
+    private var overlayView: ComposeView? = null
+
+    /** Kept as a field so touch listener can update it when dragging. */
+    private lateinit var overlayParams: WindowManager.LayoutParams
+
+    // ── Capture ───────────────────────────────────────────────────────────────
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private lateinit var portraitMatcher: PortraitMatcher
-    private var bubbleView: ComposeView? = null
-    private var panelView: ComposeView? = null
+    private var captureJob: Job? = null
 
+    // ── Coroutine scope ───────────────────────────────────────────────────────
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    // ── Shared UI state (observed by ComposeViews) ────────────────────────────
+    // ── Shared Compose state (observed by the single ComposeView) ─────────────
     private val allHeroes       = mutableStateListOf<Hero>()
     private val recommendations = mutableStateListOf<HeroScore>()
     private val banSuggestions  = mutableStateListOf<BanSuggestion>()
@@ -90,11 +98,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val isExpanded      = mutableStateOf(false)
     private val isBanTurn       = mutableStateOf(false)
 
-    // ── Screen capture / frame analysis state ─────────────────────────────────
-    private var captureJob: Job? = null
-
-    // Slot fill tracking — mirrors FrameProcessor but kept here so portrait
-    // matching can use the same frame before it is recycled.
+    // ── Autonomous detection state ────────────────────────────────────────────
     private val filledEnemyBanSlots  = mutableSetOf<Int>()
     private val filledOurBanSlots    = mutableSetOf<Int>()
     private val filledEnemyPickSlots = mutableSetOf<Int>()
@@ -103,15 +107,14 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     // ── Companion ─────────────────────────────────────────────────────────────
 
     companion object {
-        private const val NOTIF_CHANNEL = "overlay_channel"
-        private const val NOTIF_ID      = 1
+        private const val NOTIF_CHANNEL       = "overlay_channel"
+        private const val NOTIF_ID            = 1
         const val EXTRA_RESULT_CODE     = "extra_result_code"
         const val EXTRA_PROJECTION_DATA = "extra_projection_data"
 
         fun start(context: Context) =
             context.startForegroundService(Intent(context, OverlayService::class.java))
 
-        /** Start (or re-deliver to an already-running) service with projection data. */
         fun startWithProjection(context: Context, resultCode: Int, data: Intent) {
             context.startForegroundService(
                 Intent(context, OverlayService::class.java).apply {
@@ -129,22 +132,22 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     override fun onCreate() {
         super.onCreate()
-        // SavedState must be attached/restored before any ComposeView is created.
+
+        // SavedState must be set up before any ComposeView is added.
         ssr.performAttach()
         ssr.performRestore(null)
-
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
 
-        windowManager           = getSystemService(WINDOW_SERVICE) as WindowManager
-        screenCaptureManager    = ScreenCaptureManager(this)
-        portraitMatcher         = PortraitMatcher(
+        windowManager        = getSystemService(WINDOW_SERVICE) as WindowManager
+        screenCaptureManager = ScreenCaptureManager(this)
+        portraitMatcher      = PortraitMatcher(
             applicationContext,
             ImageLoader.Builder(applicationContext).build()
         )
 
         createNotificationChannel()
         startFg()
-        addBubble()
+        addOverlayView()
         loadHeroes()
         observeSession()
     }
@@ -152,8 +155,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
 
-        // If a MediaProjection grant was delivered (user tapped "Start Draft" and
-        // accepted the screen-capture dialog), start the autonomous capture loop.
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, -1) ?: -1
         @Suppress("DEPRECATION")
         val projData: Intent? = if (Build.VERSION.SDK_INT >= 33)
@@ -173,19 +174,18 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         captureJob?.cancel()
         screenCaptureManager.stopCapture()
         serviceScope.cancel()
-        removeBubble()
-        removePanel()
+        removeOverlayView()
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // ── Foreground notification ───────────────────────────────────────────────
+    // ── Notification ──────────────────────────────────────────────────────────
 
     private fun startFg() {
-        val notification = NotificationCompat.Builder(this, NOTIF_CHANNEL)
-            .setContentTitle("MLBB Assistant Active")
+        val notif = NotificationCompat.Builder(this, NOTIF_CHANNEL)
+            .setContentTitle("MLBB Draft Assistant")
             .setContentText("Draft assistant is running")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setOngoing(true)
@@ -193,181 +193,195 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
-                NOTIF_ID, notification,
+                NOTIF_ID, notif,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             )
         } else {
-            startForeground(NOTIF_ID, notification)
+            startForeground(NOTIF_ID, notif)
         }
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            NOTIF_CHANNEL, "Overlay Service", NotificationManager.IMPORTANCE_LOW
+        val ch = NotificationChannel(
+            NOTIF_CHANNEL, "Overlay", NotificationManager.IMPORTANCE_LOW
         ).apply { description = "MLBB Draft Assistant overlay" }
-        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
-            .createNotificationChannel(channel)
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
-    // ── Hero loading ──────────────────────────────────────────────────────────
+    // ── Single overlay view (bubble ↔ mini-widget) ────────────────────────────
 
-    private fun loadHeroes() {
-        serviceScope.launch {
-            getHeroesUseCase().collectLatest { heroes ->
-                allHeroes.clear()
-                allHeroes.addAll(heroes)
-                // Preload portrait hashes in background so matching is fast.
-                launch(Dispatchers.IO) {
-                    runCatching { portraitMatcher.preloadHashes(heroes) }
-                }
-                refreshRecommendations(draftSessionManager.session.value)
-            }
-        }
-    }
+    /**
+     * Creates the one ComposeView that lives for the service's entire lifetime.
+     * It renders FloatingBubble in collapsed mode and MiniWidget in expanded mode.
+     *
+     * Drag is handled at the View level so it works in both modes without
+     * interfering with child-composable click events. The trick:
+     *  - ACTION_DOWN  → record finger + window start position, return true
+     *  - ACTION_MOVE  → if moved > drag threshold (10 dp), drag the window
+     *  - ACTION_UP    → if it was NOT a drag, re-dispatch synthetic DOWN+UP so
+     *                   Compose sees a normal click on whatever was underneath
+     */
+    private fun addOverlayView() {
+        overlayParams = buildBubbleParams()
 
-    // ── Session observation → refresh recommendations ─────────────────────────
+        var startX    = 0;   var startY    = 0
+        var touchX    = 0f;  var touchY    = 0f
+        var isDragging = false
 
-    private fun observeSession() {
-        serviceScope.launch {
-            draftSessionManager.session.collectLatest { session ->
-                refreshRecommendations(session)
-            }
-        }
-    }
-
-    private fun refreshRecommendations(session: DraftSession) {
-        val weights = ScoreWeights.DEFAULT
-        when (session.phase) {
-            DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
-                banSuggestions.clear()
-                banSuggestions.addAll(
-                    BanRecommender.rank(
-                        availableHeroes = allHeroes,
-                        bannedIds       = session.allBannedHeroes.map { it.id }.toSet(),
-                        pickedIds       = session.allPickedHeroes.map { it.id }.toSet(),
-                        weights         = weights
-                    )
-                )
-                enemyWarnings.clear()
-                enemyWarnings.addAll(CompositionAnalyzer.analyze(session.enemyPickedHeroes).warnings)
-            }
-            DraftPhase.PICK -> {
-                recommendations.clear()
-                recommendations.addAll(
-                    DraftScorer.rankAll(
-                        pool        = allHeroes,
-                        alliedPicks = session.ourPickedHeroes,
-                        enemyPicks  = session.enemyPickedHeroes,
-                        bannedIds   = session.unavailableIds,
-                        weights     = weights,
-                        currentTurn = session.currentTurn
-                    ).take(10)
-                )
-                enemyWarnings.clear()
-                enemyWarnings.addAll(CompositionAnalyzer.analyze(session.enemyPickedHeroes).warnings)
-            }
-            else -> {}
-        }
-    }
-
-    // ── Bubble ────────────────────────────────────────────────────────────────
-
-    private fun addBubble() {
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.TOP or Gravity.START; x = 0; y = 300 }
-
-        var initialX = 0; var initialY = 0
-        var touchX = 0f; var touchY = 0f
-
-        bubbleView = ComposeView(this).apply {
+        overlayView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@OverlayService)
             setViewTreeSavedStateRegistryOwner(this@OverlayService)
+
             setContent {
                 MLBBAssistantTheme {
-                    FloatingBubble(
-                        session    = draftSessionManager.session.collectAsState().value,
-                        isExpanded = isExpanded.value,
-                        onTap      = {
-                            isExpanded.value = !isExpanded.value
-                            if (isExpanded.value) addPanel() else removePanel()
-                        }
-                    )
+                    val session = draftSessionManager.session.collectAsState().value
+                    if (isExpanded.value) {
+                        MiniWidget(
+                            session         = session,
+                            recommendations = recommendations.toList(),
+                            banSuggestions  = banSuggestions.toList(),
+                            isBanTurn       = isBanTurn.value,
+                            enemyWarnings   = enemyWarnings.toList(),
+                            onMinimize      = { collapseTobubble() },
+                            onClose         = { stopSelf() },
+                            onHeroSelected  = { hero -> handleManualHeroSelection(hero) }
+                        )
+                    } else {
+                        FloatingBubble(
+                            session = session,
+                            onTap   = { expandToWidget() }
+                        )
+                    }
                 }
             }
-            setOnTouchListener { _, event ->
+
+            setOnTouchListener { v, event ->
+                val dragThresholdPx = 10 * resources.displayMetrics.density
+
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        initialX = params.x; initialY = params.y
-                        touchX = event.rawX; touchY = event.rawY; true
+                        startX  = overlayParams.x;  startY  = overlayParams.y
+                        touchX  = event.rawX;       touchY  = event.rawY
+                        isDragging = false
+                        true  // claim the sequence so we receive MOVE + UP
                     }
+
                     MotionEvent.ACTION_MOVE -> {
-                        params.x = initialX + (event.rawX - touchX).toInt()
-                        params.y = initialY + (event.rawY - touchY).toInt()
-                        windowManager.updateViewLayout(this, params); true
+                        val dx = event.rawX - touchX
+                        val dy = event.rawY - touchY
+                        if (!isDragging && abs(dx) < dragThresholdPx && abs(dy) < dragThresholdPx) {
+                            // Not yet dragging — do not move the window
+                            return@setOnTouchListener true
+                        }
+                        isDragging = true
+                        overlayParams.x = startX + dx.toInt()
+                        overlayParams.y = startY + dy.toInt()
+                        if (isExpanded.value) clampToScreen()
+                        windowManager.updateViewLayout(v, overlayParams)
+                        true
                     }
+
+                    MotionEvent.ACTION_UP -> {
+                        if (!isDragging) {
+                            // It was a tap — re-dispatch so Compose handles it
+                            val fakeDown = MotionEvent.obtain(
+                                event.downTime, event.eventTime,
+                                MotionEvent.ACTION_DOWN, event.x, event.y, 0
+                            )
+                            v.dispatchTouchEvent(fakeDown)
+                            fakeDown.recycle()
+
+                            val fakeUp = MotionEvent.obtain(
+                                event.downTime, event.eventTime,
+                                MotionEvent.ACTION_UP, event.x, event.y, 0
+                            )
+                            v.dispatchTouchEvent(fakeUp)
+                            fakeUp.recycle()
+                        }
+                        isDragging = false
+                        true
+                    }
+
                     else -> false
                 }
             }
         }
-        windowManager.addView(bubbleView, params)
+
+        windowManager.addView(overlayView, overlayParams)
     }
 
-    private fun removeBubble() {
-        bubbleView?.let { windowManager.removeView(it) }
-        bubbleView = null
+    private fun removeOverlayView() {
+        overlayView?.let { runCatching { windowManager.removeView(it) } }
+        overlayView = null
     }
 
-    // ── Panel ─────────────────────────────────────────────────────────────────
+    // ── Expand / collapse ─────────────────────────────────────────────────────
 
-    private fun addPanel() {
-        if (panelView != null) return
-        val params = WindowManager.LayoutParams(
-            (resources.displayMetrics.widthPixels * 0.92).toInt(),
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
-            PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = 40 }
-
-        panelView = ComposeView(this).apply {
-            setViewTreeLifecycleOwner(this@OverlayService)
-            setViewTreeSavedStateRegistryOwner(this@OverlayService)
-            setContent {
-                MLBBAssistantTheme {
-                    DraftPanel(
-                        session         = draftSessionManager.session.collectAsState().value,
-                        recommendations = recommendations.toList(),
-                        banSuggestions  = banSuggestions.toList(),
-                        allHeroes       = allHeroes.toList(),
-                        enemyWarnings   = enemyWarnings.toList(),
-                        isBanTurn       = isBanTurn.value,
-                        onHeroSelected  = { hero -> handleHeroSelectedManually(hero) },
-                        onHeroLongPress = {},
-                        onMinimize      = { isExpanded.value = false; removePanel() },
-                        onClose         = { stopSelf() }
-                    )
-                }
-            }
-        }
-        windowManager.addView(panelView, params)
+    /**
+     * Switches the view from FloatingBubble → MiniWidget.
+     * Updates WindowManager flags so touches outside the widget pass through
+     * to the MLBB game, and clamps position so the widget stays on screen.
+     */
+    private fun expandToWidget() {
+        isExpanded.value = true
+        overlayParams.flags = widgetFlags()
+        clampToScreen()
+        windowManager.updateViewLayout(overlayView ?: return, overlayParams)
     }
 
-    private fun removePanel() {
-        panelView?.let { windowManager.removeView(it) }
-        panelView = null
+    /** Switches the view from MiniWidget → FloatingBubble. */
+    private fun collapseTobubble() {
+        isExpanded.value = false
+        overlayParams.flags = bubbleFlags()
+        windowManager.updateViewLayout(overlayView ?: return, overlayParams)
     }
 
-    // ── Manual hero selection (from panel grid/tap) ───────────────────────────
+    // ── WindowManager param helpers ───────────────────────────────────────────
 
-    private fun handleHeroSelectedManually(hero: Hero) {
+    private fun buildBubbleParams() = WindowManager.LayoutParams(
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        bubbleFlags(),
+        PixelFormat.TRANSLUCENT
+    ).apply { gravity = Gravity.TOP or Gravity.START; x = 0; y = 300 }
+
+    /**
+     * Bubble flags: allow no-limits so the bubble can be dragged to screen edges;
+     * FLAG_NOT_FOCUSABLE so it never steals keyboard focus from the game.
+     */
+    private fun bubbleFlags() =
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+
+    /**
+     * Widget flags: drop FLAG_LAYOUT_NO_LIMITS so the expanded card cannot
+     * overflow off-screen; keep NOT_TOUCH_MODAL so touches outside the widget
+     * still reach the MLBB game underneath.
+     */
+    private fun widgetFlags() =
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+
+    /**
+     * After expanding, clamp the window position so the widget (≈280 dp wide)
+     * is fully visible on screen.
+     */
+    private fun clampToScreen() {
+        val dm      = resources.displayMetrics
+        val screenW = dm.widthPixels
+        val screenH = dm.heightPixels
+        val widgetW = (280 * dm.density).toInt()
+        val widgetH = (200 * dm.density).toInt()
+        overlayParams.x = overlayParams.x.coerceIn(0, (screenW - widgetW).coerceAtLeast(0))
+        overlayParams.y = overlayParams.y.coerceIn(0, (screenH - widgetH).coerceAtLeast(0))
+    }
+
+    // ── Manual hero selection from mini-widget tap ────────────────────────────
+
+    private fun handleManualHeroSelection(hero: Hero) {
         val s = draftSessionManager.session.value
         when (s.phase) {
             DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
@@ -387,25 +401,83 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
     }
 
-    // ── Autonomous screen capture loop ────────────────────────────────────────
+    // ── Hero loading ──────────────────────────────────────────────────────────
 
-    /**
-     * Runs a continuous capture → analyze → update cycle on the IO/Default
-     * dispatcher. Phase transitions and DraftSessionManager updates are
-     * switched back to Main before being applied.
-     *
-     * Throttled to 2 fps during active draft, 0.5 fps when idle/complete.
-     */
+    private fun loadHeroes() {
+        serviceScope.launch {
+            getHeroesUseCase().collectLatest { heroes ->
+                allHeroes.clear()
+                allHeroes.addAll(heroes)
+                launch(Dispatchers.IO) {
+                    runCatching { portraitMatcher.preloadHashes(heroes) }
+                }
+                refreshRecommendations(draftSessionManager.session.value)
+            }
+        }
+    }
+
+    private fun observeSession() {
+        serviceScope.launch {
+            draftSessionManager.session.collectLatest { session ->
+                refreshRecommendations(session)
+                // Auto-expand to widget when a draft starts
+                if (session.phase == DraftPhase.BAN_ROUND_1 && !isExpanded.value) {
+                    expandToWidget()
+                }
+            }
+        }
+    }
+
+    private fun refreshRecommendations(session: DraftSession) {
+        val w = ScoreWeights.DEFAULT
+        when (session.phase) {
+            DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
+                banSuggestions.clear()
+                banSuggestions.addAll(
+                    BanRecommender.rank(
+                        availableHeroes = allHeroes,
+                        bannedIds       = session.allBannedHeroes.map { it.id }.toSet(),
+                        pickedIds       = session.allPickedHeroes.map { it.id }.toSet(),
+                        weights         = w
+                    )
+                )
+                enemyWarnings.clear()
+                enemyWarnings.addAll(
+                    CompositionAnalyzer.analyze(session.enemyPickedHeroes).warnings
+                )
+            }
+            DraftPhase.PICK -> {
+                recommendations.clear()
+                recommendations.addAll(
+                    DraftScorer.rankAll(
+                        pool        = allHeroes,
+                        alliedPicks = session.ourPickedHeroes,
+                        enemyPicks  = session.enemyPickedHeroes,
+                        bannedIds   = session.unavailableIds,
+                        weights     = w,
+                        currentTurn = session.currentTurn
+                    ).take(10)
+                )
+                enemyWarnings.clear()
+                enemyWarnings.addAll(
+                    CompositionAnalyzer.analyze(session.enemyPickedHeroes).warnings
+                )
+            }
+            else -> {}
+        }
+    }
+
+    // ── Autonomous screen-capture loop ────────────────────────────────────────
+
     private fun launchCaptureLoop() {
         captureJob?.cancel()
         captureJob = serviceScope.launch(Dispatchers.IO) {
-            // Wait until hero data is available for portrait matching.
-            while (allHeroes.isEmpty() && isActive) { delay(300) }
+            while (allHeroes.isEmpty() && isActive) delay(300)
 
             while (isActive) {
-                val phase    = draftSessionManager.session.value.phase
-                val delayMs  = if (phase == DraftPhase.IDLE || phase == DraftPhase.COMPLETE) 2000L else 500L
-                val frame    = screenCaptureManager.captureFrame()
+                val phase   = draftSessionManager.session.value.phase
+                val delayMs = if (phase == DraftPhase.IDLE || phase == DraftPhase.COMPLETE) 2000L else 500L
+                val frame   = screenCaptureManager.captureFrame()
 
                 if (frame != null) {
                     withContext(Dispatchers.Default) {
@@ -418,26 +490,12 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
     }
 
-    /**
-     * Full frame analysis pipeline.
-     * 1. Detect current draft phase from pixel colours.
-     * 2. Auto-transition DraftSessionManager to the new phase.
-     * 3. Scan every ban/pick slot for fill changes.
-     * 4. Run portrait matching on newly filled slots.
-     * 5. Record detected heroes into DraftSessionManager.
-     *
-     * Always called on Dispatchers.Default; state writes hop to Main.
-     */
     private suspend fun analyzeFrame(frame: Bitmap, currentPhase: DraftPhase) {
-        // ── 1. Phase detection ──────────────────────────────────────────────
         val phaseResult      = PhaseDetector.detect(frame)
         val banButtonVisible = isBanButtonVisible(frame)
 
-        withContext(Dispatchers.Main) {
-            isBanTurn.value = banButtonVisible
-        }
+        withContext(Dispatchers.Main) { isBanTurn.value = banButtonVisible }
 
-        // ── 2. Phase auto-transition ────────────────────────────────────────
         if (phaseResult.confidence > 0.5f) {
             withContext(Dispatchers.Main) {
                 autoTransitionPhase(phaseResult.phase, currentPhase)
@@ -445,8 +503,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
 
         val session = draftSessionManager.session.value
-
-        // ── 3+4+5. Slot scanning + portrait matching + recording ────────────
         when (session.phase) {
             DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
                 val round = if (session.phase == DraftPhase.BAN_ROUND_2) 2 else 1
@@ -457,71 +513,48 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
     }
 
-    // ── Phase auto-transition logic ───────────────────────────────────────────
+    // ── Phase auto-transition ─────────────────────────────────────────────────
 
-    /** Must be called on Main. */
-    private fun autoTransitionPhase(
-        detected: PhaseDetector.DetectedPhase,
-        current:  DraftPhase
-    ) {
+    private fun autoTransitionPhase(detected: PhaseDetector.DetectedPhase, current: DraftPhase) {
         when {
-            // Game just entered ban phase — init session automatically.
-            detected == PhaseDetector.DetectedPhase.BAN &&
-            current  == DraftPhase.IDLE -> {
+            detected == PhaseDetector.DetectedPhase.BAN && current == DraftPhase.IDLE -> {
                 resetDraftTracking()
                 draftSessionManager.initSession(Rank.UNKNOWN, ourTeamFirst = true)
                 draftSessionManager.startBanPhase()
             }
-            // Round-2 bans — all R1 bans filled and still seeing BAN ui.
-            detected == PhaseDetector.DetectedPhase.BAN &&
-            current  == DraftPhase.BAN_ROUND_1 -> {
-                val s = draftSessionManager.session.value
-                val r1Done = s.enemyBansR1.all { it != null } &&
-                             s.ourBansR1.all   { it != null }
-                if (r1Done && s.banStructure.hasRound2) {
-                    resetBanTrackingR2()
-                    draftSessionManager.startBanRound2()
-                }
+            detected == PhaseDetector.DetectedPhase.BAN && current == DraftPhase.BAN_ROUND_1 -> {
+                val s    = draftSessionManager.session.value
+                val done = s.enemyBansR1.all { it != null } && s.ourBansR1.all { it != null }
+                if (done && s.banStructure.hasRound2) draftSessionManager.startBanRound2()
             }
-            // Bans finished → pick phase begins.
             detected == PhaseDetector.DetectedPhase.PICK &&
-            current  in setOf(DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2) -> {
-                filledEnemyPickSlots.clear()
-                filledOurPickSlots.clear()
+            current in setOf(DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2) -> {
+                filledEnemyPickSlots.clear(); filledOurPickSlots.clear()
                 draftSessionManager.startPickPhase()
             }
-            // Trading phase.
-            detected == PhaseDetector.DetectedPhase.TRADING &&
-            current  == DraftPhase.PICK -> {
+            detected == PhaseDetector.DetectedPhase.TRADING && current == DraftPhase.PICK ->
                 draftSessionManager.startTradingPhase()
-            }
-            // Loading screen → draft complete.
             detected == PhaseDetector.DetectedPhase.LOADING &&
-            current  in setOf(DraftPhase.PICK, DraftPhase.TRADING) -> {
+            current in setOf(DraftPhase.PICK, DraftPhase.TRADING) ->
                 draftSessionManager.completeDraft()
-            }
         }
     }
 
-    // ── Slot scanning helpers ─────────────────────────────────────────────────
+    // ── Slot scanning ─────────────────────────────────────────────────────────
 
     private suspend fun scanAndRecordBans(frame: Bitmap, round: Int) {
         SlotRegions.enemyBanSlots.forEachIndexed { i, region ->
             if (i !in filledEnemyBanSlots && isSlotFilled(frame, region)) {
                 filledEnemyBanSlots.add(i)
-                val hero = matchPortrait(frame, region, minConfidence = 0.65f)
-                withContext(Dispatchers.Main) {
-                    draftSessionManager.recordEnemyBan(hero, round, i)
-                }
+                val hero = matchPortrait(frame, region, 0.65f)
+                withContext(Dispatchers.Main) { draftSessionManager.recordEnemyBan(hero, round, i) }
             }
         }
         SlotRegions.ourBanSlots.forEachIndexed { i, region ->
             if (i !in filledOurBanSlots && isSlotFilled(frame, region)) {
                 filledOurBanSlots.add(i)
-                val hero = matchPortrait(frame, region, minConfidence = 0.65f)
-                withContext(Dispatchers.Main) {
-                    draftSessionManager.recordOurBan(hero, round, i)
-                }
+                val hero = matchPortrait(frame, region, 0.65f)
+                withContext(Dispatchers.Main) { draftSessionManager.recordOurBan(hero, round, i) }
             }
         }
     }
@@ -530,16 +563,14 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         SlotRegions.enemyPickSlots.forEachIndexed { i, region ->
             if (i !in filledEnemyPickSlots && isSlotFilled(frame, region)) {
                 filledEnemyPickSlots.add(i)
-                val hero = matchPortrait(frame, region, minConfidence = 0.55f) ?: return@forEachIndexed
-                withContext(Dispatchers.Main) {
-                    draftSessionManager.recordEnemyPick(hero, i)
-                }
+                val hero = matchPortrait(frame, region, 0.55f) ?: return@forEachIndexed
+                withContext(Dispatchers.Main) { draftSessionManager.recordEnemyPick(hero, i) }
             }
         }
         SlotRegions.ourPickSlots.forEachIndexed { i, region ->
             if (i !in filledOurPickSlots && isSlotFilled(frame, region)) {
                 filledOurPickSlots.add(i)
-                val hero = matchPortrait(frame, region, minConfidence = 0.55f) ?: return@forEachIndexed
+                val hero = matchPortrait(frame, region, 0.55f) ?: return@forEachIndexed
                 val topId = recommendations.firstOrNull()?.hero?.id
                 withContext(Dispatchers.Main) {
                     draftSessionManager.recordOurPick(hero, i, followedRecommendation = hero.id == topId)
@@ -548,20 +579,16 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
     }
 
-    // ── Frame analysis utilities ──────────────────────────────────────────────
+    // ── Frame utilities ───────────────────────────────────────────────────────
 
-    /** Returns the matched hero, or null if confidence is below [minConfidence]. */
-    private fun matchPortrait(frame: Bitmap, region: SlotRegionF, minConfidence: Float): Hero? {
+    private fun matchPortrait(frame: Bitmap, region: SlotRegionF, minConf: Float): Hero? {
         val crop = runCatching { SlotRegions.cropSlot(frame, region) }.getOrNull() ?: return null
         return try {
-            val result = portraitMatcher.match(crop, allHeroes.toList())
-            if (result.confidence >= minConfidence) result.hero else null
-        } finally {
-            crop.recycle()
-        }
+            val r = portraitMatcher.match(crop, allHeroes.toList())
+            if (r.confidence >= minConf) r.hero else null
+        } finally { crop.recycle() }
     }
 
-    /** A slot is "filled" when its mean luminance exceeds the dark background threshold (40/255). */
     private fun isSlotFilled(frame: Bitmap, region: SlotRegionF): Boolean {
         val crop = runCatching { SlotRegions.cropSlot(frame, region) }.getOrNull() ?: return false
         return try {
@@ -577,35 +604,20 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 }
             }
             count > 0 && (total / count) > 40f
-        } finally {
-            crop.recycle()
-        }
+        } finally { crop.recycle() }
     }
 
-    /** Detect if the ban button (red) is visible in the action-button region. */
     private fun isBanButtonVisible(frame: Bitmap): Boolean {
-        val crop = runCatching { SlotRegions.cropSlot(frame, SlotRegions.actionButton) }.getOrNull() ?: return false
+        val crop = runCatching { SlotRegions.cropSlot(frame, SlotRegions.actionButton) }.getOrNull()
+            ?: return false
         return try {
-            val result = PhaseDetector.detect(crop)
-            result.phase == PhaseDetector.DetectedPhase.BAN && result.confidence > 0.05f
-        } finally {
-            crop.recycle()
-        }
+            val r = PhaseDetector.detect(crop)
+            r.phase == PhaseDetector.DetectedPhase.BAN && r.confidence > 0.05f
+        } finally { crop.recycle() }
     }
 
-    // ── Slot tracking resets ──────────────────────────────────────────────────
-
-    /** Full reset for a brand-new draft. */
     private fun resetDraftTracking() {
-        filledEnemyBanSlots.clear()
-        filledOurBanSlots.clear()
-        filledEnemyPickSlots.clear()
-        filledOurPickSlots.clear()
-    }
-
-    /** Partial reset when advancing to ban round 2 — keep R1 slots as already filled. */
-    private fun resetBanTrackingR2() {
-        // R1 slots stay in filledEnemy/OurBanSlots to avoid re-detecting them.
-        // Pick slots not yet relevant.
+        filledEnemyBanSlots.clear(); filledOurBanSlots.clear()
+        filledEnemyPickSlots.clear(); filledOurPickSlots.clear()
     }
 }
