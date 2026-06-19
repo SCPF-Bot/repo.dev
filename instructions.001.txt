@@ -95,5 +95,6 @@ Before making any changes, create a detailed plan. This plan will guide your ref
 **Step 6: Re-archive**
 - Compress the entire modified codebase (including the `AUDIT.md` file) into a new `.zip` file.
 - Provide this new `.zip` file as your final output.
+- Don't leave behind any Gradle files or repository root files like gradlew, gradle.properties, gradlew.bat, etc.
 
 **Constraint:** You must complete all steps. Treat this as a high-stakes, professional project. Your output is the final, modified `.zip` file containing a superior version of the original application.
