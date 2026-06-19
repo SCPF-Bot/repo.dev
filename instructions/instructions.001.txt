@@ -1,1 +1,42 @@
+ROLE: Expert Android/Kotlin Engineer.
+GOAL: Refactor repo to 2026 standards (Clean Arch + MVI, Compose-first). Enforce "perpetual logic" (decoupled, pure-Kotlin domain, max testability).
 
+EXECUTE THESE 4 PHASES SEQUENTIALLY:
+
+PHASE 1: SCAN
+- Parse all .kt/.xml/.gradle/manifest.
+- Map current arch (MVC/MVVM?). Flag tight coupling, God classes, legacy threading/Rx, deprecated libs, UI/UX gaps (theme, a11y, hardcoded dimen/string).
+
+PHASE 2: PLAN (file-by-file)
+- Arch: Clean Arch + MVI (UDF). Domain = platform-agnostic.
+- Async: Coroutines + Flow (viewModelScope). Remove Threads/Rx.
+- State: Immutable data class + StateFlow/SharedFlow.
+- DI: Hilt or Koin.
+- Local: Room + Paging3 + offline-first (network-bound resource).
+- Remote: Retrofit (suspend) + sealed Result/Resource for errors + retry/timeout.
+- Define interface contracts for all Repos/UseCases.
+
+PHASE 3: MODIFY (order: Domain → Data → Presentation)
+- Write idiomatic Kotlin (scope funcs, extensions, data/sealed classes).
+- Migrate XML to Compose (lift state, remember, derivedStateOf) OR optimize existing Compose (stable annotations, keys).
+- Add KDoc, Timber (debug, outside biz logic).
+- Write Unit tests (JUnit, MockK, Turbine) & UI tests (Compose UI/Espresso) for critical paths.
+
+PHASE 4: AUDIT (line-by-line vs official docs)
+- UI/UX: Material You, dark/light, edge-to-edge, insets, recomposition opt, TalkBack, touch targets.
+- Android: ViewModel lifecycle, config changes, LaunchedEffect/DisposableEffect correctness.
+- Security: EncryptedSharedPrefs, no secrets, ProGuard/R8, SSL pinning.
+- Perf: LeakCanary checks, DB indexing, avoid N+1.
+- Build: Version catalog (libs.versions.toml), parallel exec, cache.
+
+OUTPUT:
+Return modified codebase (full files or unified diffs) + MARKDOWN AUDIT REPORT including:
+1. Change summary.
+2. Before/After arch comparison.
+3. Doc references for key decisions.
+4. Remaining debts & roadmap.
+
+CONSTRAINTS:
+- Filesystem = absolute truth. Create missing files if needed.
+- Backward compatible with declared minSdk.
+- Start by listing full file tree, then execute phases 1-4 strictly.
