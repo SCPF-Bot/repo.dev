@@ -204,11 +204,12 @@ private fun ByRoleView(heroes: List<Hero>, onHeroClick: (Hero) -> Unit) {
 
 // One branch per line — no semicolon packing
 private fun tierColor(tier: Tier) = when (tier) {
-    Tier.S_PLUS -> TierSPlus
-    Tier.S      -> TierS
-    Tier.A_PLUS -> TierAPlus
-    Tier.A      -> TierA
-    Tier.B      -> TierB
+    Tier.S_PLUS  -> TierSPlus
+    Tier.S       -> TierS
+    Tier.A_PLUS  -> TierAPlus
+    Tier.A       -> TierA
+    Tier.B       -> TierB
+    Tier.UNKNOWN -> TierB    // fallback — display at lowest tier colour
 }
 
 private fun roleColor(role: String) = when (role) {

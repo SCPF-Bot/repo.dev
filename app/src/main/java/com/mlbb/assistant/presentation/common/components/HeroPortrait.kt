@@ -153,9 +153,10 @@ fun EmptyPortraitSlot(size: Dp = 56.dp, isMissedBan: Boolean = false) {
 
 // Internal — used by HeroPortrait and HeroDetailScreen
 fun tierBorderColor(tier: Tier): androidx.compose.ui.graphics.Color = when (tier) {
-    Tier.S_PLUS -> TierSPlus
-    Tier.S      -> TierS
-    Tier.A_PLUS -> TierAPlus
-    Tier.A      -> TierA
-    Tier.B      -> TierB
+    Tier.S_PLUS  -> TierSPlus
+    Tier.S       -> TierS
+    Tier.A_PLUS  -> TierAPlus
+    Tier.A       -> TierA
+    Tier.B       -> TierB
+    Tier.UNKNOWN -> TierB    // fallback — display at lowest tier colour
 }

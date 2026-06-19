@@ -303,9 +303,10 @@ private fun Chip(label: String, color: Color) {
 
 // Exhaustive on sealed enum — compiler enforces all cases, no silent else fallback
 private fun tierColor(tier: Tier): Color = when (tier) {
-    Tier.S_PLUS -> TierSPlus
-    Tier.S      -> TierS
-    Tier.A_PLUS -> TierAPlus
-    Tier.A      -> TierA
-    Tier.B      -> TierB
+    Tier.S_PLUS  -> TierSPlus
+    Tier.S       -> TierS
+    Tier.A_PLUS  -> TierAPlus
+    Tier.A       -> TierA
+    Tier.B       -> TierB
+    Tier.UNKNOWN -> TierB    // fallback — display at lowest tier colour
 }
