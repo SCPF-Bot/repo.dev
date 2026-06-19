@@ -20,6 +20,10 @@ import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Warning
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings as SystemSettings
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -168,13 +173,28 @@ fun SettingsScreen(
 
             // Permissions
             SettingsSection("PERMISSIONS") {
+                val context = LocalContext.current
                 PermissionRow(
                     label   = "Overlay",
-                    granted = state.overlayGranted
+                    granted = state.overlayGranted,
+                    onClick = {
+                        context.startActivity(
+                            Intent(
+                                SystemSettings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}")
+                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
                 )
                 PermissionRow(
                     label   = "Accessibility",
-                    granted = state.accessibilityGranted
+                    granted = state.accessibilityGranted,
+                    onClick = {
+                        context.startActivity(
+                            Intent(SystemSettings.ACTION_ACCESSIBILITY_SETTINGS)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
                 )
             }
 
@@ -254,9 +274,13 @@ private fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun PermissionRow(label: String, granted: Boolean) {
+private fun PermissionRow(label: String, granted: Boolean, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth(),
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
+            .semantics { contentDescription = "$label permission, ${if (granted) "granted" else "not granted"}, tap to open settings" },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment     = Alignment.CenterVertically
     ) {
@@ -264,12 +288,12 @@ private fun PermissionRow(label: String, granted: Boolean) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Icon(
                 imageVector        = if (granted) Icons.Rounded.CheckCircle else Icons.Rounded.Cancel,
-                contentDescription = if (granted) "$label granted" else "$label not granted",
+                contentDescription = null,
                 tint               = if (granted) SuccessGreen else ErrorRed,
                 modifier           = Modifier.size(16.dp)
             )
             Text(
-                if (granted) "Granted" else "Not granted",
+                if (granted) "Granted" else "Tap to enable",
                 color      = if (granted) SuccessGreen else ErrorRed,
                 fontSize   = 13.sp,
                 fontWeight = FontWeight.SemiBold

@@ -121,7 +121,7 @@ fun MiniWidget(
                 ) {
                     when (phase) {
                         DraftPhase.IDLE, DraftPhase.SETUP -> {
-                            IdleBody()
+                            IdleBody(session = session)
                         }
                         DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
                             BanBody(
@@ -222,14 +222,38 @@ private fun IconBtn(
 // ── Phase bodies ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun IdleBody() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        contentAlignment = Alignment.Center
+private fun IdleBody(session: DraftSession) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text("Waiting for draft to begin...", color = TextSecondary, fontSize = 11.sp)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceMid, RoundedCornerShape(6.dp))
+                .padding(horizontal = 8.dp, vertical = 5.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "Waiting for draft to begin...",
+                color    = TextSecondary,
+                fontSize = 10.sp
+            )
+        }
+        SlotOverview(
+            enemySlots = buildSlotList(session.enemyBansR1, session.enemyBansR2),
+            ourSlots   = buildSlotList(session.ourBansR1, session.ourBansR2),
+            enemyColor = ErrorRed,
+            ourColor   = MLBBTeal,
+            label      = "Bans"
+        )
+        SlotOverview(
+            enemySlots = session.enemyPicks,
+            ourSlots   = session.ourPicks,
+            enemyColor = ErrorRed,
+            ourColor   = MLBBTeal,
+            label      = "Picks"
+        )
     }
 }
 

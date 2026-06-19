@@ -228,6 +228,12 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         var startX    = 0;   var startY    = 0
         var touchX    = 0f;  var touchY    = 0f
         var isDragging = false
+        // Guard against the re-entry that happens when we synthetically re-dispatch
+        // a tap DOWN+UP after an ACTION_UP that wasn't a drag. Without this flag,
+        // dispatchTouchEvent(fakeDown) re-invokes setOnTouchListener on the same
+        // ComposeView instance, consuming the fake event and causing Compose never
+        // to see the click (or, worse, an infinite dispatch loop).
+        var isForwardingClick = false
 
         overlayView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@OverlayService)
@@ -235,7 +241,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
             setContent {
                 MLBBAssistantTheme {
-                    val session = draftSessionManager.session.collectAsState().value
+                    val session by draftSessionManager.session.collectAsState()
                     if (isExpanded.value) {
                         MiniWidget(
                             session         = session,
@@ -257,6 +263,9 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             }
 
             setOnTouchListener { v, event ->
+                // Let synthetic re-dispatched click events through to Compose untouched.
+                if (isForwardingClick) return@setOnTouchListener false
+
                 val dragThresholdPx = 10 * resources.displayMetrics.density
 
                 when (event.action) {
@@ -284,7 +293,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
                     MotionEvent.ACTION_UP -> {
                         if (!isDragging) {
-                            // It was a tap — re-dispatch so Compose handles it
+                            // It was a tap — re-dispatch so Compose handles the click.
+                            // isForwardingClick prevents this listener from consuming
+                            // the synthetic events before Compose can see them.
+                            isForwardingClick = true
                             val fakeDown = MotionEvent.obtain(
                                 event.downTime, event.eventTime,
                                 MotionEvent.ACTION_DOWN, event.x, event.y, 0
@@ -298,6 +310,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             )
                             v.dispatchTouchEvent(fakeUp)
                             fakeUp.recycle()
+                            isForwardingClick = false
                         }
                         isDragging = false
                         true

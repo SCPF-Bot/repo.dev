@@ -108,7 +108,7 @@ fun HeroGrid(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding        = PaddingValues(horizontal = 2.dp)
         ) {
-            items(roles) { role ->
+            items(roles, key = { it ?: "__all__" }) { role ->
                 FilterChip(
                     selected = roleFilter == role,
                     onClick  = { roleFilter = role },

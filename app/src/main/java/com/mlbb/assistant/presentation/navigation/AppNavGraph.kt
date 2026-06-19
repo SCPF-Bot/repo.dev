@@ -1,5 +1,6 @@
 package com.mlbb.assistant.presentation.navigation
 
+import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -8,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -26,19 +28,24 @@ import com.mlbb.assistant.presentation.welcome.PermissionWizardScreen
 
 @Composable
 fun AppNavGraph(
-    navController: NavHostController,
-    onStartOverlay: () -> Unit,
+    navController:    NavHostController,
+    startAtWizard:    Boolean,
+    onStartOverlay:   () -> Unit,
     onRequestCapture: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier:         Modifier = Modifier
 ) {
     NavHost(
         navController    = navController,
-        startDestination = AppRoute.Home.route,
+        startDestination = if (startAtWizard) AppRoute.Wizard.route else AppRoute.Home.route,
         modifier         = modifier
     ) {
         composable(AppRoute.Wizard.route) {
+            val context = LocalContext.current
             PermissionWizardScreen(
                 onComplete = {
+                    // Persist wizard-done flag so we never show the wizard again.
+                    context.getSharedPreferences("mlbb_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("wizard_done", true).apply()
                     navController.navigate(AppRoute.Home.route) {
                         popUpTo(AppRoute.Wizard.route) { inclusive = true }
                     }

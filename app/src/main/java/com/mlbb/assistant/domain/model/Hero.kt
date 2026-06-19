@@ -1,5 +1,8 @@
 package com.mlbb.assistant.domain.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class Hero(
     val id: Int,
     val name: String,
@@ -22,6 +25,7 @@ data class Hero(
     val isOP: Boolean
 )
 
+@Immutable
 data class CoreItem(
     val id: Int,
     val name: String,
