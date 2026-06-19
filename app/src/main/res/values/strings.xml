@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MLBB Assistant</string>
+    <string name="accessibility_service_label">MLBB Draft Assistant</string>
+    <string name="accessibility_service_description">Detects when Mobile Legends: Bang Bang is open to automatically show the draft assistant overlay.</string>
+</resources>

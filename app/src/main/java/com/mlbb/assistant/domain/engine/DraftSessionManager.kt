@@ -6,90 +6,209 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/**
- * In-memory state machine for an active draft session.
- *
- * Owned by the DI graph as a singleton so [OverlayService] and
- * [presentation.draft.DraftViewModel] share the same state.
- *
- * All mutations are thread-safe via [MutableStateFlow].
- */
+enum class DraftPhase {
+    IDLE, SETUP, BAN_ROUND_1, BAN_ROUND_2, PICK, TRADING, COMPLETE
+}
+
+data class DraftSession(
+    val rank: Rank = Rank.UNKNOWN,
+    val banStructure: BanStructure = RankRuleEngine.getBanStructure(Rank.UNKNOWN),
+    val phase: DraftPhase = DraftPhase.IDLE,
+    val ourTeamFirst: Boolean = true,
+    val pickSequence: List<PickTurn> = emptyList(),
+    val currentPickIndex: Int = 0,
+
+    // null = slot not yet filled, hero with id=-1 = missed ban (timeout)
+    val enemyBansR1: List<Hero?> = List(3) { null },
+    val ourBansR1:   List<Hero?> = List(3) { null },
+    val enemyBansR2: List<Hero?> = emptyList(),
+    val ourBansR2:   List<Hero?> = emptyList(),
+
+    val enemyPicks: List<Hero?> = List(5) { null },
+    val ourPicks:   List<Hero?> = List(5) { null },
+
+    val undoStack: List<DraftAction> = emptyList(),
+
+    // scoring
+    val followedRecommendations: Int = 0,
+    val totalRecommendations: Int = 0
+) {
+    val allBannedHeroes: List<Hero>
+        get() = (enemyBansR1 + ourBansR1 + enemyBansR2 + ourBansR2).filterNotNull()
+                    .filter { it.id != MISSED_BAN_ID }
+
+    val allPickedHeroes: List<Hero>
+        get() = (enemyPicks + ourPicks).filterNotNull()
+
+    val unavailableIds: Set<Int>
+        get() = (allBannedHeroes + allPickedHeroes).map { it.id }.toSet()
+
+    val ourPickedHeroes: List<Hero>
+        get() = ourPicks.filterNotNull()
+
+    val enemyPickedHeroes: List<Hero>
+        get() = enemyPicks.filterNotNull()
+
+    val currentTurn: PickTurn?
+        get() = pickSequence.getOrNull(currentPickIndex)
+
+    companion object { const val MISSED_BAN_ID = -1 }
+}
+
+sealed class DraftAction {
+    data class EnemyBan(val hero: Hero?, val round: Int, val slot: Int) : DraftAction()
+    data class OurBan(val hero: Hero?, val round: Int, val slot: Int)   : DraftAction()
+    data class EnemyPick(val hero: Hero, val slot: Int)                  : DraftAction()
+    data class OurPick(val hero: Hero, val slot: Int)                    : DraftAction()
+    data class HeroSwap(val fromSlot: Int, val toSlot: Int)              : DraftAction()
+}
+
 class DraftSessionManager {
 
-    // ── Phase ─────────────────────────────────────────────────────────────────
+    private val _session = MutableStateFlow(DraftSession())
+    val session: StateFlow<DraftSession> = _session.asStateFlow()
 
-    private val _phase = MutableStateFlow(DraftPhase.IDLE)
-    val phase: StateFlow<DraftPhase> = _phase.asStateFlow()
+    // ── Initialise ────────────────────────────────────────────────────────────
 
-    fun advancePhase(next: DraftPhase) {
-        _phase.value = next
+    fun initSession(rank: Rank, ourTeamFirst: Boolean) {
+        val structure = RankRuleEngine.getBanStructure(rank)
+        val sequence  = PickSequenceEngine.buildSequence(
+            if (ourTeamFirst) TeamSide.OUR_TEAM else TeamSide.ENEMY_TEAM
+        )
+        _session.update {
+            DraftSession(
+                rank           = rank,
+                banStructure   = structure,
+                phase          = DraftPhase.SETUP,
+                ourTeamFirst   = ourTeamFirst,
+                pickSequence   = sequence,
+                enemyBansR2    = if (structure.hasRound2) List(structure.round2PerTeam) { null } else emptyList(),
+                ourBansR2      = if (structure.hasRound2) List(structure.round2PerTeam) { null } else emptyList()
+            )
+        }
     }
 
-    // ── Bans ──────────────────────────────────────────────────────────────────
+    fun startBanPhase() = _session.update { it.copy(phase = DraftPhase.BAN_ROUND_1) }
 
-    private val _enemyBans = MutableStateFlow<List<Hero?>>(List(5) { null })
-    val enemyBans: StateFlow<List<Hero?>> = _enemyBans.asStateFlow()
+    fun startBanRound2() = _session.update { it.copy(phase = DraftPhase.BAN_ROUND_2) }
 
-    private val _ourBans = MutableStateFlow<List<Hero?>>(List(5) { null })
-    val ourBans: StateFlow<List<Hero?>> = _ourBans.asStateFlow()
+    fun startPickPhase() = _session.update { it.copy(phase = DraftPhase.PICK, currentPickIndex = 0) }
 
-    fun setEnemyBan(slot: Int, hero: Hero?) {
-        _enemyBans.update { list -> list.toMutableList().also { it[slot] = hero } }
+    fun startTradingPhase() = _session.update { it.copy(phase = DraftPhase.TRADING) }
+
+    fun completeDraft() = _session.update { it.copy(phase = DraftPhase.COMPLETE) }
+
+    // ── Ban actions ───────────────────────────────────────────────────────────
+
+    fun recordEnemyBan(hero: Hero?, round: Int, slot: Int) {
+        val action = DraftAction.EnemyBan(hero, round, slot)
+        _session.update { s ->
+            val updated = if (round == 1)
+                s.copy(enemyBansR1 = s.enemyBansR1.withIndex().map { (i, h) -> if (i == slot) hero else h })
+            else
+                s.copy(enemyBansR2 = s.enemyBansR2.withIndex().map { (i, h) -> if (i == slot) hero else h })
+            updated.copy(undoStack = s.undoStack + action)
+        }
     }
 
-    fun setOurBan(slot: Int, hero: Hero?) {
-        _ourBans.update { list -> list.toMutableList().also { it[slot] = hero } }
+    fun recordOurBan(hero: Hero?, round: Int, slot: Int) {
+        val action = DraftAction.OurBan(hero, round, slot)
+        _session.update { s ->
+            val updated = if (round == 1)
+                s.copy(ourBansR1 = s.ourBansR1.withIndex().map { (i, h) -> if (i == slot) hero else h })
+            else
+                s.copy(ourBansR2 = s.ourBansR2.withIndex().map { (i, h) -> if (i == slot) hero else h })
+            updated.copy(undoStack = s.undoStack + action)
+        }
     }
 
-    // ── Picks ─────────────────────────────────────────────────────────────────
+    // ── Pick actions ──────────────────────────────────────────────────────────
 
-    private val _enemyPicks = MutableStateFlow<List<Hero?>>(List(5) { null })
-    val enemyPicks: StateFlow<List<Hero?>> = _enemyPicks.asStateFlow()
-
-    private val _ourPicks = MutableStateFlow<List<Hero?>>(List(5) { null })
-    val ourPicks: StateFlow<List<Hero?>> = _ourPicks.asStateFlow()
-
-    fun setEnemyPick(slot: Int, hero: Hero?) {
-        _enemyPicks.update { list -> list.toMutableList().also { it[slot] = hero } }
+    fun recordEnemyPick(hero: Hero, slot: Int) {
+        _session.update { s ->
+            s.copy(
+                enemyPicks    = s.enemyPicks.withIndex().map { (i, h) -> if (i == slot) hero else h },
+                currentPickIndex = s.currentPickIndex + 1,
+                undoStack     = s.undoStack + DraftAction.EnemyPick(hero, slot)
+            )
+        }
     }
 
-    fun setOurPick(slot: Int, hero: Hero?) {
-        _ourPicks.update { list -> list.toMutableList().also { it[slot] = hero } }
+    fun recordOurPick(hero: Hero, slot: Int, followedRecommendation: Boolean = false) {
+        _session.update { s ->
+            s.copy(
+                ourPicks         = s.ourPicks.withIndex().map { (i, h) -> if (i == slot) hero else h },
+                currentPickIndex = s.currentPickIndex + 1,
+                undoStack        = s.undoStack + DraftAction.OurPick(hero, slot),
+                followedRecommendations = if (followedRecommendation) s.followedRecommendations + 1 else s.followedRecommendations,
+                totalRecommendations    = s.totalRecommendations + 1
+            )
+        }
     }
 
-    // ── Metadata ──────────────────────────────────────────────────────────────
+    // ── Undo ──────────────────────────────────────────────────────────────────
 
-    private val _ourTeamFirst = MutableStateFlow(true)
-    val ourTeamFirst: StateFlow<Boolean> = _ourTeamFirst.asStateFlow()
-
-    fun setOurTeamFirst(value: Boolean) {
-        _ourTeamFirst.value = value
+    fun undo() {
+        val s = _session.value
+        if (s.undoStack.isEmpty()) return
+        val last = s.undoStack.last()
+        _session.update { current ->
+            when (last) {
+                is DraftAction.OurBan   -> {
+                    val slots = if (last.round == 1) current.ourBansR1.toMutableList()
+                                else current.ourBansR2.toMutableList()
+                    slots[last.slot] = null
+                    if (last.round == 1) current.copy(ourBansR1 = slots, undoStack = current.undoStack.dropLast(1))
+                    else                 current.copy(ourBansR2 = slots, undoStack = current.undoStack.dropLast(1))
+                }
+                is DraftAction.EnemyBan -> {
+                    val slots = if (last.round == 1) current.enemyBansR1.toMutableList()
+                                else current.enemyBansR2.toMutableList()
+                    slots[last.slot] = null
+                    if (last.round == 1) current.copy(enemyBansR1 = slots, undoStack = current.undoStack.dropLast(1))
+                    else                 current.copy(enemyBansR2 = slots, undoStack = current.undoStack.dropLast(1))
+                }
+                is DraftAction.OurPick  -> {
+                    val picks = current.ourPicks.toMutableList()
+                    picks[last.slot] = null
+                    current.copy(ourPicks = picks, currentPickIndex = (current.currentPickIndex - 1).coerceAtLeast(0), undoStack = current.undoStack.dropLast(1))
+                }
+                is DraftAction.EnemyPick -> {
+                    val picks = current.enemyPicks.toMutableList()
+                    picks[last.slot] = null
+                    current.copy(enemyPicks = picks, currentPickIndex = (current.currentPickIndex - 1).coerceAtLeast(0), undoStack = current.undoStack.dropLast(1))
+                }
+                is DraftAction.HeroSwap  -> current.copy(undoStack = current.undoStack.dropLast(1))
+            }
+        }
     }
 
-    private val _rank = MutableStateFlow("Warrior")
-    val rank: StateFlow<String> = _rank.asStateFlow()
+    // ── Trading phase ─────────────────────────────────────────────────────────
 
-    fun setRank(value: String) {
-        _rank.value = value
+    fun swapOurHeroes(fromSlot: Int, toSlot: Int) {
+        _session.update { s ->
+            val picks = s.ourPicks.toMutableList()
+            val temp = picks[fromSlot]
+            picks[fromSlot] = picks[toSlot]
+            picks[toSlot] = temp
+            s.copy(ourPicks = picks, undoStack = s.undoStack + DraftAction.HeroSwap(fromSlot, toSlot))
+        }
     }
 
-    // ── Convenience getters ───────────────────────────────────────────────────
+    fun reset() { _session.value = DraftSession() }
 
-    val bannedIds: Set<Int>
-        get() = (_enemyBans.value + _ourBans.value).mapNotNull { it?.id }.toSet()
+    // ── Rank fallback ─────────────────────────────────────────────────────────
 
-    val pickedIds: Set<Int>
-        get() = (_enemyPicks.value + _ourPicks.value).mapNotNull { it?.id }.toSet()
-
-    // ── Reset ─────────────────────────────────────────────────────────────────
-
-    fun reset() {
-        _phase.value       = DraftPhase.IDLE
-        _enemyBans.value   = List(5) { null }
-        _ourBans.value     = List(5) { null }
-        _enemyPicks.value  = List(5) { null }
-        _ourPicks.value    = List(5) { null }
-        _ourTeamFirst.value = true
-        _rank.value        = "Warrior"
+    fun upgradeRankFromObservedBans(banCount: Int) {
+        val inferred = RankRuleEngine.inferFromBanCount(banCount)
+        if (inferred.ordinal < _session.value.rank.ordinal || _session.value.rank == Rank.UNKNOWN) {
+            val structure = RankRuleEngine.getBanStructure(inferred)
+            _session.update { it.copy(
+                rank         = inferred,
+                banStructure = structure,
+                enemyBansR2  = if (structure.hasRound2) List(structure.round2PerTeam) { null } else emptyList(),
+                ourBansR2    = if (structure.hasRound2) List(structure.round2PerTeam) { null } else emptyList()
+            )}
+        }
     }
 }

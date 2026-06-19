@@ -1,15 +1,9 @@
 package com.mlbb.assistant.domain.model
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 
-/**
- * Pure domain model representing an MLBB hero with current-patch meta data.
- *
- * Annotated [@Stable] so Compose can skip recompositions when the instance
- * has not changed. All properties are immutable [val], satisfying the
- * stability contract without needing [@Immutable].
- */
-@Stable
+@Immutable
 data class Hero(
     val id: Int,
     val name: String,
@@ -31,3 +25,42 @@ data class Hero(
     val isToxicMechanic: Boolean,
     val isOP: Boolean
 )
+
+@Immutable
+data class CoreItem(
+    val id: Int,
+    val name: String,
+    val priority: Int
+)
+
+enum class Lane(val display: String, val shortLabel: String) {
+    EXP("EXP Lane",  "EXP"),
+    GOLD("Gold Lane", "GOLD"),
+    JUNGLE("Jungle", "JGL"),
+    MID("Mid Lane",  "MID"),
+    ROAM("Roam",     "ROAM")
+}
+
+enum class Tier(val display: String, val order: Int) {
+    S_PLUS("S+", 0),
+    S("S",       1),
+    A_PLUS("A+", 2),
+    A("A",       3),
+    B("B",       4),
+    /**
+     * Catch-all for data values not represented above (e.g. "D" in some JSON feeds).
+     * Displayed as-is; treated as lowest priority in scoring.
+     */
+    UNKNOWN("?", 5);
+
+    companion object {
+        fun fromString(value: String): Tier = when (value.uppercase().trim()) {
+            "S+" -> S_PLUS
+            "S"  -> S
+            "A+" -> A_PLUS
+            "A"  -> A
+            "B"  -> B
+            else -> UNKNOWN
+        }
+    }
+}

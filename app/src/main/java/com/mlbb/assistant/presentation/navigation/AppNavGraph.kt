@@ -1,70 +1,122 @@
 package com.mlbb.assistant.presentation.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.mlbb.assistant.data.local.preferences.WizardPreference
+import com.mlbb.assistant.presentation.herodetail.HeroDetailScreen
+import com.mlbb.assistant.presentation.herolist.HeroListScreen
+import com.mlbb.assistant.presentation.herolist.HeroListViewModel
+import com.mlbb.assistant.presentation.history.DraftHistoryScreen
+import com.mlbb.assistant.presentation.home.HomeScreen
+import com.mlbb.assistant.presentation.metaboard.MetaBoardScreen
+import com.mlbb.assistant.presentation.settings.SettingsScreen
+import com.mlbb.assistant.presentation.welcome.PermissionWizardScreen
+import kotlinx.coroutines.launch
 
-/**
- * Navigation graph for the MLBB Draft Assistant.
- *
- * Routes:
- *  - "onboarding"    — first-run wizard (shown when [wizardCompleted] == false)
- *  - "home"          — main hub: meta overview + start draft
- *  - "hero_list"     — browsable hero roster with search and role filters
- *  - "draft"         — live draft assistant (ban/pick phase guidance)
- *  - "history"       — completed session history with follow-rate analytics
- *  - "settings"      — score weight sliders + overlay configuration
- *
- * Removed: the previous implementation read SharedPreferences directly inside
- * this composable to determine the start destination. The flag is now passed
- * in as [wizardCompleted] from [AppShell], which sources it from DataStore.
- */
 @Composable
-fun AppNavGraph(wizardCompleted: Boolean) {
-    val navController = rememberNavController()
-    val startDestination = if (wizardCompleted) "home" else "onboarding"
+fun AppNavGraph(
+    navController:    NavHostController,
+    startAtWizard:    Boolean,
+    onStartOverlay:   () -> Unit,
+    onRequestCapture: () -> Unit,
+    modifier:         Modifier = Modifier
+) {
+    NavHost(
+        navController    = navController,
+        startDestination = if (startAtWizard) AppRoute.Wizard.route else AppRoute.Home.route,
+        modifier         = modifier
+    ) {
+        composable(AppRoute.Wizard.route) {
+            val context = LocalContext.current
+            val scope   = rememberCoroutineScope()
 
-    NavHost(navController = navController, startDestination = startDestination) {
-
-        composable("onboarding") {
-            OnboardingScreen(
+            PermissionWizardScreen(
                 onComplete = {
-                    navController.navigate("home") {
-                        popUpTo("onboarding") { inclusive = true }
+                    scope.launch {
+                        // Persist via DataStore (async, non-blocking, consistent with AppShell).
+                        WizardPreference.setDone(context, done = true)
+                    }
+                    navController.navigate(AppRoute.Home.route) {
+                        popUpTo(AppRoute.Wizard.route) { inclusive = true }
                     }
                 }
             )
         }
 
-        composable("home") {
+        composable(AppRoute.Home.route) {
             HomeScreen(
-                onNavigateToDraft    = { navController.navigate("draft") },
-                onNavigateToHeroes   = { navController.navigate("hero_list") },
-                onNavigateToHistory  = { navController.navigate("history") },
-                onNavigateToSettings = { navController.navigate("settings") }
+                onStartDraft   = onStartOverlay,
+                onOpenExplorer = { navController.navigate(AppRoute.HeroList.route) },
+                onOpenMeta     = { navController.navigate(AppRoute.MetaBoard.route) },
+                onOpenHistory  = { navController.navigate(AppRoute.History.route) },
+                onOpenSettings = { navController.navigate(AppRoute.Settings.route) },
             )
         }
 
-        composable("hero_list") {
+        composable(AppRoute.HeroList.route) {
             HeroListScreen(
+                onHeroClick = { hero ->
+                    navController.navigate(AppRoute.HeroDetail.create(hero.id))
+                },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable("draft") {
-            DraftScreen(
+        composable(
+            route     = AppRoute.HeroDetail.route,
+            arguments = listOf(navArgument(AppRoute.HeroDetail.ARG) { type = NavType.IntType })
+        ) { backStack ->
+            val heroId = backStack.arguments?.getInt(AppRoute.HeroDetail.ARG) ?: return@composable
+            val vm: HeroListViewModel = hiltViewModel()
+            val state by vm.state.collectAsStateWithLifecycle()
+            val heroMap = state.heroes.associateBy { it.id }
+            val hero    = heroMap[heroId]
+            if (hero != null) {
+                HeroDetailScreen(
+                    hero          = hero,
+                    relatedHeroes = heroMap,
+                    onBack        = { navController.popBackStack() }
+                )
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+
+        composable(AppRoute.MetaBoard.route) {
+            val vm: HeroListViewModel = hiltViewModel()
+            val state by vm.state.collectAsStateWithLifecycle()
+            MetaBoardScreen(
+                heroes      = state.heroes,
+                onHeroClick = { hero ->
+                    navController.navigate(AppRoute.HeroDetail.create(hero.id))
+                },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable("history") {
-            HistoryScreen(
+        composable(AppRoute.History.route) {
+            DraftHistoryScreen(
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable("settings") {
+        composable(AppRoute.Settings.route) {
             SettingsScreen(
                 onBack = { navController.popBackStack() }
             )
