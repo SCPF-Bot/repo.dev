@@ -164,6 +164,11 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             intent?.getParcelableExtra(EXTRA_PROJECTION_DATA)
 
         if (resultCode != -1 && projData != null) {
+            // Upgrade the FGS type to include mediaProjection NOW that we have
+            // an authorised token.  On Android 14+ this must happen AFTER the
+            // user has granted consent via MediaProjectionManager — doing it
+            // earlier (e.g. in onCreate) causes a SecurityException.
+            upgradeFgToProjection()
             screenCaptureManager.startCapture(resultCode, projData)
             launchCaptureLoop()
         }
@@ -184,24 +189,71 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     // ── Notification ──────────────────────────────────────────────────────────
 
+    /**
+     * Starts the foreground service notification.
+     *
+     * On Android 14+ (UPSIDE_DOWN_CAKE / API 34) the OS enforces that a
+     * foreground service of type `mediaProjection` may ONLY be started after
+     * the user has explicitly granted a MediaProjection token via the system
+     * screen-capture consent dialog.  Calling `startForeground` with that type
+     * in `onCreate()` — before any projection token is obtained — causes an
+     * immediate SecurityException and kills the service.
+     *
+     * Fix: start with `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` only.  When the
+     * service is later invoked WITH a valid projection token (via
+     * [startWithProjection] → [onStartCommand]), call [upgradeFgToProjection]
+     * to add the `mediaProjection` type at that point.
+     */
     private fun startFg() {
-        val notif = NotificationCompat.Builder(this, NOTIF_CHANNEL)
+        val notif = buildServiceNotification()
+        when {
+            // API 34+: SPECIAL_USE only; mediaProjection is added later in
+            // upgradeFgToProjection() once the user grants capture consent.
+            // Passing mediaProjection here (before the token is obtained) causes
+            // a SecurityException on Android 14+.
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> {
+                startForeground(
+                    NOTIF_ID, notif,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            }
+            // API 29–33: mediaProjection type can be declared before the token
+            // is obtained (the token restriction was added in API 34).
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                startForeground(
+                    NOTIF_ID, notif,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                )
+            }
+            else -> startForeground(NOTIF_ID, notif)
+        }
+    }
+
+    /**
+     * Upgrades the running foreground service to also include the
+     * `mediaProjection` type.  Called from [onStartCommand] only after a valid
+     * projection token is confirmed, satisfying Android 14's requirement.
+     */
+    private fun upgradeFgToProjection() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            runCatching {
+                startForeground(
+                    NOTIF_ID,
+                    buildServiceNotification(),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                )
+            }
+        }
+    }
+
+    private fun buildServiceNotification() =
+        NotificationCompat.Builder(this, NOTIF_CHANNEL)
             .setContentTitle("MLBB Draft Assistant")
             .setContentText("Draft assistant is running")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setOngoing(true)
             .build()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIF_ID, notif,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            )
-        } else {
-            startForeground(NOTIF_ID, notif)
-        }
-    }
 
     private fun createNotificationChannel() {
         val ch = NotificationChannel(
@@ -217,46 +269,42 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      * renders either FloatingBubble (collapsed) or MiniWidget (expanded).
      *
      * ──────────────────────────────────────────────────────────────────────────
-     * DRAG DESIGN — why previous approaches failed
+     * TWO-MODE TOUCH STRATEGY
      * ──────────────────────────────────────────────────────────────────────────
-     * The fundamental contract of Android's View touch system is:
      *
-     *   • A View only remains in the active touch sequence if it returns TRUE
-     *     from onTouchEvent (or its listener) on ACTION_DOWN.
-     *   • If the listener returns TRUE on ACTION_DOWN it CONSUMES the event —
-     *     ComposeView's own onTouchEvent is never called, so Compose never
-     *     registers its gesture detectors and NO click/ripple can fire.
-     *   • Synthetic re-dispatch (fake DOWN+UP) is unreliable: Compose's pointer
-     *     input pipeline does not treat synthetic events identically to real ones
-     *     — in particular, the pointer ID / event time pairing can differ, and
-     *     the re-entrant dispatch path through setOnTouchListener itself can
-     *     silently swallow the fake events.
+     * BUBBLE MODE (collapsed)
+     * ───────────────────────
+     * The bubble renders FloatingBubble which places Modifier.clickable on its
+     * root Box.  When setOnTouchListener returns FALSE from ACTION_DOWN, Compose
+     * arms its clickable gesture detector and claims ownership of the pointer
+     * sequence.  As the finger moves, Compose's detectTapGestures and the
+     * clickable ripple tracker both process MOVE events.  On some devices/ROMs
+     * the internal ACTION_CANCEL we dispatch to v.onTouchEvent() does not fully
+     * cancel Compose's in-flight gesture, so the window drag never starts.
      *
-     * ──────────────────────────────────────────────────────────────────────────
-     * CORRECT PATTERN (per Android WindowManager docs + AOSP BubbleTouchHandler)
-     * ──────────────────────────────────────────────────────────────────────────
-     * 1. Return FALSE on ACTION_DOWN — Compose sees the DOWN, registers its
-     *    gesture detectors, and the ripple / pressedState begins.
-     * 2. Return FALSE on each ACTION_MOVE until the finger exceeds
-     *    ViewConfiguration.scaledTouchSlop — Compose continues tracking.
-     * 3. The moment drag is confirmed, dispatch ACTION_CANCEL to the View
-     *    (v.onTouchEvent) so Compose cleanly tears down its in-flight gesture
-     *    (ripple, long-press, click) without firing a spurious callback.
-     * 4. Return TRUE on all subsequent ACTION_MOVE — we now "own" the sequence;
-     *    Compose correctly ignores them because it received the CANCEL.
-     * 5. Return FALSE on ACTION_UP when NOT dragging — Compose sees UP after
-     *    the DOWN it received, and fires the click/tap handler normally.
-     * 6. Return TRUE on ACTION_UP when dragging — clamp window position, done.
+     * FIX — bubble mode returns TRUE from ACTION_DOWN (claims the sequence
+     * outright, Compose never sees it).  Drag vs tap is detected at the View
+     * level.  On tap (no drag), expandToWidget() is called DIRECTLY — there is
+     * no need for Compose to handle the click because the bubble has exactly ONE
+     * action.
      *
-     * Using ViewConfiguration.scaledTouchSlop (system-defined, accounts for
-     * screen density and accessibility "fat-finger" adjustments) is more correct
-     * than a hardcoded pixel threshold.
+     * WIDGET MODE (expanded)
+     * ──────────────────────
+     * The MiniWidget contains multiple interactive Compose elements (hero chips,
+     * Minimize / Close buttons, START DRAFT, team toggle).  These require Compose
+     * to receive DOWN so their gesture detectors arm properly.
      *
-     * Using initial-based delta (windowX = initialWindowX + totalFingerDx) is
-     * more accurate than per-event delta because it eliminates floating-point
-     * truncation that accumulates over many small MOVE events on slow paths.
-     * FLAG_LAYOUT_NO_LIMITS on both modes ensures WindowManager never clips the
-     * position mid-drag (clampToScreen() runs on ACTION_UP instead).
+     * FIX — widget mode returns FALSE from ACTION_DOWN (Compose sees it).
+     * Sub-slop MOVEs also return FALSE.  Once the drag threshold is exceeded:
+     *   1. ACTION_CANCEL is dispatched to v.onTouchEvent() → Compose tears down
+     *      the in-flight gesture cleanly.
+     *   2. Subsequent MOVEs return TRUE → listener owns the sequence.
+     *   3. ACTION_UP after drag → TRUE (consume).
+     *   4. ACTION_UP after tap  → FALSE (Compose fires the button/chip click).
+     *
+     * Both modes use initial-based delta (windowX = initialX + totalDx) which
+     * is drift-free because FLAG_LAYOUT_NO_LIMITS prevents mid-drag clipping.
+     * ViewConfiguration.scaledTouchSlop is the system-calibrated threshold.
      */
     private fun addOverlayView() {
         overlayParams = buildBubbleParams()
@@ -267,8 +315,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         var initialTouchY  = 0f
         var isDragging     = false
 
-        // System-calibrated touch slop — the minimum finger travel that
-        // distinguishes an intentional drag from an accidental finger wobble.
         val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
 
         overlayView = ComposeView(this).apply {
@@ -300,71 +346,110 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             }
 
             setOnTouchListener { v, event ->
-                when (event.actionMasked) {
-
-                    // ── DOWN ────────────────────────────────────────────────
-                    // Return FALSE so ComposeView.onTouchEvent also receives the
-                    // DOWN event.  This is what arms Compose's gesture detectors
-                    // (click, ripple, long-press).  We record the starting
-                    // positions but do not yet "claim" the touch sequence.
-                    MotionEvent.ACTION_DOWN -> {
-                        initialWindowX = overlayParams.x
-                        initialWindowY = overlayParams.y
-                        initialTouchX  = event.rawX
-                        initialTouchY  = event.rawY
-                        isDragging     = false
-                        false
-                    }
-
-                    // ── MOVE ────────────────────────────────────────────────
-                    MotionEvent.ACTION_MOVE -> {
-                        val totalDx = event.rawX - initialTouchX
-                        val totalDy = event.rawY - initialTouchY
-
-                        if (!isDragging) {
-                            if (abs(totalDx) <= touchSlop && abs(totalDy) <= touchSlop) {
-                                // Still within tap-slop: pass to Compose.
-                                return@setOnTouchListener false
-                            }
-                            // Threshold exceeded → drag begins.
-                            isDragging = true
-
-                            // Cancel Compose's in-flight gesture so it does not
-                            // fire a spurious click or keep the ripple active.
-                            val cancel = MotionEvent.obtain(event).also {
-                                it.action = MotionEvent.ACTION_CANCEL
-                            }
-                            v.onTouchEvent(cancel)
-                            cancel.recycle()
+                if (!isExpanded.value) {
+                    // ════════════════════════════════════════════════════════
+                    // BUBBLE MODE — view-level owns the entire sequence.
+                    // Return TRUE from DOWN so Compose never arms clickable.
+                    // On tap, call expandToWidget() directly.
+                    // ════════════════════════════════════════════════════════
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> {
+                            initialWindowX = overlayParams.x
+                            initialWindowY = overlayParams.y
+                            initialTouchX  = event.rawX
+                            initialTouchY  = event.rawY
+                            isDragging     = false
+                            true  // Claim the sequence; Compose does NOT see DOWN.
                         }
 
-                        // Move the window: initial-based delta is drift-free
-                        // because FLAG_LAYOUT_NO_LIMITS prevents any clipping.
-                        overlayParams.x = (initialWindowX + totalDx).toInt()
-                        overlayParams.y = (initialWindowY + totalDy).toInt()
-                        runCatching { windowManager.updateViewLayout(v, overlayParams) }
-                        true  // We own the sequence from here on.
-                    }
+                        MotionEvent.ACTION_MOVE -> {
+                            val dx = event.rawX - initialTouchX
+                            val dy = event.rawY - initialTouchY
+                            if (!isDragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
+                                isDragging = true
+                            }
+                            if (isDragging) {
+                                overlayParams.x = (initialWindowX + dx).toInt()
+                                overlayParams.y = (initialWindowY + dy).toInt()
+                                runCatching { windowManager.updateViewLayout(v, overlayParams) }
+                            }
+                            true
+                        }
 
-                    // ── UP / CANCEL ─────────────────────────────────────────
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        if (isDragging) {
-                            // Snap to safe bounds after the finger lifts.
-                            clampToScreen()
+                        MotionEvent.ACTION_UP -> {
+                            val wasDragging = isDragging
+                            isDragging = false
+                            if (wasDragging) {
+                                clampToScreen()
+                                runCatching { windowManager.updateViewLayout(v, overlayParams) }
+                            } else {
+                                // Tap — expand to widget directly (no Compose involved).
+                                expandToWidget()
+                            }
+                            true
+                        }
+
+                        MotionEvent.ACTION_CANCEL -> {
+                            isDragging = false
+                            true
+                        }
+
+                        else -> false
+                    }
+                } else {
+                    // ════════════════════════════════════════════════════════
+                    // WIDGET MODE — return FALSE from DOWN so Compose can
+                    // handle hero-chip taps, Start Draft, Minimize, Close.
+                    // Steal the sequence only once drag threshold is exceeded.
+                    // ════════════════════════════════════════════════════════
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> {
+                            initialWindowX = overlayParams.x
+                            initialWindowY = overlayParams.y
+                            initialTouchX  = event.rawX
+                            initialTouchY  = event.rawY
+                            isDragging     = false
+                            false  // Compose sees DOWN → gesture detectors arm.
+                        }
+
+                        MotionEvent.ACTION_MOVE -> {
+                            val dx = event.rawX - initialTouchX
+                            val dy = event.rawY - initialTouchY
+
+                            if (!isDragging) {
+                                if (abs(dx) <= touchSlop && abs(dy) <= touchSlop) {
+                                    return@setOnTouchListener false  // Still a tap candidate.
+                                }
+                                isDragging = true
+                                // Cancel Compose's in-flight gesture so no spurious
+                                // click fires when the finger lifts.
+                                val cancel = MotionEvent.obtain(event).also {
+                                    it.action = MotionEvent.ACTION_CANCEL
+                                }
+                                v.onTouchEvent(cancel)
+                                cancel.recycle()
+                            }
+
+                            overlayParams.x = (initialWindowX + dx).toInt()
+                            overlayParams.y = (initialWindowY + dy).toInt()
                             runCatching { windowManager.updateViewLayout(v, overlayParams) }
-                            isDragging = false
-                            true  // Consume — this was a drag, not a tap.
-                        } else {
-                            isDragging = false
-                            // Return FALSE: Compose has seen DOWN + (zero or sub-slop
-                            // MOVEs) + UP, which is a complete tap gesture.  Compose
-                            // fires the click handler (expandToWidget / button tap)
-                            // naturally without any synthetic re-dispatch.
-                            false
+                            true
                         }
-                    }
 
-                    else -> false
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            if (isDragging) {
+                                clampToScreen()
+                                runCatching { windowManager.updateViewLayout(v, overlayParams) }
+                                isDragging = false
+                                true   // Drag end — consume.
+                            } else {
+                                isDragging = false
+                                false  // Tap — Compose fires the button/chip click.
+                            }
+                        }
+
+                        else -> false
+                    }
                 }
             }
         }
