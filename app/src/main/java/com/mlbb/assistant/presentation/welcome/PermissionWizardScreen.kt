@@ -199,7 +199,7 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
     var currentStep by remember { mutableIntStateOf(0) }
 
     val steps = listOf(
-        // ── Step 1: Draw Over Other Apps ──────────────────────────────────────
+        // ── Step 1: Overlay (Draw Over Other Apps) ────────────────────────────
         PermissionStep(
             icon        = "🖼️",
             title       = "Draw Over Other Apps",
@@ -215,46 +215,17 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                 )
             }
         ),
-        // ── Step 2: Accessibility Service ────────────────────────────────────
+        // ── Step 2: Open New Windows While Running in Background ─────────────
         PermissionStep(
-            icon        = "♿",
-            title       = "Accessibility Service",
-            description = "Detects when MLBB is open and automatically shows the bubble.",
-            why         = "Without this, you must launch the overlay manually from the app.",
-            actionLabel = "Open Accessibility Settings",
-            onAction    = { ctx ->
-                ctx.startActivity(
-                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }
+            icon        = "⚙️",
+            title       = "Open New Windows in Background",
+            description = "Keeps the draft assistant active while MLBB is in the foreground.",
+            why         = "Without this, the overlay is suspended by the OS as soon as you switch to the game, defeating its purpose.",
+            actionLabel = "Open Background Settings",
+            skipLabel   = "Skip for now",
+            onAction    = { ctx -> openBackgroundRunningSettings(ctx) }
         ),
-        // ── Step 3: Screen Capture ────────────────────────────────────────────
-        PermissionStep(
-            icon        = "📽️",
-            title       = "Screen Capture",
-            description = "Reads ban and pick portraits from the MLBB draft screen in real time.",
-            why         = "Without this, hero detection is manual — tap each hero yourself.",
-            actionLabel = "Allow When Prompted",
-            skipLabel   = "Use Manual Mode",
-            onAction    = { /* triggered at draft start via MediaProjection */ }
-        ),
-        // ── Step 4: Notifications ─────────────────────────────────────────────
-        PermissionStep(
-            icon        = "🔔",
-            title       = "Notifications",
-            description = "Shows a persistent notification while the overlay is running.",
-            why         = "Required by Android to run background services reliably.",
-            actionLabel = "Allow Notifications",
-            onAction    = { ctx ->
-                ctx.startActivity(
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }
-        ),
-        // ── Step 5: Battery Optimisation ─────────────────────────────────────
+        // ── Step 3: Battery Optimisation ─────────────────────────────────────
         PermissionStep(
             icon        = "🔋",
             title       = "Disable Battery Optimisation",
@@ -281,7 +252,7 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                 }
             }
         ),
-        // ── Step 6: App Auto-Start ────────────────────────────────────────────
+        // ── Step 4: App Auto-Start ────────────────────────────────────────────
         PermissionStep(
             icon        = "🚀",
             title       = "App Auto-Start",
@@ -291,10 +262,10 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
             skipLabel   = "My phone doesn't have this",
             onAction    = { ctx -> openAutoStartSettings(ctx) }
         ),
-        // ── Step 7: Restricted Settings (Android 12+) ────────────────────────
+        // ── Step 5: Restricted Settings (Android 12+) ────────────────────────
         PermissionStep(
             icon        = "🔓",
-            title       = "Unrestricted / Restricted Settings",
+            title       = "Restricted Settings",
             description = "On Android 12 and newer, sideloaded apps need explicit permission to use certain protected features (overlay, accessibility).",
             why         = "If you installed this app outside the Play Store, Android may block the permissions above until you tap 'Allow restricted settings' in App Info.",
             actionLabel = "Open App Info",
@@ -308,15 +279,19 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                 )
             }
         ),
-        // ── Step 8: Background Running ────────────────────────────────────────
+        // ── Step 6: Accessibility Service ─────────────────────────────────────
         PermissionStep(
-            icon        = "⚙️",
-            title       = "Allow Background Running",
-            description = "Keeps the draft assistant active while MLBB is in the foreground.",
-            why         = "Without this, the overlay is suspended by the OS as soon as you switch to the game, defeating its purpose.",
-            actionLabel = "Open Background Settings",
-            skipLabel   = "Skip for now",
-            onAction    = { ctx -> openBackgroundRunningSettings(ctx) }
+            icon        = "♿",
+            title       = "Accessibility Service",
+            description = "Detects when MLBB is open and automatically shows the bubble.",
+            why         = "Without this, you must launch the overlay manually from the app.",
+            actionLabel = "Open Accessibility Settings",
+            onAction    = { ctx ->
+                ctx.startActivity(
+                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
         )
     )
 

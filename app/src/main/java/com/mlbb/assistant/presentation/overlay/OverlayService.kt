@@ -213,35 +213,63 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     // ── Single overlay view (bubble ↔ mini-widget) ────────────────────────────
 
     /**
-     * Creates the one ComposeView that lives for the service's entire lifetime.
-     * It renders FloatingBubble in collapsed mode and MiniWidget in expanded mode.
+     * Creates the ComposeView that lives for the service's entire lifetime and
+     * renders either FloatingBubble (collapsed) or MiniWidget (expanded).
      *
-     * Drag is handled at the View level so it works in both modes without
-     * interfering with child-composable click events.
+     * ──────────────────────────────────────────────────────────────────────────
+     * DRAG DESIGN — why previous approaches failed
+     * ──────────────────────────────────────────────────────────────────────────
+     * The fundamental contract of Android's View touch system is:
      *
-     * Implementation notes:
-     *  ─ We use a **delta-from-last** approach (track rawX/rawY from each MOVE event)
-     *    rather than delta-from-initial. This prevents accumulated drift when the
-     *    WindowManager clamps position at screen edges and then the user drags back.
-     *  ─ ACTION_DOWN records the initial touch so we can compute the total movement
-     *    for the drag-threshold check (< 10 dp → treat as tap, not drag).
-     *  ─ ACTION_UP clamps the widget to screen after a drag so it never lands
-     *    partially off-screen.
-     *  ─ ACTION_CANCEL resets state cleanly (system gesture intercept, multi-touch).
-     *  ─ isForwardingClick guards against re-entrant dispatch when we synthetically
-     *    re-send DOWN+UP so Compose sees the tap.
-     *  ─ FLAG_LAYOUT_NO_LIMITS is kept for BOTH bubble and widget so the window
-     *    manager never clips the view while a finger is still moving; clampToScreen()
-     *    is called on ACTION_UP instead.
+     *   • A View only remains in the active touch sequence if it returns TRUE
+     *     from onTouchEvent (or its listener) on ACTION_DOWN.
+     *   • If the listener returns TRUE on ACTION_DOWN it CONSUMES the event —
+     *     ComposeView's own onTouchEvent is never called, so Compose never
+     *     registers its gesture detectors and NO click/ripple can fire.
+     *   • Synthetic re-dispatch (fake DOWN+UP) is unreliable: Compose's pointer
+     *     input pipeline does not treat synthetic events identically to real ones
+     *     — in particular, the pointer ID / event time pairing can differ, and
+     *     the re-entrant dispatch path through setOnTouchListener itself can
+     *     silently swallow the fake events.
+     *
+     * ──────────────────────────────────────────────────────────────────────────
+     * CORRECT PATTERN (per Android WindowManager docs + AOSP BubbleTouchHandler)
+     * ──────────────────────────────────────────────────────────────────────────
+     * 1. Return FALSE on ACTION_DOWN — Compose sees the DOWN, registers its
+     *    gesture detectors, and the ripple / pressedState begins.
+     * 2. Return FALSE on each ACTION_MOVE until the finger exceeds
+     *    ViewConfiguration.scaledTouchSlop — Compose continues tracking.
+     * 3. The moment drag is confirmed, dispatch ACTION_CANCEL to the View
+     *    (v.onTouchEvent) so Compose cleanly tears down its in-flight gesture
+     *    (ripple, long-press, click) without firing a spurious callback.
+     * 4. Return TRUE on all subsequent ACTION_MOVE — we now "own" the sequence;
+     *    Compose correctly ignores them because it received the CANCEL.
+     * 5. Return FALSE on ACTION_UP when NOT dragging — Compose sees UP after
+     *    the DOWN it received, and fires the click/tap handler normally.
+     * 6. Return TRUE on ACTION_UP when dragging — clamp window position, done.
+     *
+     * Using ViewConfiguration.scaledTouchSlop (system-defined, accounts for
+     * screen density and accessibility "fat-finger" adjustments) is more correct
+     * than a hardcoded pixel threshold.
+     *
+     * Using initial-based delta (windowX = initialWindowX + totalFingerDx) is
+     * more accurate than per-event delta because it eliminates floating-point
+     * truncation that accumulates over many small MOVE events on slow paths.
+     * FLAG_LAYOUT_NO_LIMITS on both modes ensures WindowManager never clips the
+     * position mid-drag (clampToScreen() runs on ACTION_UP instead).
      */
     private fun addOverlayView() {
         overlayParams = buildBubbleParams()
 
-        // Touch-tracking state — captured at ACTION_DOWN, updated each MOVE.
-        var downRawX      = 0f;  var downRawY      = 0f   // initial touch (for threshold)
-        var lastRawX      = 0f;  var lastRawY      = 0f   // previous MOVE position (for delta)
-        var isDragging    = false
-        var isForwardingClick = false
+        var initialWindowX = 0
+        var initialWindowY = 0
+        var initialTouchX  = 0f
+        var initialTouchY  = 0f
+        var isDragging     = false
+
+        // System-calibrated touch slop — the minimum finger travel that
+        // distinguishes an intentional drag from an accidental finger wobble.
+        val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
 
         overlayView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@OverlayService)
@@ -272,82 +300,68 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             }
 
             setOnTouchListener { v, event ->
-                // Let synthetic re-dispatched tap events pass straight to Compose.
-                if (isForwardingClick) return@setOnTouchListener false
+                when (event.actionMasked) {
 
-                val dragThresholdPx = 10f * resources.displayMetrics.density
-
-                when (event.action) {
+                    // ── DOWN ────────────────────────────────────────────────
+                    // Return FALSE so ComposeView.onTouchEvent also receives the
+                    // DOWN event.  This is what arms Compose's gesture detectors
+                    // (click, ripple, long-press).  We record the starting
+                    // positions but do not yet "claim" the touch sequence.
                     MotionEvent.ACTION_DOWN -> {
-                        downRawX  = event.rawX;  downRawY  = event.rawY
-                        lastRawX  = event.rawX;  lastRawY  = event.rawY
-                        isDragging = false
-                        // Claim the touch sequence so we receive MOVE + UP.
-                        true
+                        initialWindowX = overlayParams.x
+                        initialWindowY = overlayParams.y
+                        initialTouchX  = event.rawX
+                        initialTouchY  = event.rawY
+                        isDragging     = false
+                        false
                     }
 
+                    // ── MOVE ────────────────────────────────────────────────
                     MotionEvent.ACTION_MOVE -> {
-                        val totalDx = event.rawX - downRawX
-                        val totalDy = event.rawY - downRawY
+                        val totalDx = event.rawX - initialTouchX
+                        val totalDy = event.rawY - initialTouchY
 
-                        if (!isDragging &&
-                            abs(totalDx) < dragThresholdPx &&
-                            abs(totalDy) < dragThresholdPx
-                        ) {
-                            // Finger hasn't moved far enough — not a drag yet.
-                            return@setOnTouchListener true
+                        if (!isDragging) {
+                            if (abs(totalDx) <= touchSlop && abs(totalDy) <= touchSlop) {
+                                // Still within tap-slop: pass to Compose.
+                                return@setOnTouchListener false
+                            }
+                            // Threshold exceeded → drag begins.
+                            isDragging = true
+
+                            // Cancel Compose's in-flight gesture so it does not
+                            // fire a spurious click or keep the ripple active.
+                            val cancel = MotionEvent.obtain(event).also {
+                                it.action = MotionEvent.ACTION_CANCEL
+                            }
+                            v.onTouchEvent(cancel)
+                            cancel.recycle()
                         }
 
-                        // Delta-from-last: move the window by exactly how far the finger
-                        // moved since the previous MOVE event. This avoids drift when the
-                        // WindowManager previously clamped the position.
-                        isDragging = true
-                        val deltaX = (event.rawX - lastRawX).toInt()
-                        val deltaY = (event.rawY - lastRawY).toInt()
-                        lastRawX = event.rawX
-                        lastRawY = event.rawY
-
-                        overlayParams.x += deltaX
-                        overlayParams.y += deltaY
+                        // Move the window: initial-based delta is drift-free
+                        // because FLAG_LAYOUT_NO_LIMITS prevents any clipping.
+                        overlayParams.x = (initialWindowX + totalDx).toInt()
+                        overlayParams.y = (initialWindowY + totalDy).toInt()
                         runCatching { windowManager.updateViewLayout(v, overlayParams) }
-                        true
+                        true  // We own the sequence from here on.
                     }
 
-                    MotionEvent.ACTION_UP -> {
+                    // ── UP / CANCEL ─────────────────────────────────────────
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         if (isDragging) {
-                            // Snap to screen bounds only after the finger lifts — smooth drag,
-                            // safe final position.
+                            // Snap to safe bounds after the finger lifts.
                             clampToScreen()
                             runCatching { windowManager.updateViewLayout(v, overlayParams) }
+                            isDragging = false
+                            true  // Consume — this was a drag, not a tap.
                         } else {
-                            // It was a tap — re-dispatch as synthetic DOWN+UP so Compose
-                            // handles the click. isForwardingClick prevents this listener
-                            // from consuming the synthetic events before Compose sees them.
-                            isForwardingClick = true
-                            val fakeDown = MotionEvent.obtain(
-                                event.downTime, event.eventTime,
-                                MotionEvent.ACTION_DOWN, event.x, event.y, 0
-                            )
-                            v.dispatchTouchEvent(fakeDown)
-                            fakeDown.recycle()
-
-                            val fakeUp = MotionEvent.obtain(
-                                event.downTime, event.eventTime,
-                                MotionEvent.ACTION_UP, event.x, event.y, 0
-                            )
-                            v.dispatchTouchEvent(fakeUp)
-                            fakeUp.recycle()
-                            isForwardingClick = false
+                            isDragging = false
+                            // Return FALSE: Compose has seen DOWN + (zero or sub-slop
+                            // MOVEs) + UP, which is a complete tap gesture.  Compose
+                            // fires the click handler (expandToWidget / button tap)
+                            // naturally without any synthetic re-dispatch.
+                            false
                         }
-                        isDragging = false
-                        true
-                    }
-
-                    MotionEvent.ACTION_CANCEL -> {
-                        // System intercepted the gesture (e.g. navigation gesture, multi-touch).
-                        // Reset state without re-dispatching.
-                        isDragging = false
-                        true
                     }
 
                     else -> false

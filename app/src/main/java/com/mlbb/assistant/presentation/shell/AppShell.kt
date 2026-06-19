@@ -6,6 +6,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Leaderboard
@@ -43,6 +44,7 @@ private val NAV_ITEMS = listOf(
     BottomNavItem(AppRoute.MetaBoard.route, Icons.Rounded.Leaderboard, "Meta"),
     BottomNavItem(AppRoute.History.route,   Icons.Rounded.History,     "History"),
     BottomNavItem(AppRoute.Settings.route,  Icons.Rounded.Settings,    "Settings"),
+    BottomNavItem(AppRoute.CrashLog.route,  Icons.Rounded.BugReport,   "Log"),
 )
 
 /**
@@ -59,8 +61,6 @@ fun AppShell(
 ) {
     val context = LocalContext.current
 
-    // Read wizard_done from DataStore asynchronously.
-    // Default is true (show main screen) to avoid a flicker if DataStore is slow to load.
     val wizardDone by produceState(initialValue = true, context) {
         WizardPreference.observe(context).collect { done ->
             value = done

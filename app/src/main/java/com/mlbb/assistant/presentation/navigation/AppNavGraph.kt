@@ -22,6 +22,7 @@ import com.mlbb.assistant.presentation.herolist.HeroListScreen
 import com.mlbb.assistant.presentation.herolist.HeroListViewModel
 import com.mlbb.assistant.presentation.history.DraftHistoryScreen
 import com.mlbb.assistant.presentation.home.HomeScreen
+import com.mlbb.assistant.presentation.log.LogScreen
 import com.mlbb.assistant.presentation.metaboard.MetaBoardScreen
 import com.mlbb.assistant.presentation.settings.SettingsScreen
 import com.mlbb.assistant.presentation.welcome.PermissionWizardScreen
@@ -47,7 +48,6 @@ fun AppNavGraph(
             PermissionWizardScreen(
                 onComplete = {
                     scope.launch {
-                        // Persist via DataStore (async, non-blocking, consistent with AppShell).
                         WizardPreference.setDone(context, done = true)
                     }
                     navController.navigate(AppRoute.Home.route) {
@@ -118,6 +118,12 @@ fun AppNavGraph(
 
         composable(AppRoute.Settings.route) {
             SettingsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(AppRoute.CrashLog.route) {
+            LogScreen(
                 onBack = { navController.popBackStack() }
             )
         }

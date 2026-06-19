@@ -371,4 +371,81 @@ Called from `MiniWidget.onStartDraft`. Calls `resetDraftTracking()`, then `draft
 
 ---
 
+## 9. Phase 6 Changes (2026-06-19)
+
+### 9.1 LeakCanary Removed
+
+| File | Change |
+|------|--------|
+| `gradle/libs.versions.toml` | Removed `leakcanary = "2.14"` version entry and `leakcanary` library entry |
+| `app/build.gradle.kts` | Removed `debugImplementation(libs.leakcanary)` and its comment block |
+
+**Rationale:** LeakCanary adds ~2 MB to the debug APK, slows startup via its `AppWatcher` hooks, and conflicts with the overlay service's lifecycle setup.  Memory-leak detection is deferred to the Android Studio Memory Profiler for targeted sessions.
+
+---
+
+### 9.2 Built-in Crash / Error Log Tab
+
+New files:
+
+| File | Description |
+|------|-------------|
+| `data/local/crashlog/CrashLogStore.kt` | Append-only flat-file log in `filesDir/mlbb_crash_log.txt`.  Encodes entries as pipe-delimited lines; stack traces as TAB-prefixed continuation lines.  Auto-rotates at 512 KB (halves the file). |
+| `data/local/crashlog/AppLogTree.kt` | `Timber.Tree` subclass — captures WARN / ERROR / ASSERT priority logs and writes them via `CrashLogStore.appendSync()`.  Also exposes `installCrashHandler()` which wraps `Thread.defaultUncaughtExceptionHandler` to persist crash stack traces before the process dies. |
+| `presentation/log/LogViewModel.kt` | `@HiltViewModel`; exposes `LogScreenState(entries, isLoading)` via `StateFlow`; provides `load()` and `clear()`. |
+| `presentation/log/LogScreen.kt` | Composable — reverse-chronological list of log entries.  Each card shows level badge, tag, timestamp, message, and an expandable stack-trace section.  Toolbar actions: Refresh, Share (system share sheet), Clear (with confirmation dialog), Copy per-entry. |
+
+Updated files:
+
+| File | Change |
+|------|--------|
+| `MLBBApplication.kt` | `installCrashHandler()` called first in `onCreate()`, then `Timber.plant(AppLogTree(...))` planted unconditionally (both release and debug). |
+| `presentation/navigation/AppRoute.kt` | Added `AppRoute.CrashLog("crash_log")`; added route to `TOP_LEVEL_ROUTES`. |
+| `presentation/navigation/AppNavGraph.kt` | Added `composable(AppRoute.CrashLog.route) { LogScreen(onBack = ...) }`. |
+| `presentation/shell/AppShell.kt` | Added `BottomNavItem(AppRoute.CrashLog.route, Icons.Rounded.BugReport, "Log")` to `NAV_ITEMS`. |
+
+---
+
+### 9.3 MiniWidget — Unified Ban + Pick Panel
+
+**Problem:** The widget previously showed either ban suggestions OR pick suggestions depending on the current phase.  Users had to minimise and re-expand the bubble to see the other section.
+
+**Fix:** `MiniWidget.kt` rewritten.  For any active draft phase (`BAN_ROUND_1`, `BAN_ROUND_2`, `PICK`, `TRADING`) the body now renders `ActiveDraftBody`, a single scrollable column that always contains:
+
+1. **⛔ BAN section** — turn indicator (YOUR TURN TO BAN / Enemy banning…) + "TOP BANS" row (up to 3 chips)
+2. A thin gold divider
+3. **✅ PICK section** — turn badge (YOUR TURN / ENEMY TURN + pick number) + "TOP PICKS" row (up to 3 chips) + first enemy warning if any
+4. A thin gold divider  
+5. **Slot overview dots** — ban slots (E / Y) then pick slots (E / Y), filled = hero assigned
+
+`IDLE`/`SETUP` still shows the START DRAFT flow.  `COMPLETE` shows the close button.
+
+The `IdleBody` also gains the ALLY / ENEMY team-first toggle buttons from the previous session.
+
+---
+
+### 9.4 Overlay Drag — Definitive Fix
+
+**Root cause of all previous drag failures:**
+
+Returning `true` from `setOnTouchListener` on `ACTION_DOWN` consumes the event before `ComposeView.onTouchEvent()` is called.  Compose never sees the DOWN event, so its gesture-detector pipeline is never armed — clicks, ripples, and press-states all break.  The synthetic re-dispatch workaround (`MotionEvent.obtain` + `dispatchTouchEvent`) is unreliable because Compose's pointer-input system does not treat synthetic events the same as real hardware events (pointer-ID / event-time pairing differs, and the listener can swallow the fake events before Compose does).
+
+**Correct pattern (per Android WindowManager docs + AOSP `BubbleTouchHandler`):**
+
+| Event | Return value | Why |
+|-------|-------------|-----|
+| `ACTION_DOWN` | `false` | Compose sees DOWN → gesture detectors arm, ripple starts |
+| `ACTION_MOVE` (within slop) | `false` | Compose continues tracking; we don't yet know if it's a drag |
+| `ACTION_MOVE` (exceeds slop — first time) | `true` after sending `ACTION_CANCEL` to `v.onTouchEvent()` | Cancel tears down Compose's in-flight gesture cleanly; we now own the sequence |
+| `ACTION_MOVE` (subsequent drag) | `true` | Window moves with the finger |
+| `ACTION_UP` / `ACTION_CANCEL` (was dragging) | `true` | Clamp to screen bounds, consume |
+| `ACTION_UP` (was NOT dragging = tap) | `false` | Compose sees UP → fires the click callback naturally — no synthetic re-dispatch needed |
+
+Additional improvements:
+- `ViewConfiguration.get(this).scaledTouchSlop` replaces the hardcoded 10 dp threshold (system-calibrated for density + accessibility settings).
+- Initial-based delta (`newX = initialWindowX + totalFingerDx`) replaces per-event delta; eliminates floating-point truncation drift over long drags.
+- `isForwardingClick` flag and all synthetic `MotionEvent.obtain` / `dispatchTouchEvent` calls removed.
+
+---
+
 *End of report.*

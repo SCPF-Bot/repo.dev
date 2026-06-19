@@ -117,9 +117,6 @@ dependencies {
     // Logging
     implementation(libs.timber)
 
-    // Memory leak detection (debug only)
-    debugImplementation(libs.leakcanary)
-
     // Unit tests
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

@@ -7,6 +7,7 @@ sealed class AppRoute(val route: String) {
     data object MetaBoard : AppRoute("meta_board")
     data object History   : AppRoute("history")
     data object Settings  : AppRoute("settings")
+    data object CrashLog  : AppRoute("crash_log")
 
     data object HeroDetail : AppRoute("hero_detail/{heroId}") {
         const val ARG = "heroId"
@@ -20,4 +21,5 @@ val TOP_LEVEL_ROUTES = setOf(
     AppRoute.MetaBoard.route,
     AppRoute.History.route,
     AppRoute.Settings.route,
+    AppRoute.CrashLog.route,
 )
