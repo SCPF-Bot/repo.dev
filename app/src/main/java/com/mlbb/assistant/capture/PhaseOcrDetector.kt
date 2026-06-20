@@ -66,20 +66,29 @@ object PhaseOcrDetector {
                 Class.forName("com.google.mlkit.vision.common.InputImage"))
             val task = processMethod.invoke(recognizer, inputImage)
 
-            val addListenerMethod = task.javaClass.getMethod("addOnSuccessListener",
-                com.google.android.gms.tasks.OnSuccessListener::class.java)
-            addListenerMethod.invoke(task, com.google.android.gms.tasks.OnSuccessListener<Any> { result ->
+            val successListenerClass = Class.forName("com.google.android.gms.tasks.OnSuccessListener")
+            val addListenerMethod = task.javaClass.getMethod("addOnSuccessListener", successListenerClass)
+            addListenerMethod.invoke(task, java.lang.reflect.Proxy.newProxyInstance(
+                successListenerClass.classLoader,
+                arrayOf(successListenerClass)
+            ) { _, _, args ->
                 crop.recycle()
-                val getText = result.javaClass.getMethod("getText")
-                val text    = (getText.invoke(result) as? String)?.uppercase() ?: ""
+                val result  = args?.getOrNull(0)
+                val getText = result?.javaClass?.getMethod("getText")
+                val text    = (getText?.invoke(result) as? String)?.uppercase() ?: ""
                 onResult(classifyText(text))
+                null
             })
 
-            val addFailureMethod = task.javaClass.getMethod("addOnFailureListener",
-                com.google.android.gms.tasks.OnFailureListener::class.java)
-            addFailureMethod.invoke(task, com.google.android.gms.tasks.OnFailureListener {
+            val failureListenerClass = Class.forName("com.google.android.gms.tasks.OnFailureListener")
+            val addFailureMethod = task.javaClass.getMethod("addOnFailureListener", failureListenerClass)
+            addFailureMethod.invoke(task, java.lang.reflect.Proxy.newProxyInstance(
+                failureListenerClass.classLoader,
+                arrayOf(failureListenerClass)
+            ) { _, _, _ ->
                 crop.recycle()
                 onResult(OcrResult(DetectedPhase.UNKNOWN, 0f))
+                null
             })
         }.onFailure {
             crop.recycle()
