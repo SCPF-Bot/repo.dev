@@ -17,6 +17,8 @@ datastore           = "1.1.4"
 coroutines          = "1.10.1"
 navigationCompose   = "2.9.0"
 savedstate          = "1.2.1"
+paging              = "3.3.6"
+robolectric         = "4.14.1"
 timber              = "5.0.1"
 junit               = "4.13.2"
 junitExt            = "1.2.1"
@@ -55,6 +57,10 @@ coil-compose                       = { group = "io.coil-kt.coil3",           nam
 coil-network                       = { group = "io.coil-kt.coil3",           name = "coil-network-okhttp",            version.ref = "coil" }
 datastore-preferences              = { group = "androidx.datastore",         name = "datastore-preferences",          version.ref = "datastore" }
 savedstate                         = { group = "androidx.savedstate",        name = "savedstate-ktx",                 version.ref = "savedstate" }
+paging-runtime                     = { group = "androidx.paging",            name = "paging-runtime",                 version.ref = "paging" }
+paging-compose                     = { group = "androidx.paging",            name = "paging-compose",                 version.ref = "paging" }
+room-paging                        = { group = "androidx.room",              name = "room-paging",                    version.ref = "room" }
+robolectric                        = { group = "org.robolectric",            name = "robolectric",                    version.ref = "robolectric" }
 kotlinx-coroutines-android         = { group = "org.jetbrains.kotlinx",      name = "kotlinx-coroutines-android",     version.ref = "coroutines" }
 kotlinx-coroutines-test            = { group = "org.jetbrains.kotlinx",      name = "kotlinx-coroutines-test",        version.ref = "coroutines" }
 timber                             = { group = "com.jakewharton.timber",      name = "timber",                         version.ref = "timber" }

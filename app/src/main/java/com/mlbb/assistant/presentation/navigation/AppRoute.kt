@@ -8,10 +8,16 @@ sealed class AppRoute(val route: String) {
     data object History   : AppRoute("history")
     data object Settings  : AppRoute("settings")
     data object CrashLog  : AppRoute("crash_log")
+    data object HeroPool  : AppRoute("hero_pool")
 
     data object HeroDetail : AppRoute("hero_detail/{heroId}") {
         const val ARG = "heroId"
         fun create(heroId: Int) = "hero_detail/$heroId"
+    }
+
+    data object DraftReplay : AppRoute("draft_replay/{sessionId}") {
+        const val ARG = "sessionId"
+        fun create(sessionId: Int) = "draft_replay/$sessionId"
     }
 }
 

@@ -3,6 +3,7 @@ package com.mlbb.assistant.domain.advisor
 import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
+import com.mlbb.assistant.domain.advisor.CompositionArchetype
 
 /**
  * Composition snapshot derived from the current set of heroes.
@@ -32,11 +33,6 @@ object CompositionAnalyzer {
     private val sustainRoles = setOf("Support", "Fighter")
     private val highCCRoles  = setOf("Tank", "Support")
 
-    private val ccHeroes = setOf(
-        "Tigreal", "Atlas", "Khufra", "Franco", "Johnson",
-        "Chou", "Jawhead", "Kaja", "Aurora", "Selena"
-    )
-
     fun analyze(heroes: List<Hero>): CompositionProfile {
         if (heroes.isEmpty()) return CompositionProfile(0f, 0f, CCLevel.NONE, MobilityLevel.LOW, SustainLevel.LOW, emptyList())
 
@@ -45,7 +41,8 @@ object CompositionAnalyzer {
         val magicPct      = magicCount.toFloat()   / heroes.size
         val physicalPct   = physicalCount.toFloat() / heroes.size
 
-        val ccCount      = heroes.count { it.name in ccHeroes || it.role in highCCRoles }
+        // TD-01: Use hasCCUlt field instead of a hardcoded name-based CC list.
+        val ccCount      = heroes.count { it.hasCCUlt || it.role in highCCRoles }
         val mobCount     = heroes.count { it.role in highMobRoles }
         val sustainCount = heroes.count { it.role in sustainRoles }
 
@@ -100,6 +97,20 @@ object CompositionAnalyzer {
     fun getMissingLanes(picks: List<Hero>): List<Lane> {
         val filled = getLanesFilled(picks)
         return Lane.entries.filter { filled[it] == null }
+    }
+
+    // ── Archetype detection (Section 3.3.2) ───────────────────────────────────
+
+    /**
+     * Detects the primary [CompositionArchetype] for [heroes].
+     * Requires at least 2 heroes for a meaningful result.
+     */
+    fun detectArchetype(heroes: List<Hero>): CompositionArchetype {
+        if (heroes.size < 2) return CompositionArchetype.BALANCED
+        val profile   = analyze(heroes)
+        val roles     = heroes.map { it.role }
+        val ccUltCnt  = heroes.count { it.hasCCUlt }
+        return CompositionArchetype.detect(profile, roles, ccUltCnt)
     }
 
     fun generateStrengths(profile: CompositionProfile): List<String> = buildList {

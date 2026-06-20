@@ -27,11 +27,20 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import android.app.PendingIntent
+import android.provider.Settings as SystemSettings
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import coil3.ImageLoader
 import com.mlbb.assistant.capture.PhaseDetector
 import com.mlbb.assistant.capture.PortraitMatcher
 import com.mlbb.assistant.capture.SlotRegionF
 import com.mlbb.assistant.capture.SlotRegions
+import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.advisor.BanRecommender
 import com.mlbb.assistant.domain.advisor.BanSuggestion
 import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
@@ -54,6 +63,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,6 +76,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     // ── Hilt ──────────────────────────────────────────────────────────────────
     @Inject lateinit var draftSessionManager: DraftSessionManager
     @Inject lateinit var getHeroesUseCase: GetHeroesUseCase
+    @Inject lateinit var dataStore: DataStore<Preferences>
 
     // ── Lifecycle + SavedState (ComposeView in a Service requires both) ───────
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -113,6 +124,19 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         const val EXTRA_RESULT_CODE     = "extra_result_code"
         const val EXTRA_PROJECTION_DATA = "extra_projection_data"
 
+        // ── DataStore keys ────────────────────────────────────────────────
+        // TD-12: Bubble position persistence
+        val KEY_BUBBLE_X = floatPreferencesKey("overlay_bubble_x")
+        val KEY_BUBBLE_Y = floatPreferencesKey("overlay_bubble_y")
+
+        // 3.1.1: Session snapshot keys
+        val KEY_SESSION_PHASE      = stringPreferencesKey("session_phase")
+        val KEY_SESSION_RANK       = stringPreferencesKey("session_rank")
+        val KEY_SESSION_FIRST_PICK = booleanPreferencesKey("session_our_team_first")
+
+        // 3.1.2: Notification action ID
+        const val ACTION_RELAUNCH_OVERLAY = "com.mlbb.assistant.ACTION_RELAUNCH_OVERLAY"
+
         fun start(context: Context) =
             context.startForegroundService(Intent(context, OverlayService::class.java))
 
@@ -151,6 +175,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         addOverlayView()
         loadHeroes()
         observeSession()
+        // 3.1.1: Restore any in-progress session snapshot from a previous run.
+        serviceScope.launch { restoreSessionSnapshot() }
+        // 3.1.3: Start accessibility / overlay-permission watchdog.
+        startPermissionWatchdog()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -162,6 +190,19 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             intent?.getParcelableExtra(EXTRA_PROJECTION_DATA, Intent::class.java)
         else
             intent?.getParcelableExtra(EXTRA_PROJECTION_DATA)
+
+        // 3.1.4: If overlay permission was revoked while the service was stopped,
+        // stop immediately to avoid a WindowManager crash on addView().
+        if (!SystemSettings.canDrawOverlays(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // 3.1.2: Handle the "Relaunch Overlay" notification tap.
+        if (intent?.action == ACTION_RELAUNCH_OVERLAY) {
+            if (!isExpanded.value) expandToWidget()
+            return START_STICKY
+        }
 
         if (resultCode != -1 && projData != null) {
             // Upgrade the FGS type to include mediaProjection NOW that we have
@@ -247,13 +288,29 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
     }
 
-    private fun buildServiceNotification() =
-        NotificationCompat.Builder(this, NOTIF_CHANNEL)
+    /**
+     * 3.1.2: Notification includes a "Relaunch Overlay" action so the user
+     * can restore the widget after accidentally dismissing it without opening
+     * the main app.
+     */
+    private fun buildServiceNotification(): android.app.Notification {
+        val relaunchPi = PendingIntent.getService(
+            this, 0,
+            Intent(this, OverlayService::class.java).setAction(ACTION_RELAUNCH_OVERLAY),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(this, NOTIF_CHANNEL)
             .setContentTitle("MLBB Draft Assistant")
             .setContentText("Draft assistant is running")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setOngoing(true)
+            .addAction(
+                android.R.drawable.ic_media_play,
+                getString(R.string.overlay_notification_action_relaunch),
+                relaunchPi
+            )
             .build()
+    }
 
     private fun createNotificationChannel() {
         val ch = NotificationChannel(
@@ -308,6 +365,17 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      */
     private fun addOverlayView() {
         overlayParams = buildBubbleParams()
+        // TD-12: Restore last saved bubble position from DataStore so the
+        // overlay reappears where the user left it after a service restart.
+        serviceScope.launch {
+            val (savedX, savedY) = readSavedBubblePosition()
+            withContext(Dispatchers.Main) {
+                overlayParams.x = savedX
+                overlayParams.y = savedY
+                // Don't call updateViewLayout yet — the view is added below;
+                // the initial params already carry the restored position.
+            }
+        }
 
         var initialWindowX = 0
         var initialWindowY = 0
@@ -382,6 +450,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             if (wasDragging) {
                                 clampToScreen()
                                 runCatching { windowManager.updateViewLayout(v, overlayParams) }
+                                // TD-12: Persist bubble position after drag completes.
+                                saveBubblePosition(overlayParams.x, overlayParams.y)
                             } else {
                                 // Tap — expand to widget directly (no Compose involved).
                                 expandToWidget()
@@ -593,6 +663,9 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 if (session.phase == DraftPhase.BAN_ROUND_1 && !isExpanded.value) {
                     expandToWidget()
                 }
+                // 3.1.1: Persist session snapshot after each update so the
+                // service can restore an in-progress draft after a restart.
+                saveSessionSnapshot(session)
             }
         }
     }
@@ -788,5 +861,103 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private fun resetDraftTracking() {
         filledEnemyBanSlots.clear(); filledOurBanSlots.clear()
         filledEnemyPickSlots.clear(); filledOurPickSlots.clear()
+    }
+
+    // ── 3.1.1 Session snapshot persistence ───────────────────────────────────
+
+    /**
+     * Saves the minimal session state needed to restore an in-progress draft
+     * after the service is killed and restarted (e.g. memory pressure).
+     * Only non-IDLE, non-COMPLETE phases are persisted.
+     */
+    private fun saveSessionSnapshot(session: DraftSession) {
+        serviceScope.launch(Dispatchers.IO) {
+            dataStore.edit { prefs ->
+                prefs[KEY_SESSION_PHASE]      = session.phase.name
+                prefs[KEY_SESSION_RANK]       = session.rank.name
+                prefs[KEY_SESSION_FIRST_PICK] = session.ourTeamFirst
+            }
+        }
+    }
+
+    /**
+     * On startup, reads the last persisted session phase.  If an in-progress
+     * draft was interrupted, the session is re-initialised to the saved rank
+     * and first-pick side so the overlay resumes correctly.
+     *
+     * IDLE and COMPLETE phases are intentionally NOT restored — they require
+     * no recovery.
+     */
+    private suspend fun restoreSessionSnapshot() {
+        val prefs     = dataStore.data.first()
+        val phaseName = prefs[KEY_SESSION_PHASE] ?: return
+        val phase     = runCatching { DraftPhase.valueOf(phaseName) }.getOrNull() ?: return
+        if (phase == DraftPhase.IDLE || phase == DraftPhase.COMPLETE) return
+
+        val rankName     = prefs[KEY_SESSION_RANK] ?: Rank.UNKNOWN.name
+        val rank         = runCatching { Rank.valueOf(rankName) }.getOrElse { Rank.UNKNOWN }
+        val ourTeamFirst = prefs[KEY_SESSION_FIRST_PICK] ?: true
+
+        withContext(Dispatchers.Main) {
+            draftSessionManager.initSession(rank, ourTeamFirst = ourTeamFirst)
+            when (phase) {
+                DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> draftSessionManager.startBanPhase()
+                DraftPhase.PICK, DraftPhase.TRADING             -> {
+                    draftSessionManager.startBanPhase()
+                    draftSessionManager.startPickPhase()
+                }
+                else -> {}
+            }
+        }
+    }
+
+    // ── 3.1.3 Permission watchdog ─────────────────────────────────────────────
+
+    /**
+     * Periodically checks that SYSTEM_ALERT_WINDOW permission is still granted.
+     * If the user revokes it while the service is running, the service stops
+     * itself gracefully rather than crashing on the next WindowManager call.
+     *
+     * Check interval: 30 seconds (low battery impact).
+     */
+    private fun startPermissionWatchdog() {
+        serviceScope.launch {
+            while (isActive) {
+                delay(30_000L)
+                if (!SystemSettings.canDrawOverlays(this@OverlayService)) {
+                    stopSelf()
+                    break
+                }
+            }
+        }
+    }
+
+    // ── TD-12 Bubble position persistence ────────────────────────────────────
+
+    /**
+     * Saves the current bubble position to DataStore so it can be restored
+     * on the next service start.  Called after each completed drag.
+     */
+    private fun saveBubblePosition(x: Int, y: Int) {
+        serviceScope.launch(Dispatchers.IO) {
+            dataStore.edit { prefs ->
+                prefs[KEY_BUBBLE_X] = x.toFloat()
+                prefs[KEY_BUBBLE_Y] = y.toFloat()
+            }
+        }
+    }
+
+    /**
+     * Reads saved bubble x/y coordinates from DataStore synchronously
+     * (called once during [addOverlayView] setup on the main thread via
+     * a blocking first() read launched in the service's IO scope).
+     *
+     * Returns the default position (0, 300) if no saved position exists.
+     */
+    private suspend fun readSavedBubblePosition(): Pair<Int, Int> {
+        val prefs = dataStore.data.first()
+        val x = prefs[KEY_BUBBLE_X]?.toInt() ?: 0
+        val y = prefs[KEY_BUBBLE_Y]?.toInt() ?: 300
+        return x to y
     }
 }

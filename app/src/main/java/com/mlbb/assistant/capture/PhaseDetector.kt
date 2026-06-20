@@ -14,7 +14,8 @@ import com.mlbb.assistant.domain.engine.DraftPhase
  *  - Blue/green dom → PICK phase
  *  - Neither        → retain previous or IDLE
  *
- * Also detects the setup countdown text region for SETUP phase.
+ * All magic-number thresholds have been moved to [PhaseDetectionConfig]
+ * (TD-03) so patch-update calibration does not require reading detector logic.
  */
 object PhaseDetector {
 
@@ -34,7 +35,8 @@ object PhaseDetector {
 
     /**
      * Samples the bottom-centre 15% of the screen width × 10% height band.
-     * MLBB's Ban button is red (#CC2233-ish), Pick button is blue (#2255CC-ish).
+     *
+     * Thresholds reference [PhaseDetectionConfig] named constants (TD-03).
      */
     fun detect(frame: Bitmap): PhaseResult {
         val w = frame.width
@@ -59,18 +61,18 @@ object PhaseDetector {
                 val g  = Color.green(px).toFloat()
                 val b  = Color.blue(px).toFloat()
 
-                // Red: r dominates, g+b low
-                if (r > 160 && g < 80 && b < 80) redScore++
-                // Blue: b dominates, r+g moderate
-                if (b > 140 && r < 100) blueScore++
+                // Red: r dominates — uses BAN_BANNER_RED_MIN (TD-03).
+                if (r > PhaseDetectionConfig.BAN_BANNER_RED_MIN && g < 80 && b < 80) redScore++
+
+                // Blue: b dominates — uses BAN_BANNER_BLUE_MAX (TD-03).
+                if (b > PhaseDetectionConfig.BAN_BANNER_BLUE_MAX && r < 100) blueScore++
+
                 samples++
             }
         }
 
         if (samples == 0) return PhaseResult(DetectedPhase.UNKNOWN, 0f)
 
-        // Float / Int is defined and returns Float, but explicit types prevent
-        // silent inference drift if samples type changes later (Rule 4).
         val redRatio:  Float = redScore  / samples
         val blueRatio: Float = blueScore / samples
 

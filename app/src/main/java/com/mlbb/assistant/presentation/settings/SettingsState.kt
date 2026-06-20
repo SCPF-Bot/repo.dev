@@ -1,6 +1,7 @@
 package com.mlbb.assistant.presentation.settings
 
 import androidx.compose.runtime.Immutable
+import com.mlbb.assistant.domain.engine.WeightCalibrator
 
 @Immutable
 data class SettingsState(
@@ -14,5 +15,18 @@ data class SettingsState(
     val defaultRank: String           = "Epic",
     val lastSyncedLabel: String       = "Never",
     val overlayGranted: Boolean       = false,
-    val accessibilityGranted: Boolean = false
+    val accessibilityGranted: Boolean = false,
+
+    /**
+     * Section 5.2.2 — Calibration transparency.
+     *
+     * Non-null when [WeightCalibrator] has enough history (≥ 10 labelled
+     * sessions) to suggest weight adjustments.  The UI shows the suggested
+     * weights, confidence level, and rationale text so users understand why
+     * the engine recommends changing the weights.
+     */
+    val calibrationResult: WeightCalibrator.CalibrationResult? = null,
+
+    /** True while the background calibration computation is running. */
+    val isCalibrating: Boolean = false
 )

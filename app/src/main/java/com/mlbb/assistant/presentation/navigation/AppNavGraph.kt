@@ -20,7 +20,9 @@ import com.mlbb.assistant.data.local.preferences.WizardPreference
 import com.mlbb.assistant.presentation.herodetail.HeroDetailScreen
 import com.mlbb.assistant.presentation.herolist.HeroListScreen
 import com.mlbb.assistant.presentation.herolist.HeroListViewModel
+import com.mlbb.assistant.presentation.heropool.HeroPoolScreen
 import com.mlbb.assistant.presentation.history.DraftHistoryScreen
+import com.mlbb.assistant.presentation.history.DraftReplayScreen
 import com.mlbb.assistant.presentation.home.HomeScreen
 import com.mlbb.assistant.presentation.log.LogScreen
 import com.mlbb.assistant.presentation.metaboard.MetaBoardScreen
@@ -112,19 +114,40 @@ fun AppNavGraph(
 
         composable(AppRoute.History.route) {
             DraftHistoryScreen(
-                onBack = { navController.popBackStack() }
+                onBack         = { navController.popBackStack() },
+                onReplayClick  = { sessionId ->
+                    navController.navigate(AppRoute.DraftReplay.create(sessionId))
+                }
             )
         }
 
         composable(AppRoute.Settings.route) {
             SettingsScreen(
-                onBack = { navController.popBackStack() }
+                onBack        = { navController.popBackStack() },
+                onOpenHeroPool = { navController.navigate(AppRoute.HeroPool.route) }
             )
         }
 
         composable(AppRoute.CrashLog.route) {
             LogScreen(
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(AppRoute.HeroPool.route) {
+            HeroPoolScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route     = AppRoute.DraftReplay.route,
+            arguments = listOf(navArgument(AppRoute.DraftReplay.ARG) { type = NavType.IntType })
+        ) { backStack ->
+            val sessionId = backStack.arguments?.getInt(AppRoute.DraftReplay.ARG) ?: return@composable
+            DraftReplayScreen(
+                sessionId = sessionId,
+                onBack    = { navController.popBackStack() }
             )
         }
     }

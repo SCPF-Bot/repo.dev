@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.material.icons.rounded.SportsMartialArts
 import androidx.compose.material.icons.rounded.SportsKabaddi
 import androidx.compose.material3.CardDefaults
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -49,11 +51,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
 import com.mlbb.assistant.presentation.common.theme.MLBBBlue
 import com.mlbb.assistant.presentation.common.theme.MLBBGold
 import com.mlbb.assistant.presentation.common.theme.MLBBTeal
+import com.mlbb.assistant.presentation.common.theme.SuccessGreen
 import com.mlbb.assistant.presentation.common.theme.SurfaceCard
 import com.mlbb.assistant.presentation.common.theme.SurfaceDark
 import com.mlbb.assistant.presentation.common.theme.SurfaceElevated
@@ -70,8 +74,6 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    // Pass 4 / UX fix: collectAsStateWithLifecycle cancels collection when the UI is
-    // in the background — safer than collectAsState() which keeps the flow active.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Box(Modifier.fillMaxSize().background(SurfaceDark)) {
@@ -108,6 +110,9 @@ fun HomeScreen(
             ) {
                 // Meta banner
                 MetaBanner(onViewMeta = onOpenMeta)
+
+                // Section 5.1.2 — Your Insights card
+                InsightsCard(insights = uiState.insights)
 
                 // Quick actions
                 SectionHeader("QUICK ACTIONS")
@@ -147,12 +152,10 @@ fun HomeScreen(
                     }
                 }
 
-                // Bottom spacer so FAB doesn't obscure last card
                 Spacer(Modifier.height(80.dp))
             }
         }
 
-        // Start Draft FAB positioned bottom-end
         ExtendedFloatingActionButton(
             onClick          = onStartDraft,
             modifier         = Modifier
@@ -163,6 +166,83 @@ fun HomeScreen(
             containerColor   = MLBBGold,
             contentColor     = SurfaceDark
         )
+    }
+}
+
+// ── Section 5.1.2 — Your Insights card ───────────────────────────────────────
+
+/**
+ * Shows aggregated insights from the user's draft history once they have
+ * at least [InsightsState.MIN_FOR_INSIGHTS] real sessions with outcomes.
+ *
+ * When there aren't enough sessions yet, a "play N more games" prompt is
+ * shown instead so users understand the unlock condition.
+ *
+ * Accessibility: each stat label has a merged contentDescription for
+ * TalkBack (Section 6.5).
+ */
+@Composable
+private fun InsightsCard(insights: InsightsState) {
+    androidx.compose.material3.Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "Your insights" },
+        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MLBBGold.copy(alpha = 0.20f)),
+        shape  = RoundedCornerShape(12.dp)
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Rounded.ShowChart, contentDescription = null, tint = MLBBGold, modifier = Modifier.size(16.dp))
+                Text(
+                    stringResource(R.string.insights_title),
+                    color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 12.sp
+                )
+            }
+
+            if (!insights.isAvailable) {
+                // Not enough sessions yet — show unlock hint
+                val needed = insights.sessionsNeeded
+                Text(
+                    stringResource(R.string.insights_need_more, needed),
+                    color    = TextSecondary,
+                    fontSize = 12.sp
+                )
+            } else {
+                // Stats grid
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    InsightStat(
+                        label = "Win Rate",
+                        value = "${insights.winRatePct}%",
+                        color = if (insights.winRatePct >= 50) SuccessGreen else MLBBGold
+                    )
+                    InsightStat(
+                        label = "Sessions",
+                        value = "${insights.sessionCount}",
+                        color = MLBBGold
+                    )
+                    InsightStat(
+                        label = "Followed Recs",
+                        value = "${insights.recommendationFollowPct}%",
+                        color = MLBBTeal
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightStat(label: String, value: String, color: androidx.compose.ui.graphics.Color) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.semantics { contentDescription = "$label: $value" }
+    ) {
+        Text(value,  color = color,         fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(label,  color = TextSecondary, fontSize = 10.sp)
     }
 }
 
@@ -235,7 +315,6 @@ private fun MetaHeroCard(hero: Hero) {
         Spacer(Modifier.height(4.dp))
         Text(hero.name, color = TextPrimary, style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold, maxLines = 1)
-        // UX fix: win rate increased from 9.sp to 10.sp — minimum legible size.
         Text("%.0f%% win".format(hero.winRate * 100), color = TextSecondary, fontSize = 10.sp)
     }
 }

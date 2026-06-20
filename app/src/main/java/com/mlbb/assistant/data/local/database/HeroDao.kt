@@ -1,5 +1,6 @@
 package com.mlbb.assistant.data.local.database
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -78,6 +79,25 @@ abstract class HeroDao {
         LIMIT :limit
     """)
     abstract suspend fun getTopMetaHeroes(limit: Int = 5): List<HeroEntity>
+
+    /**
+     * TD-10: Paging3 support — Room generates a [PagingSource] from this query.
+     *
+     * The sort order mirrors [getAllHeroes] so the paged and non-paged results
+     * are always consistent.  Page size is configured at the call site via
+     * [Pager] so the DAO itself remains ignorant of page size.
+     */
+    @Query("""
+        SELECT * FROM heroes
+        WHERE (:query = '' OR name LIKE '%' || :query || '%')
+        AND   (:lane = '' OR lane = :lane)
+        ORDER BY CASE tier
+            WHEN 'S+' THEN 0 WHEN 'S'  THEN 1
+            WHEN 'A+' THEN 2 WHEN 'A'  THEN 3
+            ELSE 4 END ASC,
+        winRate DESC
+    """)
+    abstract fun getHeroesPaged(query: String = "", lane: String = ""): PagingSource<Int, HeroEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertAll(heroes: List<HeroEntity>)

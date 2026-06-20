@@ -39,6 +39,9 @@ data class LogEntry(
  * reading.
  *
  * The file is capped at [MAX_BYTES] to prevent unbounded growth.
+ *
+ * TD-11: [appendSync] now acquires [lock] before writing so concurrent
+ * crash-handler invocations on different threads cannot interleave bytes.
  */
 object CrashLogStore {
 
@@ -46,26 +49,38 @@ object CrashLogStore {
     private const val MAX_BYTES     = 512 * 1024L  // 512 KB
     private const val MAX_ENTRIES   = 500
 
+    /**
+     * TD-11: Mutex for [appendSync].  A plain Java object is used so the
+     * lock is available in non-suspend contexts (crash handlers, JNI callbacks).
+     */
+    private val lock = Any()
+
     private fun logFile(context: Context): File =
         File(context.filesDir, LOG_FILE_NAME)
 
     // ── Write ─────────────────────────────────────────────────────────────────
 
     suspend fun append(context: Context, entry: LogEntry) = withContext(Dispatchers.IO) {
-        runCatching {
-            val file = logFile(context)
-            // Rotate if too large
-            if (file.exists() && file.length() > MAX_BYTES) rotate(file)
-
-            file.appendText(encode(entry))
+        synchronized(lock) {
+            runCatching {
+                val file = logFile(context)
+                if (file.exists() && file.length() > MAX_BYTES) rotate(file)
+                file.appendText(encode(entry))
+            }
         }
     }
 
+    /**
+     * TD-11: Acquires [lock] before every file operation so concurrent
+     * crash-handler calls on separate threads cannot produce interleaved output.
+     */
     fun appendSync(context: Context, entry: LogEntry) {
-        runCatching {
-            val file = logFile(context)
-            if (file.exists() && file.length() > MAX_BYTES) rotate(file)
-            file.appendText(encode(entry))
+        synchronized(lock) {
+            runCatching {
+                val file = logFile(context)
+                if (file.exists() && file.length() > MAX_BYTES) rotate(file)
+                file.appendText(encode(entry))
+            }
         }
     }
 
@@ -78,7 +93,9 @@ object CrashLogStore {
     // ── Clear ─────────────────────────────────────────────────────────────────
 
     suspend fun clear(context: Context) = withContext(Dispatchers.IO) {
-        runCatching { logFile(context).delete() }
+        synchronized(lock) {
+            runCatching { logFile(context).delete() }
+        }
     }
 
     // ── Encoding / decoding ───────────────────────────────────────────────────

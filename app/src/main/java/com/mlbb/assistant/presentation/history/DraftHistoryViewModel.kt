@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.mlbb.assistant.data.local.database.DraftSessionDao
 import com.mlbb.assistant.data.local.database.DraftSessionEntity
 import com.mlbb.assistant.domain.model.DraftHistoryItem
+import com.mlbb.assistant.domain.model.DraftOutcome
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,5 +37,7 @@ private fun DraftSessionEntity.toDomain() = DraftHistoryItem(
     counterScore            = counterScore,
     synergyScore            = synergyScore,
     followedRecommendations = followedRecommendations,
-    totalRecommendations    = totalRecommendations
+    totalRecommendations    = totalRecommendations,
+    outcome                 = DraftOutcome.fromString(outcome),
+    isSimulation            = isSimulation
 )

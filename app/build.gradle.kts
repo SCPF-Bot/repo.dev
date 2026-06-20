@@ -114,6 +114,11 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.savedstate)
 
+    // Paging 3 (TD-10: smooth hero grid scrolling on large datasets)
+    implementation(libs.paging.runtime)
+    implementation(libs.paging.compose)
+    implementation(libs.room.paging)
+
     // Logging
     implementation(libs.timber)
 
@@ -122,6 +127,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
 
     // Instrumented tests
     androidTestImplementation(libs.junit.ext)

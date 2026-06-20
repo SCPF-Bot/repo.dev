@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.mlbb.assistant.data.local.database.AppDatabase
 import com.mlbb.assistant.data.local.database.DraftSessionDao
 import com.mlbb.assistant.data.local.database.HeroDao
+import com.mlbb.assistant.data.local.database.HeroPoolDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -56,15 +57,42 @@ object DatabaseModule {
         }
     }
 
+    /**
+     * v2→v3:
+     * - heroes: adds `hasCCUlt` column (TD-01)
+     * - draft_sessions: adds `outcome` and `isSimulation` columns
+     * - hero_pool: new table for personal hero pool feature
+     */
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // heroes: CC ult flag
+            db.execSQL("ALTER TABLE heroes ADD COLUMN hasCCUlt INTEGER NOT NULL DEFAULT 0")
+
+            // draft_sessions: match outcome + simulation flag
+            db.execSQL("ALTER TABLE draft_sessions ADD COLUMN outcome TEXT NOT NULL DEFAULT 'UNKNOWN'")
+            db.execSQL("ALTER TABLE draft_sessions ADD COLUMN isSimulation INTEGER NOT NULL DEFAULT 0")
+
+            // hero_pool: personal pool with proficiency level
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS hero_pool (
+                    heroId INTEGER PRIMARY KEY NOT NULL,
+                    proficiency TEXT NOT NULL DEFAULT 'COMFORTABLE'
+                )
+            """.trimIndent())
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_assistant.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
 
     @Provides fun provideHeroDao(db: AppDatabase): HeroDao = db.heroDao()
 
     @Provides fun provideDraftSessionDao(db: AppDatabase): DraftSessionDao = db.draftSessionDao()
+
+    @Provides fun provideHeroPoolDao(db: AppDatabase): HeroPoolDao = db.heroPoolDao()
 }

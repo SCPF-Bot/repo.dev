@@ -23,7 +23,16 @@ data class Hero(
     val coreItems: List<CoreItem>,
     val flexLanes: List<Lane>,
     val isToxicMechanic: Boolean,
-    val isOP: Boolean
+    val isOP: Boolean,
+    /**
+     * TD-01: True when this hero has a crowd-control ultimate ability.
+     * Used by [CompositionAnalyzer] to detect wombo-combo compositions
+     * without relying on a hardcoded name-based CC list.
+     *
+     * Defaults to false so existing callers and [HeroEntity.toDomain] do
+     * not break before data is backfilled via the v2→v3 migration.
+     */
+    val hasCCUlt: Boolean = false
 )
 
 @Immutable

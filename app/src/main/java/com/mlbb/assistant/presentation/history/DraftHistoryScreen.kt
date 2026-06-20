@@ -53,7 +53,8 @@ import java.util.Locale
 
 @Composable
 fun DraftHistoryScreen(
-    onBack: () -> Unit,
+    onBack:        () -> Unit,
+    onReplayClick: (Int) -> Unit = {},
     viewModel: DraftHistoryViewModel = hiltViewModel()
 ) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()

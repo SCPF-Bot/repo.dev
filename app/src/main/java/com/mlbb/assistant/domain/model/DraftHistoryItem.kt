@@ -13,5 +13,9 @@ data class DraftHistoryItem(
     val counterScore: Int,
     val synergyScore: Int,
     val followedRecommendations: Int,
-    val totalRecommendations: Int
+    val totalRecommendations: Int,
+    /** Match outcome recorded after the session, defaults to UNKNOWN for legacy rows. */
+    val outcome: DraftOutcome = DraftOutcome.UNKNOWN,
+    /** True when the draft was run in simulation mode (not a real match). */
+    val isSimulation: Boolean = false
 )

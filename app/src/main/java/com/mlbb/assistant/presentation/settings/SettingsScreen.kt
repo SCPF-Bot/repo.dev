@@ -25,7 +25,10 @@ import android.net.Uri
 import android.provider.Settings as SystemSettings
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -41,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -48,9 +52,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mlbb.assistant.R
+import com.mlbb.assistant.domain.engine.WeightCalibrator
 import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.theme.ErrorRed
 import com.mlbb.assistant.presentation.common.theme.MLBBGold
+import com.mlbb.assistant.presentation.common.theme.MLBBTeal
 import com.mlbb.assistant.presentation.common.theme.SuccessGreen
 import com.mlbb.assistant.presentation.common.theme.SurfaceCard
 import com.mlbb.assistant.presentation.common.theme.SurfaceDark
@@ -63,7 +70,8 @@ import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit,
+    onBack:         () -> Unit,
+    onOpenHeroPool: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -86,7 +94,6 @@ fun SettingsScreen(
     }
 
     Column(Modifier.fillMaxSize().background(SurfaceDark)) {
-        // Header
         Row(
             Modifier
                 .fillMaxWidth()
@@ -157,6 +164,14 @@ fun SettingsScreen(
                 }
             }
 
+            // Section 5.2.2 — Calibration transparency
+            CalibrationSection(
+                result       = state.calibrationResult,
+                isCalibrating = state.isCalibrating,
+                onRefresh    = { viewModel.runCalibration() },
+                onApply      = { viewModel.applyCalibrationWeights() }
+            )
+
             // Draft preferences
             SettingsSection("DRAFT PREFERENCES") {
                 InfoRow("Default rank", state.defaultRank)
@@ -199,6 +214,106 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+// ── Section 5.2.2 — Calibration transparency card ────────────────────────────
+
+/**
+ * Shows the [WeightCalibrator] result in plain language so users understand
+ * why the engine recommends adjusting their scoring weights.
+ *
+ * Accessibility: The confidence progress bar carries a contentDescription
+ * that reads the value as a percentage for TalkBack (Section 6.5).
+ */
+@Composable
+private fun CalibrationSection(
+    result:        WeightCalibrator.CalibrationResult?,
+    isCalibrating: Boolean,
+    onRefresh:     () -> Unit,
+    onApply:       () -> Unit
+) {
+    SettingsSection(stringResource(R.string.calibration_title)) {
+        when {
+            isCalibrating -> {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        color    = MLBBGold,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            result == null -> {
+                Text(
+                    stringResource(R.string.calibration_need_more),
+                    color    = TextSecondary,
+                    fontSize = 12.sp
+                )
+            }
+            else -> {
+                // Rationale text
+                Text(
+                    stringResource(R.string.calibration_rationale_label),
+                    color      = MLBBGold,
+                    fontSize   = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    result.rationale,
+                    color    = TextSecondary,
+                    fontSize = 12.sp
+                )
+
+                Spacer(Modifier.height(4.dp))
+                HorizontalDivider(color = SurfaceElevated)
+                Spacer(Modifier.height(4.dp))
+
+                // Confidence bar
+                val confPct = (result.confidence * 100).toInt()
+                val confDesc = "${stringResource(R.string.calibration_confidence_label)}: $confPct%"
+                Text(confDesc, color = TextSecondary, fontSize = 11.sp)
+                LinearProgressIndicator(
+                    progress      = { result.confidence },
+                    modifier      = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = confDesc },
+                    color         = MLBBTeal,
+                    trackColor    = SurfaceElevated
+                )
+
+                Spacer(Modifier.height(4.dp))
+
+                // Suggested weight preview
+                val sw = result.suggestedWeights
+                Text(
+                    "Suggested: Meta ${"%.0f".format(sw.meta * 100)}%  " +
+                    "Counter ${"%.0f".format(sw.counter * 100)}%  " +
+                    "Synergy ${"%.0f".format(sw.synergy * 100)}%",
+                    color    = TextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TextButton(onClick = onRefresh) {
+                        Text("Refresh", color = TextSecondary, fontSize = 12.sp)
+                    }
+                    TextButton(onClick = onApply) {
+                        Text(
+                            stringResource(R.string.calibration_apply),
+                            color = MLBBGold, fontSize = 12.sp
+                        )
+                    }
+                }
+            }
         }
     }
 }

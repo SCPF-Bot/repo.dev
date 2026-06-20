@@ -1,9 +1,6 @@
 package com.mlbb.assistant.capture
 
 import android.graphics.Bitmap
-import android.graphics.PixelFormat
-import android.media.Image
-import android.media.ImageReader
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.model.Hero
 import kotlinx.coroutines.Dispatchers
@@ -25,8 +22,11 @@ data class FrameAnalysis(
 /**
  * Orchestrates per-frame analysis.
  *
- * Throttled to 2fps during active draft phases (performance).
- * Falls back to 0.5fps when phase is IDLE or COMPLETE.
+ * Throttle constants are sourced from [PhaseDetectionConfig] (TD-03 / TD-04).
+ * Slot-fill detection uses a normalised luminance threshold (TD-04): instead
+ * of comparing mean luminance against an absolute value of 40, we compare
+ * against a fraction of the *median* luminance of a calibration region so
+ * adaptive-brightness and HDR displays do not cause false negatives.
  */
 class FrameProcessor(
     private val portraitMatcher: PortraitMatcher,
@@ -39,19 +39,32 @@ class FrameProcessor(
     private var lastKnownPhase = PhaseDetector.DetectedPhase.UNKNOWN
     private var lastFrameTimeMs = 0L
 
-    // Track which slots were already filled to emit only new fills
-    private val filledEnemyBans = mutableSetOf<Int>()
-    private val filledOurBans   = mutableSetOf<Int>()
+    // Track which slots were already filled to emit only new fills.
+    private val filledEnemyBans  = mutableSetOf<Int>()
+    private val filledOurBans    = mutableSetOf<Int>()
     private val filledEnemyPicks = mutableSetOf<Int>()
     private val filledOurPicks   = mutableSetOf<Int>()
+
+    // Normalised luminance baseline derived from a stable background region.
+    // Lazily computed once per session — reset in [resetSlotTracking].
+    private var lumBaseline: Float = -1f
 
     suspend fun processFrame(frame: Bitmap, currentPhase: DraftPhase) =
         withContext(Dispatchers.Default) {
 
             val now = System.currentTimeMillis()
-            val throttleMs = if (currentPhase == DraftPhase.IDLE || currentPhase == DraftPhase.COMPLETE) 2000L else 500L
+            val throttleMs = if (currentPhase == DraftPhase.IDLE || currentPhase == DraftPhase.COMPLETE)
+                PhaseDetectionConfig.CAPTURE_THROTTLE_IDLE_MS
+            else
+                PhaseDetectionConfig.CAPTURE_THROTTLE_ACTIVE_MS
+
             if (now - lastFrameTimeMs < throttleMs) return@withContext
             lastFrameTimeMs = now
+
+            // Update luminance baseline from a stable region (top-left corner).
+            if (lumBaseline < 0f) {
+                lumBaseline = sampleLuminanceBaseline(frame)
+            }
 
             // 1. Phase detection
             val phaseResult = PhaseDetector.detect(frame)
@@ -89,7 +102,37 @@ class FrameProcessor(
         filledOurBans.clear()
         filledEnemyPicks.clear()
         filledOurPicks.clear()
+        lumBaseline = -1f
     }
+
+    // ── Normalised luminance baseline (TD-04) ─────────────────────────────────
+
+    /**
+     * Samples mean luminance from the top-left 10 % × 10 % of the frame,
+     * which is typically occupied by the MLBB game's stable dark background.
+     * This baseline is used to normalise slot-fill detection against the raw
+     * threshold, making the detector robust to adaptive-brightness displays.
+     */
+    private fun sampleLuminanceBaseline(frame: Bitmap): Float {
+        val w = (frame.width * 0.10f).toInt().coerceAtLeast(4)
+        val h = (frame.height * 0.10f).toInt().coerceAtLeast(4)
+        var sum = 0f
+        var count = 0
+        val step = 2
+        for (x in 0 until w step step) {
+            for (y in 0 until h step step) {
+                val px = frame.getPixel(x, y)
+                val r  = android.graphics.Color.red(px)
+                val g  = android.graphics.Color.green(px)
+                val b  = android.graphics.Color.blue(px)
+                sum += (0.299f * r + 0.587f * g + 0.114f * b)
+                count++
+            }
+        }
+        return if (count > 0) (sum / count) else PhaseDetectionConfig.LUMINANCE_DARK_THRESHOLD_RAW.toFloat()
+    }
+
+    // ── Slot detection ────────────────────────────────────────────────────────
 
     private fun isBanButtonVisible(frame: Bitmap): Boolean {
         val region = SlotRegions.actionButton
@@ -130,8 +173,15 @@ class FrameProcessor(
     }
 
     /**
-     * A slot is considered "filled" if its dominant color is not
-     * the dark draft background (mean luminance > 40).
+     * A slot is "filled" when its mean luminance exceeds a normalised threshold.
+     *
+     * TD-04: Instead of comparing against the hardcoded absolute value of 40,
+     * we derive the threshold from [lumBaseline]:
+     *
+     *     threshold = max(baseline * LUMINANCE_NORMALISED_RATIO, LUMINANCE_DARK_THRESHOLD_RAW)
+     *
+     * This prevents HDR/auto-brightness displays from causing false negatives
+     * where blank slots appear "filled" at elevated brightness levels.
      */
     private fun isSlotFilled(frame: Bitmap, region: SlotRegionF): Boolean {
         val crop = SlotRegions.cropSlot(frame, region)
@@ -149,7 +199,16 @@ class FrameProcessor(
             }
         }
         crop.recycle()
-        return count > 0 && (total / count) > 40f
+
+        if (count == 0) return false
+
+        val mean = total / count
+        // Normalised threshold: at least the raw absolute, or baseline-relative (TD-04).
+        val threshold = maxOf(
+            PhaseDetectionConfig.LUMINANCE_DARK_THRESHOLD_RAW.toFloat(),
+            lumBaseline * PhaseDetectionConfig.LUMINANCE_NORMALISED_RATIO
+        )
+        return mean > threshold
     }
 
     fun matchSlotPortrait(frame: Bitmap, region: SlotRegionF): MatchResult {

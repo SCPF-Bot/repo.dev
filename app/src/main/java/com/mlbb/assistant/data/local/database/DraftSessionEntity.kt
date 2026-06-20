@@ -2,6 +2,7 @@ package com.mlbb.assistant.data.local.database
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.mlbb.assistant.domain.model.DraftOutcome
 
 @Entity(tableName = "draft_sessions")
 data class DraftSessionEntity(
@@ -19,5 +20,16 @@ data class DraftSessionEntity(
     val counterScore: Int,
     val synergyScore: Int,
     val followedRecommendations: Int,
-    val totalRecommendations: Int
+    val totalRecommendations: Int,
+    /**
+     * Match outcome recorded by the user post-game.
+     * Stored as the enum name string so new entries do not require a migration.
+     * Added in DB schema v3 — defaults to "UNKNOWN" via migration.
+     */
+    val outcome: String = DraftOutcome.UNKNOWN.name,
+    /**
+     * True when the draft was run in simulation mode.
+     * Added in DB schema v3 — defaults to 0 (false) via migration.
+     */
+    val isSimulation: Boolean = false
 )

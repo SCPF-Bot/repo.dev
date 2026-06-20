@@ -1,5 +1,6 @@
 package com.mlbb.assistant.domain.engine
 
+import com.mlbb.assistant.domain.model.DraftOutcome
 import com.mlbb.assistant.domain.model.Hero
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +32,19 @@ data class DraftSession(
 
     // scoring
     val followedRecommendations: Int = 0,
-    val totalRecommendations: Int = 0
+    val totalRecommendations: Int = 0,
+
+    /**
+     * Match outcome — set by the user after the game finishes.
+     * Defaults to UNKNOWN until explicitly recorded.
+     */
+    val outcome: DraftOutcome = DraftOutcome.UNKNOWN,
+
+    /**
+     * When true, the draft is a simulation and should NOT be saved to
+     * the history database or counted in calibration stats.
+     */
+    val isSimulation: Boolean = false
 ) {
     val allBannedHeroes: List<Hero>
         get() = (enemyBansR1 + ourBansR1 + enemyBansR2 + ourBansR2).filterNotNull()
@@ -70,7 +83,7 @@ class DraftSessionManager {
 
     // ── Initialise ────────────────────────────────────────────────────────────
 
-    fun initSession(rank: Rank, ourTeamFirst: Boolean) {
+    fun initSession(rank: Rank, ourTeamFirst: Boolean, isSimulation: Boolean = false) {
         val structure = RankRuleEngine.getBanStructure(rank)
         val sequence  = PickSequenceEngine.buildSequence(
             if (ourTeamFirst) TeamSide.OUR_TEAM else TeamSide.ENEMY_TEAM
@@ -83,10 +96,17 @@ class DraftSessionManager {
                 ourTeamFirst   = ourTeamFirst,
                 pickSequence   = sequence,
                 enemyBansR2    = if (structure.hasRound2) List(structure.round2PerTeam) { null } else emptyList(),
-                ourBansR2      = if (structure.hasRound2) List(structure.round2PerTeam) { null } else emptyList()
+                ourBansR2      = if (structure.hasRound2) List(structure.round2PerTeam) { null } else emptyList(),
+                isSimulation   = isSimulation
             )
         }
     }
+
+    /** Records the match outcome after the user has played the game. */
+    fun setOutcome(outcome: DraftOutcome) = _session.update { it.copy(outcome = outcome) }
+
+    /** Marks or unmarks the session as a simulation draft. */
+    fun setSimulation(isSimulation: Boolean) = _session.update { it.copy(isSimulation = isSimulation) }
 
     fun startBanPhase() = _session.update { it.copy(phase = DraftPhase.BAN_ROUND_1) }
 

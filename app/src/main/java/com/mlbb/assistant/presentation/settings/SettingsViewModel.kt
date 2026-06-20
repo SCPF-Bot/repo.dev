@@ -3,7 +3,7 @@ package com.mlbb.assistant.presentation.settings
 import android.content.Context
 import android.provider.Settings
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.MutablePreferences  // Pass 4: DataStore edit block receives MutablePreferences, not Preferences.Editor
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -11,12 +11,18 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mlbb.assistant.data.local.database.DraftSessionDao
+import com.mlbb.assistant.domain.engine.WeightCalibrator
+import com.mlbb.assistant.domain.model.DraftHistoryItem
+import com.mlbb.assistant.domain.model.DraftOutcome
+import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.SyncHeroesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -28,6 +34,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val syncHeroesUseCase: SyncHeroesUseCase,
+    private val draftSessionDao: DraftSessionDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -66,10 +73,10 @@ class SettingsViewModel @Inject constructor(
                 }
             }
         }
+        // Section 5.2.2: Run calibration on init to show transparency data.
+        runCalibration()
     }
 
-    // Pass 4: was (Preferences.Editor) — that is the old SharedPreferences API.
-    // DataStore's edit {} lambda receives MutablePreferences.
     fun setMetaWeight(v: Float)    = save { it[KEY_META]    = v }
     fun setCounterWeight(v: Float) = save { it[KEY_COUNTER] = v }
     fun setSynergyWeight(v: Float) = save { it[KEY_SYNERGY] = v }
@@ -90,6 +97,56 @@ class SettingsViewModel @Inject constructor(
         syncHeroesUseCase()
         val label = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date())
         dataStore.edit { it[KEY_LAST_SYNCED] = label }
+    }
+
+    // ── Section 5.2.2: Calibration transparency ───────────────────────────────
+
+    /**
+     * Reads recent session history and runs [WeightCalibrator] in the background.
+     * Updates [SettingsState.calibrationResult] with the result.
+     */
+    fun runCalibration() {
+        viewModelScope.launch {
+            _state.update { it.copy(isCalibrating = true) }
+            val sessions = draftSessionDao.getAllSessions().first()
+            val history  = sessions.map { s ->
+                DraftHistoryItem(
+                    id                     = s.id,
+                    timestamp              = s.timestamp,
+                    rank                   = s.rank,
+                    draftScore             = s.draftScore,
+                    metaScore              = s.metaScore,
+                    counterScore           = s.counterScore,
+                    synergyScore           = s.synergyScore,
+                    followedRecommendations = s.followedRecommendations,
+                    totalRecommendations   = s.totalRecommendations,
+                    outcome                = DraftOutcome.fromString(s.outcome),
+                    isSimulation           = s.isSimulation
+                )
+            }
+            val currentWeights = ScoreWeights(
+                meta    = _state.value.metaWeight,
+                counter = _state.value.counterWeight,
+                synergy = _state.value.synergyWeight
+            )
+            val result = WeightCalibrator.calibrate(history, currentWeights)
+            _state.update { it.copy(calibrationResult = result, isCalibrating = false) }
+        }
+    }
+
+    /**
+     * Applies the calibration-suggested weights to DataStore.
+     * Called when the user taps "Apply suggested weights".
+     */
+    fun applyCalibrationWeights() {
+        val suggested = _state.value.calibrationResult?.suggestedWeights ?: return
+        viewModelScope.launch {
+            dataStore.edit {
+                it[KEY_META]    = suggested.meta
+                it[KEY_COUNTER] = suggested.counter
+                it[KEY_SYNERGY] = suggested.synergy
+            }
+        }
     }
 
     private fun save(block: suspend (MutablePreferences) -> Unit) =
