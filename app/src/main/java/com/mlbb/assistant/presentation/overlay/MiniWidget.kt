@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,8 +44,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mlbb.assistant.domain.advisor.BanSuggestion
+import com.mlbb.assistant.domain.advisor.CCLevel
 import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
 import com.mlbb.assistant.domain.advisor.CompositionArchetype
+import com.mlbb.assistant.domain.advisor.MobilityLevel
+import com.mlbb.assistant.domain.advisor.SustainLevel
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.engine.DraftSession
 import com.mlbb.assistant.domain.model.Hero
@@ -66,30 +68,15 @@ import com.mlbb.assistant.presentation.common.theme.TextSecondary
 import com.mlbb.assistant.presentation.common.theme.WarningAmber
 
 /**
- * Expanded mini-widget shown when the user taps the floating bubble.
+ * Expanded mini-widget (3:2 aspect ratio, 300×200 dp, scrollable content).
  *
- * ┌──────────────────────────────────────────────────┐
- * │  ⠿ MLBB DRAFT ASSISTANT        [—]  [✕]         │  drag-handle header
- * ├══════════════════════════════════════════════════╡
- * │  ╔══ BAN PHASE ══════════════════════════════╗   │  ← ACTIVE = bright border
- * │  ║  Ally:  □ □ □ □ □  │  Enemy: □ □ □ □ □   ║   │    DONE  = dimmed
- * │  ║  Recommended Bans:  [Hero] [Hero] [Hero]  ║   │
- * │  ╚═══════════════════════════════════════════╝   │
- * │  ╔══ PICK PHASE ═════════════════════════════╗   │  ← inactive until ban done
- * │  ║  Ally:  □ □ □ □ □  │  Enemy: □ □ □ □ □   ║   │
- * │  ║  Recommended Picks: [Hero] [Hero] [Hero]  ║   │
- * │  ╚═══════════════════════════════════════════╝   │
- * │  ── COMPOSITION INSIGHTS ──────────────────────  │
- * │  Enemy: ⚡ Dive  │  Ours: ⚖ Balanced            │
- * │  Win: Force teamfights and chain CC.              │
- * ├──────────────────────────────────────────────────┤
- * │  [⏹ Min]   [🔄 Undo]   [📊 Score]   [✕ Close]  │
- * └──────────────────────────────────────────────────┘
- *
- * Sequential phase logic:
- *  - BAN_ROUND_1 / BAN_ROUND_2 → BAN panel active, PICK panel dimmed
- *  - PICK / TRADING             → BAN panel dimmed (done), PICK panel active
- *  Both panels are always visible; only their visual weight changes.
+ * Changes from v2:
+ *  ① ↺ Restart button in header — resets to IDLE.
+ *  ② Recommended bans are display-only (smaller, non-clickable), show 7 heroes.
+ *  ③ Bottom bar: [⏹ Min] [↩ Undo] [📊 Score] — Close removed.
+ *  ④ 📊 Score toggles an inline score/insight panel inside the widget.
+ *  ⑤ Header [—] and [✕] buttons are 26 dp (slightly bigger).
+ *  ⑥ Widget fixed to 300×200 dp (3:2); inner content scrolls.
  */
 @Composable
 fun MiniWidget(
@@ -102,9 +89,13 @@ fun MiniWidget(
     onClose:          () -> Unit,
     onUndo:           () -> Unit,
     onScoreDetails:   () -> Unit,
+    onRestartDraft:   () -> Unit,
     onHeroSelected:   (Hero) -> Unit,
     onStartDraft:     (ourTeamFirst: Boolean) -> Unit
 ) {
+    // ── state ──────────────────────────────────────────────────────────────────
+    var showScorePanel by remember { mutableStateOf(false) }
+
     val phaseLabel = when (session.phase) {
         DraftPhase.IDLE        -> "STANDBY"
         DraftPhase.SETUP       -> "SETUP"
@@ -115,49 +106,74 @@ fun MiniWidget(
         DraftPhase.COMPLETE    -> "DONE"
     }
 
+    val isDraftActive = session.phase !in listOf(DraftPhase.IDLE, DraftPhase.SETUP)
+
+    // ── root — fixed 3:2 (300×200 dp) ─────────────────────────────────────────
     Box(
         modifier = Modifier
-            .widthIn(min = 260.dp, max = 340.dp)
+            .width(300.dp)
+            .height(200.dp)
             .background(OverlayBackground, RoundedCornerShape(14.dp))
             .border(1.dp, MLBBGold.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(14.dp))
     ) {
         Column {
+            // ── header (fixed, not scrollable) ─────────────────────────────────
             WidgetHeader(
-                phaseLabel     = phaseLabel,
-                onMinimize     = onMinimize,
-                onClose        = onClose
+                phaseLabel      = phaseLabel,
+                isDraftActive   = isDraftActive,
+                onMinimize      = onMinimize,
+                onClose         = onClose,
+                onRestartDraft  = onRestartDraft
             )
 
             HRule(alpha = 0.15f)
 
-            when (session.phase) {
-                DraftPhase.IDLE, DraftPhase.SETUP -> {
-                    IdleBody(session = session, onStartDraft = onStartDraft)
-                }
-                DraftPhase.COMPLETE -> {
-                    CompleteBody(onClose = onClose)
-                }
-                else -> {
-                    ActiveDraftBody(
-                        session         = session,
-                        recommendations = recommendations,
-                        banSuggestions  = banSuggestions,
-                        isBanTurn       = isBanTurn,
-                        enemyWarnings   = enemyWarnings,
-                        onHeroSelected  = onHeroSelected
-                    )
+            // ── scrollable body ─────────────────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                when (session.phase) {
+                    DraftPhase.IDLE, DraftPhase.SETUP -> {
+                        IdleBody(session = session, onStartDraft = onStartDraft)
+                    }
+                    DraftPhase.COMPLETE -> {
+                        CompleteBody(onClose = onClose)
+                    }
+                    else -> {
+                        if (showScorePanel) {
+                            ScorePanel(
+                                session        = session,
+                                recommendations = recommendations,
+                                banSuggestions  = banSuggestions,
+                                enemyWarnings   = enemyWarnings,
+                                onDismiss       = { showScorePanel = false }
+                            )
+                        } else {
+                            ActiveDraftBody(
+                                session         = session,
+                                recommendations = recommendations,
+                                banSuggestions  = banSuggestions,
+                                isBanTurn       = isBanTurn,
+                                enemyWarnings   = enemyWarnings,
+                                onHeroSelected  = onHeroSelected
+                            )
+                        }
+                    }
                 }
             }
 
-            // Bottom action bar — shown whenever draft is active or complete
-            if (session.phase != DraftPhase.IDLE && session.phase != DraftPhase.SETUP) {
+            // ── bottom bar (fixed, not scrollable) ──────────────────────────────
+            if (isDraftActive) {
                 HRule(alpha = 0.12f)
                 BottomActionBar(
-                    canUndo        = session.undoStack.isNotEmpty(),
-                    onMinimize     = onMinimize,
-                    onUndo         = onUndo,
-                    onScoreDetails = onScoreDetails,
-                    onClose        = onClose
+                    canUndo       = session.undoStack.isNotEmpty(),
+                    scoreActive   = showScorePanel,
+                    onMinimize    = onMinimize,
+                    onUndo        = onUndo,
+                    onScore       = { showScorePanel = !showScorePanel }
                 )
             }
         }
@@ -167,28 +183,35 @@ fun MiniWidget(
 // ── Header ─────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun WidgetHeader(phaseLabel: String, onMinimize: () -> Unit, onClose: () -> Unit) {
+private fun WidgetHeader(
+    phaseLabel:     String,
+    isDraftActive:  Boolean,
+    onMinimize:     () -> Unit,
+    onClose:        () -> Unit,
+    onRestartDraft: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment     = Alignment.CenterVertically
     ) {
+        // Left: drag handle + title + phase
         Row(
             verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             DragHandle()
             Text(
-                "MLBB DRAFT",
+                "MLBB",
                 color      = MLBBGold,
                 fontWeight = FontWeight.Bold,
-                fontSize   = 11.sp
+                fontSize   = 10.sp
             )
             Text(
-                "ASSISTANT",
-                color      = MLBBGold.copy(alpha = 0.55f),
+                "DRAFT",
+                color      = MLBBGold.copy(alpha = 0.6f),
                 fontSize   = 9.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -196,11 +219,24 @@ private fun WidgetHeader(phaseLabel: String, onMinimize: () -> Unit, onClose: ()
                 Text(
                     "· $phaseLabel",
                     color    = TextSecondary,
-                    fontSize = 9.sp
+                    fontSize = 8.sp
                 )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+
+        // Right: restart (when active) + minimize + close
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            if (isDraftActive) {
+                IconBtn(
+                    label   = "↺",
+                    color   = WarningAmber,
+                    tooltip = "Restart",
+                    onClick = onRestartDraft
+                )
+            }
             IconBtn(label = "—", color = TextSecondary, onClick = onMinimize)
             IconBtn(label = "✕", color = ErrorRed,      onClick = onClose)
         }
@@ -225,16 +261,22 @@ private fun DragHandle() {
     }
 }
 
+/** Slightly bigger header icon button — 26×26 dp */
 @Composable
-private fun IconBtn(label: String, color: Color, onClick: () -> Unit) {
+private fun IconBtn(
+    label:   String,
+    color:   Color,
+    tooltip: String = "",
+    onClick: () -> Unit
+) {
     Box(
         Modifier
-            .size(20.dp)
-            .background(color.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+            .size(26.dp)
+            .background(color.copy(alpha = 0.15f), RoundedCornerShape(5.dp))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = color, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -254,7 +296,6 @@ private fun ActiveDraftBody(
     val isPickTurn  = session.currentTurn?.side?.name == "OUR_TEAM"
     val pickLabel   = session.currentTurn?.let { "Pick ${it.pickNumber}/10" } ?: ""
 
-    // Composition insights (computed from picks so far)
     val enemyArchetype = remember(session.enemyPickedHeroes) {
         CompositionAnalyzer.detectArchetype(session.enemyPickedHeroes)
     }
@@ -263,27 +304,23 @@ private fun ActiveDraftBody(
     }
 
     Column(
-        modifier = Modifier
-            .padding(horizontal = 10.dp, vertical = 8.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
 
         // ══ BAN PHASE PANEL ════════════════════════════════════════════════════
         PhasePanel(
-            isActive      = isBanPhase,
-            isDone        = isPickPhase,
-            activeColor   = MLBBRed,
-            labelActive   = "⛔  BAN PHASE",
-            labelDone     = "⛔  BAN PHASE — Done"
+            isActive    = isBanPhase,
+            isDone      = isPickPhase,
+            activeColor = MLBBRed,
+            labelActive = "⛔  BAN PHASE",
+            labelDone   = "⛔  BAN — Done"
         ) {
-            // Slot row: Ally bans | Enemy bans
             BanSlotRow(
                 allySlots  = buildSlotList(session.ourBansR1, session.ourBansR2),
                 enemySlots = buildSlotList(session.enemyBansR1, session.enemyBansR2)
             )
 
-            // Turn indicator (only when this phase is active)
             AnimatedVisibility(
                 visible = isBanPhase,
                 enter   = fadeIn(tween(200)) + expandVertically(),
@@ -295,10 +332,9 @@ private fun ActiveDraftBody(
                         color = if (isBanTurn) MLBBRed else TextSecondary
                     )
                     if (banSuggestions.isNotEmpty()) {
-                        RecommendedRow(
-                            label          = "RECOMMENDED BANS",
-                            heroes         = banSuggestions.take(6).map { it.hero to it.badgeLabel },
-                            onHeroSelected = onHeroSelected
+                        // Display-only (not clickable), 7 heroes, smaller chips
+                        BanRecommendedRow(
+                            heroes = banSuggestions.take(7).map { it.hero to it.badgeLabel }
                         )
                     }
                 }
@@ -313,13 +349,11 @@ private fun ActiveDraftBody(
             labelActive = "✅  PICK PHASE",
             labelDone   = "✅  PICK PHASE"
         ) {
-            // Slot row: Ally picks | Enemy picks
             PickSlotRow(
                 allySlots  = session.ourPicks,
                 enemySlots = session.enemyPicks
             )
 
-            // Turn indicator (only when pick phase is active)
             AnimatedVisibility(
                 visible = isPickPhase,
                 enter   = fadeIn(tween(200)) + expandVertically(),
@@ -336,24 +370,23 @@ private fun ActiveDraftBody(
                                     if (isPickTurn) SuccessGreen.copy(0.12f) else ErrorRed.copy(0.10f),
                                     RoundedCornerShape(6.dp)
                                 )
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment     = Alignment.CenterVertically
                         ) {
                             Text(
                                 if (isPickTurn) "YOUR TURN TO PICK" else "ENEMY TURN",
                                 color      = if (isPickTurn) SuccessGreen else ErrorRed,
-                                fontSize   = 10.sp,
+                                fontSize   = 9.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             if (pickLabel.isNotEmpty()) {
-                                Text(pickLabel, color = TextSecondary, fontSize = 9.sp)
+                                Text(pickLabel, color = TextSecondary, fontSize = 8.sp)
                             }
                         }
                     }
                     if (recommendations.isNotEmpty()) {
-                        RecommendedRow(
-                            label          = "RECOMMENDED PICKS",
+                        PickRecommendedRow(
                             heroes         = recommendations.take(6).map { it.hero to it.badgeLabel },
                             onHeroSelected = onHeroSelected
                         )
@@ -362,8 +395,8 @@ private fun ActiveDraftBody(
                         Text(
                             enemyWarnings.first(),
                             color    = WarningAmber,
-                            fontSize = 9.sp,
-                            maxLines = 2,
+                            fontSize = 8.sp,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -380,16 +413,234 @@ private fun ActiveDraftBody(
     }
 }
 
+// ── Score panel (toggled by 📊 button) ────────────────────────────────────────
+
+@Composable
+private fun ScorePanel(
+    session:         DraftSession,
+    recommendations: List<HeroScore>,
+    banSuggestions:  List<BanSuggestion>,
+    enemyWarnings:   List<String>,
+    onDismiss:       () -> Unit
+) {
+    val profile = remember(session.ourPickedHeroes) {
+        CompositionAnalyzer.analyze(session.ourPickedHeroes)
+    }
+    val ourArchetype = remember(session.ourPickedHeroes) {
+        CompositionAnalyzer.detectArchetype(session.ourPickedHeroes)
+    }
+    val enemyArchetype = remember(session.enemyPickedHeroes) {
+        CompositionAnalyzer.detectArchetype(session.enemyPickedHeroes)
+    }
+
+    Column(
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        // ── title row ──────────────────────────────────────────────────────────
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Text(
+                "📊  DRAFT SCORE OVERVIEW",
+                color      = MLBBGold,
+                fontSize   = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.4.sp
+            )
+            Box(
+                Modifier
+                    .background(TextDisabled.copy(0.12f), RoundedCornerShape(4.dp))
+                    .clickable { onDismiss() }
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text("✕ close", color = TextSecondary, fontSize = 7.5.sp)
+            }
+        }
+
+        HRule(alpha = 0.12f)
+
+        // ── BAN phase score ────────────────────────────────────────────────────
+        ScoreSection(
+            icon  = "⛔",
+            title = "BAN PHASE",
+            color = MLBBRed
+        ) {
+            if (banSuggestions.isEmpty()) {
+                ScoreLine("No ban data yet.", TextDisabled)
+            } else {
+                val topBan = banSuggestions.first()
+                ScoreLinePair(
+                    label = "Priority target",
+                    value = "${topBan.hero.name}  [${topBan.badgeLabel}]",
+                    valueColor = MLBBRed
+                )
+                ScoreLine(
+                    "Ban OP/toxic heroes first to deny enemy power picks.",
+                    TextSecondary
+                )
+                val banCount = buildSlotList(
+                    session.ourBansR1, session.ourBansR2
+                ).count { it != null && it.id != -1 }
+                ScoreLinePair(
+                    label = "Bans placed",
+                    value = "$banCount / 5",
+                    valueColor = if (banCount >= 3) SuccessGreen else WarningAmber
+                )
+            }
+        }
+
+        // ── PICK phase score ───────────────────────────────────────────────────
+        ScoreSection(
+            icon  = "✅",
+            title = "PICK PHASE",
+            color = MLBBTeal
+        ) {
+            if (recommendations.isEmpty() && session.ourPickedHeroes.isEmpty()) {
+                ScoreLine("No pick data yet.", TextDisabled)
+            } else {
+                if (recommendations.isNotEmpty()) {
+                    val top = recommendations.first()
+                    ScoreLinePair(
+                        label = "Top suggestion",
+                        value = "${top.hero.name}  [${top.badgeLabel}]",
+                        valueColor = MLBBTeal
+                    )
+                }
+                val pickCount = session.ourPickedHeroes.count { it.id != -1 }
+                ScoreLinePair(
+                    label = "Picks placed",
+                    value = "$pickCount / 5",
+                    valueColor = if (pickCount >= 3) SuccessGreen else WarningAmber
+                )
+                // Composition colour balance
+                val physPct = (profile.physicalPct * 100).toInt()
+                val magPct  = (profile.magicPct  * 100).toInt()
+                ScoreLinePair(
+                    label = "Damage split",
+                    value = "Phys $physPct%  Magic $magPct%",
+                    valueColor = if (physPct in 30..70) SuccessGreen else WarningAmber
+                )
+            }
+        }
+
+        // ── Composition ────────────────────────────────────────────────────────
+        ScoreSection(
+            icon  = "⚖️",
+            title = "COMPOSITION",
+            color = MLBBGold
+        ) {
+            ScoreLinePair(
+                label = "Your archetype",
+                value = "${ourArchetype.icon} ${ourArchetype.display}",
+                valueColor = MLBBTeal
+            )
+            ScoreLinePair(
+                label = "Enemy archetype",
+                value = "${enemyArchetype.icon} ${enemyArchetype.display}",
+                valueColor = ErrorRed
+            )
+            ScoreLinePair(
+                label = "CC",
+                value = profile.ccLevel.name,
+                valueColor = ccColor(profile.ccLevel)
+            )
+            ScoreLinePair(
+                label = "Mobility",
+                value = profile.mobilityLevel.name,
+                valueColor = mobilityColor(profile.mobilityLevel)
+            )
+            ScoreLinePair(
+                label = "Sustain",
+                value = profile.sustainLevel.name,
+                valueColor = sustainColor(profile.sustainLevel)
+            )
+            if (ourArchetype != CompositionArchetype.BALANCED) {
+                ScoreLine(
+                    "Win condition: ${ourArchetype.winCondition.take(60)}…",
+                    TextSecondary
+                )
+            }
+        }
+
+        // ── Warnings ───────────────────────────────────────────────────────────
+        val allWarnings = (profile.warnings + enemyWarnings).take(3)
+        if (allWarnings.isNotEmpty()) {
+            ScoreSection(icon = "⚠️", title = "WARNINGS", color = WarningAmber) {
+                allWarnings.forEach { w ->
+                    ScoreLine(w, WarningAmber)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScoreSection(
+    icon:    String,
+    title:   String,
+    color:   Color,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color.copy(alpha = 0.06f), RoundedCornerShape(8.dp))
+            .border(0.5.dp, color.copy(alpha = 0.22f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(icon, fontSize = 9.sp)
+            Text(title, color = color, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp)
+        }
+        content()
+    }
+}
+
+@Composable
+private fun ScoreLine(text: String, color: Color) {
+    Text(text, color = color, fontSize = 7.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+}
+
+@Composable
+private fun ScoreLinePair(label: String, value: String, valueColor: Color) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, color = TextDisabled, fontSize = 7.5.sp, modifier = Modifier.weight(1f))
+        Text(
+            value,
+            color      = valueColor,
+            fontSize   = 7.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign  = TextAlign.End
+        )
+    }
+}
+
+private fun ccColor(level: CCLevel) = when (level) {
+    CCLevel.HIGH   -> SuccessGreen
+    CCLevel.MEDIUM -> MLBBTeal
+    CCLevel.LOW    -> WarningAmber
+    CCLevel.NONE   -> ErrorRed
+}
+private fun mobilityColor(level: MobilityLevel) = when (level) {
+    MobilityLevel.HIGH   -> SuccessGreen
+    MobilityLevel.MEDIUM -> WarningAmber
+    MobilityLevel.LOW    -> TextDisabled
+}
+private fun sustainColor(level: SustainLevel) = when (level) {
+    SustainLevel.HIGH   -> SuccessGreen
+    SustainLevel.MEDIUM -> WarningAmber
+    SustainLevel.LOW    -> ErrorRed
+}
+
 // ── Phase panel card ───────────────────────────────────────────────────────────
 
-/**
- * A bordered card whose visual weight reflects whether this phase is currently
- * active, done, or pending.
- *
- * Active → full opacity, colored left accent bar + border
- * Done   → 55 % opacity, muted border, label suffixed with "— Done"
- * Pending → 40 % opacity, no accent, dim border
- */
 @Composable
 private fun PhasePanel(
     isActive:    Boolean,
@@ -423,35 +674,29 @@ private fun PhasePanel(
         Modifier
             .fillMaxWidth()
             .alpha(alpha)
-            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(9.dp))
             .then(
                 if (isActive) Modifier.drawBehind {
                     drawLine(
                         color       = activeColor,
-                        start       = Offset(3f, 12f),
-                        end         = Offset(3f, size.height - 12f),
-                        strokeWidth = 3.5f
+                        start       = Offset(3f, 10f),
+                        end         = Offset(3f, size.height - 10f),
+                        strokeWidth = 3f
                     )
                 } else Modifier
             )
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            // Section title
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    label,
-                    color      = if (isActive) TextPrimary else TextSecondary,
-                    fontSize   = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.3.sp
-                )
-            }
+            Text(
+                label,
+                color         = if (isActive) TextPrimary else TextSecondary,
+                fontSize      = 9.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 0.3.sp
+            )
             content()
         }
     }
@@ -467,12 +712,7 @@ private fun BanSlotRow(allySlots: List<Hero?>, enemySlots: List<Hero?>) {
         verticalAlignment     = Alignment.CenterVertically
     ) {
         SlotGroup(label = "Ally", slots = allySlots, filledColor = MLBBTeal)
-        Box(
-            Modifier
-                .width(1.dp)
-                .height(18.dp)
-                .background(TextDisabled.copy(alpha = 0.3f))
-        )
+        Box(Modifier.width(1.dp).height(16.dp).background(TextDisabled.copy(alpha = 0.3f)))
         SlotGroup(label = "Enemy", slots = enemySlots, filledColor = MLBBRed)
     }
 }
@@ -485,12 +725,7 @@ private fun PickSlotRow(allySlots: List<Hero?>, enemySlots: List<Hero?>) {
         verticalAlignment     = Alignment.CenterVertically
     ) {
         SlotGroup(label = "Ally", slots = allySlots, filledColor = MLBBTeal)
-        Box(
-            Modifier
-                .width(1.dp)
-                .height(18.dp)
-                .background(TextDisabled.copy(alpha = 0.3f))
-        )
+        Box(Modifier.width(1.dp).height(16.dp).background(TextDisabled.copy(alpha = 0.3f)))
         SlotGroup(label = "Enemy", slots = enemySlots, filledColor = MLBBRed)
     }
 }
@@ -499,17 +734,12 @@ private fun PickSlotRow(allySlots: List<Hero?>, enemySlots: List<Hero?>) {
 private fun SlotGroup(label: String, slots: List<Hero?>, filledColor: Color) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Text(label, color = TextDisabled, fontSize = 7.sp, fontWeight = FontWeight.SemiBold)
-        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            slots.take(5).forEach { hero ->
-                SlotDot(hero = hero, filledColor = filledColor)
-            }
-            // pad to 5 if fewer slots
-            repeat((5 - slots.size).coerceAtLeast(0)) {
-                SlotDot(hero = null, filledColor = filledColor)
-            }
+        Text(label, color = TextDisabled, fontSize = 6.5.sp, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            slots.take(5).forEach { hero -> SlotDot(hero = hero, filledColor = filledColor) }
+            repeat((5 - slots.size).coerceAtLeast(0)) { SlotDot(hero = null, filledColor = filledColor) }
         }
     }
 }
@@ -519,51 +749,103 @@ private fun SlotDot(hero: Hero?, filledColor: Color) {
     val isFilled = hero != null && hero.id != -1
     Box(
         modifier = Modifier
-            .size(11.dp)
-            .clip(RoundedCornerShape(3.dp))
+            .size(10.dp)
+            .clip(RoundedCornerShape(2.dp))
             .background(if (isFilled) filledColor.copy(alpha = 0.25f) else SurfaceElevated)
             .border(
                 width = if (isFilled) 1.dp else 0.5.dp,
                 color = if (isFilled) filledColor.copy(alpha = 0.80f) else TextDisabled.copy(0.35f),
-                shape = RoundedCornerShape(3.dp)
+                shape = RoundedCornerShape(2.dp)
             ),
         contentAlignment = Alignment.Center
     ) {
         if (isFilled && hero != null) {
             Text(
-                text     = hero.name.take(1),
-                color    = filledColor,
-                fontSize = 6.sp,
+                hero.name.take(1),
+                color      = filledColor,
+                fontSize   = 5.5.sp,
                 fontWeight = FontWeight.Bold
             )
         }
     }
 }
 
-// ── Recommended heroes row ─────────────────────────────────────────────────────
+// ── Ban recommendations (display-only, smaller, 7 heroes rows 4+3) ─────────────
 
 @Composable
-private fun RecommendedRow(
-    label:          String,
+private fun BanRecommendedRow(heroes: List<Pair<Hero, String>>) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            "RECOMMENDED BANS",
+            color         = MLBBRed.copy(alpha = 0.8f),
+            fontSize      = 7.sp,
+            fontWeight    = FontWeight.SemiBold,
+            letterSpacing = 0.3.sp
+        )
+        val row1 = heroes.take(4)
+        val row2 = heroes.drop(4).take(3)
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            row1.forEach { (hero, badge) -> BanHeroChip(hero, badge) }
+        }
+        if (row2.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                row2.forEach { (hero, badge) -> BanHeroChip(hero, badge) }
+            }
+        }
+    }
+}
+
+/** Smaller, display-only chip for bans — no click, no portrait, just name + badge */
+@Composable
+private fun BanHeroChip(hero: Hero, badge: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .background(MLBBRed.copy(alpha = 0.08f), RoundedCornerShape(5.dp))
+            .border(0.5.dp, MLBBRed.copy(alpha = 0.25f), RoundedCornerShape(5.dp))
+            .padding(horizontal = 3.dp, vertical = 3.dp)
+            .width(44.dp)
+    ) {
+        Text(
+            hero.name,
+            color     = TextPrimary,
+            fontSize  = 6.5.sp,
+            maxLines  = 1,
+            overflow  = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            badge,
+            color      = MLBBRed,
+            fontSize   = 6.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign  = TextAlign.Center
+        )
+    }
+}
+
+// ── Pick recommendations (clickable, with portrait) ────────────────────────────
+
+@Composable
+private fun PickRecommendedRow(
     heroes:         List<Pair<Hero, String>>,
     onHeroSelected: (Hero) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
-            label,
-            color    = MLBBGold,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.SemiBold,
+            "RECOMMENDED PICKS",
+            color         = MLBBGold,
+            fontSize      = 7.sp,
+            fontWeight    = FontWeight.SemiBold,
             letterSpacing = 0.3.sp
         )
-        // Two rows of up to 3 chips each
         val row1 = heroes.take(3)
         val row2 = heroes.drop(3).take(3)
-        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             row1.forEach { (hero, badge) -> QuickHeroChip(hero, badge, onHeroSelected) }
         }
         if (row2.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 row2.forEach { (hero, badge) -> QuickHeroChip(hero, badge, onHeroSelected) }
             }
         }
@@ -575,25 +857,25 @@ private fun QuickHeroChip(hero: Hero, badge: String, onTap: (Hero) -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .background(SurfaceMid, RoundedCornerShape(8.dp))
+            .background(SurfaceMid, RoundedCornerShape(7.dp))
             .clickable { onTap(hero) }
-            .padding(horizontal = 4.dp, vertical = 4.dp)
-            .width(56.dp)
+            .padding(horizontal = 3.dp, vertical = 3.dp)
+            .width(52.dp)
     ) {
-        HeroPortrait(hero = hero, size = 40.dp)
-        Spacer(Modifier.height(2.dp))
+        HeroPortrait(hero = hero, size = 36.dp)
+        Spacer(Modifier.height(1.dp))
         Text(
             hero.name,
-            color    = TextPrimary,
-            fontSize = 7.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            color     = TextPrimary,
+            fontSize  = 6.5.sp,
+            maxLines  = 1,
+            overflow  = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
         )
         Text(
             badge,
             color      = MLBBGold,
-            fontSize   = 6.5.sp,
+            fontSize   = 6.sp,
             fontWeight = FontWeight.Bold,
             textAlign  = TextAlign.Center
         )
@@ -613,61 +895,42 @@ private fun CompositionInsightsPanel(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Section heading
         Row(
             Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Box(Modifier.weight(1f).height(1.dp).background(MLBBGold.copy(alpha = 0.20f)))
+            Box(Modifier.weight(1f).height(1.dp).background(MLBBGold.copy(alpha = 0.18f)))
             Text(
-                "COMPOSITION INSIGHTS",
-                color      = MLBBGold,
-                fontSize   = 8.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
+                "COMP INSIGHTS",
+                color         = MLBBGold,
+                fontSize      = 7.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 0.4.sp
             )
-            Box(Modifier.weight(1f).height(1.dp).background(MLBBGold.copy(alpha = 0.20f)))
+            Box(Modifier.weight(1f).height(1.dp).background(MLBBGold.copy(alpha = 0.18f)))
         }
 
-        // Archetype row
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            ArchetypeChip(
-                prefix    = "Enemy",
-                archetype = enemyArchetype,
-                chipColor = ErrorRed
-            )
-            ArchetypeChip(
-                prefix    = "Your Team",
-                archetype = ourArchetype,
-                chipColor = MLBBTeal
-            )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            ArchetypeChip(prefix = "Enemy",   archetype = enemyArchetype, chipColor = ErrorRed)
+            ArchetypeChip(prefix = "Ours",    archetype = ourArchetype,   chipColor = MLBBTeal)
         }
 
-        // Win condition for our team
         if (session.ourPickedHeroes.isNotEmpty()) {
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .background(SurfaceMid, RoundedCornerShape(6.dp))
-                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                    .background(SurfaceMid, RoundedCornerShape(5.dp))
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        "Win Condition",
-                        color      = MLBBGold,
-                        fontSize   = 7.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("Win Condition", color = MLBBGold, fontSize = 7.sp, fontWeight = FontWeight.SemiBold)
                     Text(
                         ourArchetype.winCondition,
                         color    = TextSecondary,
-                        fontSize = 8.sp,
+                        fontSize = 7.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -681,43 +944,34 @@ private fun CompositionInsightsPanel(
 private fun ArchetypeChip(prefix: String, archetype: CompositionArchetype, chipColor: Color) {
     Row(
         Modifier
-            .background(chipColor.copy(alpha = 0.10f), RoundedCornerShape(6.dp))
-            .border(0.5.dp, chipColor.copy(alpha = 0.30f), RoundedCornerShape(6.dp))
-            .padding(horizontal = 7.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .background(chipColor.copy(alpha = 0.10f), RoundedCornerShape(5.dp))
+            .border(0.5.dp, chipColor.copy(alpha = 0.28f), RoundedCornerShape(5.dp))
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment     = Alignment.CenterVertically
     ) {
-        Text(archetype.icon, fontSize = 11.sp)
+        Text(archetype.icon, fontSize = 10.sp)
         Column {
-            Text(
-                prefix,
-                color    = TextDisabled,
-                fontSize = 7.sp
-            )
-            Text(
-                archetype.display,
-                color      = chipColor,
-                fontSize   = 9.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(prefix, color = TextDisabled, fontSize = 6.sp)
+            Text(archetype.display, color = chipColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
-// ── Bottom action bar ──────────────────────────────────────────────────────────
+// ── Bottom action bar (no Close button) ───────────────────────────────────────
 
 @Composable
 private fun BottomActionBar(
-    canUndo:        Boolean,
-    onMinimize:     () -> Unit,
-    onUndo:         () -> Unit,
-    onScoreDetails: () -> Unit,
-    onClose:        () -> Unit
+    canUndo:     Boolean,
+    scoreActive: Boolean,
+    onMinimize:  () -> Unit,
+    onUndo:      () -> Unit,
+    onScore:     () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 6.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         ActionBarBtn(
@@ -733,16 +987,10 @@ private fun BottomActionBar(
             onClick  = { if (canUndo) onUndo() }
         )
         ActionBarBtn(
-            label    = "📊 Score",
-            color    = MLBBTeal,
+            label    = if (scoreActive) "📊 Hide" else "📊 Score",
+            color    = if (scoreActive) MLBBGold else MLBBTeal,
             modifier = Modifier.weight(1f),
-            onClick  = onScoreDetails
-        )
-        ActionBarBtn(
-            label    = "✕ Close",
-            color    = ErrorRed,
-            modifier = Modifier.weight(1f),
-            onClick  = onClose
+            onClick  = onScore
         )
     }
 }
@@ -759,13 +1007,13 @@ private fun ActionBarBtn(
             .background(color.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
             .border(0.5.dp, color.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
             .clickable { onClick() }
-            .padding(vertical = 5.dp),
+            .padding(vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             label,
             color      = color,
-            fontSize   = 8.5.sp,
+            fontSize   = 8.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign  = TextAlign.Center,
             maxLines   = 1,
@@ -781,11 +1029,11 @@ private fun TurnBadge(text: String, color: Color) {
     Box(
         Modifier
             .fillMaxWidth()
-            .background(color.copy(alpha = 0.13f), RoundedCornerShape(6.dp))
-            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .background(color.copy(alpha = 0.13f), RoundedCornerShape(5.dp))
+            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(5.dp))
+            .padding(horizontal = 7.dp, vertical = 3.dp)
     ) {
-        Text(text, color = color, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+        Text(text, color = color, fontWeight = FontWeight.Bold, fontSize = 9.sp)
     }
 }
 
@@ -807,31 +1055,31 @@ private fun IdleBody(session: DraftSession, onStartDraft: (Boolean) -> Unit) {
 
     Column(
         modifier = Modifier
-            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
             .fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .background(SurfaceMid, RoundedCornerShape(6.dp))
-                .padding(horizontal = 8.dp, vertical = 5.dp),
+                .background(SurfaceMid, RoundedCornerShape(5.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("Waiting for draft to begin…", color = TextSecondary, fontSize = 10.sp)
+            Text("Waiting for draft to begin…", color = TextSecondary, fontSize = 9.sp)
         }
 
         Text(
             "WHO PICKS FIRST?",
             color      = MLBBGold,
-            fontSize   = 9.sp,
+            fontSize   = 8.sp,
             fontWeight = FontWeight.SemiBold,
             modifier   = Modifier.align(Alignment.CenterHorizontally)
         )
 
         Row(
             modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             TeamToggleBtn(
                 emoji         = "🔵",
@@ -854,16 +1102,16 @@ private fun IdleBody(session: DraftSession, onStartDraft: (Boolean) -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MLBBGold.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                .border(1.5.dp, MLBBGold.copy(alpha = 0.70f), RoundedCornerShape(8.dp))
+                .background(MLBBGold.copy(alpha = 0.15f), RoundedCornerShape(7.dp))
+                .border(1.5.dp, MLBBGold.copy(alpha = 0.70f), RoundedCornerShape(7.dp))
                 .clickable { onStartDraft(ourTeamFirst) }
-                .padding(vertical = 9.dp),
+                .padding(vertical = 7.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 "▶  START DRAFT",
                 color      = MLBBGold,
-                fontSize   = 11.sp,
+                fontSize   = 10.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -883,26 +1131,26 @@ private fun TeamToggleBtn(
         modifier = modifier
             .background(
                 if (isSelected) selectedColor.copy(alpha = 0.22f) else SurfaceMid,
-                RoundedCornerShape(8.dp)
+                RoundedCornerShape(7.dp)
             )
             .border(
                 width = if (isSelected) 1.5.dp else 0.5.dp,
                 color = if (isSelected) selectedColor else TextDisabled.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(7.dp)
             )
             .clickable { onClick() }
-            .padding(vertical = 7.dp),
+            .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(emoji, fontSize = 14.sp)
+            Text(emoji, fontSize = 13.sp)
             Text(
                 label,
                 color      = if (isSelected) selectedColor else TextSecondary,
-                fontSize   = 9.sp,
+                fontSize   = 8.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 textAlign  = TextAlign.Center
             )
@@ -917,30 +1165,30 @@ private fun CompleteBody(onClose: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(14.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Text(
                 "Draft complete ✅",
                 color      = SuccessGreen,
                 fontWeight = FontWeight.Bold,
-                fontSize   = 13.sp
+                fontSize   = 12.sp
             )
             Box(
                 Modifier
-                    .background(SuccessGreen.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
-                    .border(1.dp, SuccessGreen.copy(alpha = 0.40f), RoundedCornerShape(6.dp))
+                    .background(SuccessGreen.copy(alpha = 0.15f), RoundedCornerShape(5.dp))
+                    .border(1.dp, SuccessGreen.copy(alpha = 0.40f), RoundedCornerShape(5.dp))
                     .clickable { onClose() }
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
             ) {
                 Text(
                     "Close overlay",
                     color      = SuccessGreen,
-                    fontSize   = 10.sp,
+                    fontSize   = 9.sp,
                     fontWeight = FontWeight.Bold
                 )
             }

@@ -403,6 +403,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             onClose         = { stopSelf() },
                             onUndo          = { draftSessionManager.undo() },
                             onScoreDetails  = { handleScoreDetails() },
+                            onRestartDraft  = { handleRestartDraft() },
                             onHeroSelected  = { hero -> handleManualHeroSelection(hero) },
                             onStartDraft    = { ourTeamFirst -> handleManualDraftStart(ourTeamFirst) }
                         )
@@ -618,6 +619,17 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         draftSessionManager.startBanPhase()
         // Ensure widget is expanded and on-screen.
         if (!isExpanded.value) expandToWidget()
+    }
+
+    // ── Restart draft from mini-widget ↺ button ──────────────────────────────
+
+    /**
+     * Resets the draft session back to IDLE so the user can start over without
+     * closing the overlay. All bans, picks, and the undo stack are cleared.
+     */
+    private fun handleRestartDraft() {
+        resetDraftTracking()
+        draftSessionManager.reset()
     }
 
     // ── Score details from mini-widget tap ───────────────────────────────────
