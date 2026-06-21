@@ -104,11 +104,13 @@ class DraftExporter @Inject constructor(
         val outcomeText = when (DraftOutcome.fromString(s.outcome)) {
             DraftOutcome.WIN     -> "WIN"
             DraftOutcome.LOSS    -> "LOSS"
+            DraftOutcome.DRAW    -> "DRAW"
             DraftOutcome.UNKNOWN -> "—"
         }
         val outcomeColor = when (DraftOutcome.fromString(s.outcome)) {
             DraftOutcome.WIN     -> Color.parseColor("#10B981")
             DraftOutcome.LOSS    -> Color.parseColor("#EF4444")
+            DraftOutcome.DRAW    -> Color.parseColor("#F5A623")
             DraftOutcome.UNKNOWN -> Color.parseColor("#6B7280")
         }
         paint.color = outcomeColor

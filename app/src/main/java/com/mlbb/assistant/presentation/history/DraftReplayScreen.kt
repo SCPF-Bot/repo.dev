@@ -227,6 +227,7 @@ private fun OutcomeBadge(outcome: DraftOutcome) {
     val (text, color) = when (outcome) {
         DraftOutcome.WIN     -> "WIN"  to SuccessGreen
         DraftOutcome.LOSS    -> "LOSS" to ErrorRed
+        DraftOutcome.DRAW    -> "DRAW" to MLBBGold
         DraftOutcome.UNKNOWN -> "—"    to TextSecondary
     }
     Box(
