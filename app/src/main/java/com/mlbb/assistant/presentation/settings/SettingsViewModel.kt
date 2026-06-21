@@ -46,6 +46,12 @@ class SettingsViewModel @Inject constructor(
         val KEY_AUTO_SYNC     = booleanPreferencesKey("auto_sync")
         val KEY_LAST_SYNCED   = stringPreferencesKey("last_synced")
         val KEY_DEFAULT_RANK  = stringPreferencesKey("default_rank")
+
+        /** Content URI of the user's ban-phase reference screenshot. */
+        val KEY_BAN_SCREENSHOT_URI  = stringPreferencesKey("ban_screenshot_uri")
+
+        /** Content URI of the user's score-descriptions JSON file. */
+        val KEY_SCORE_JSON_URI      = stringPreferencesKey("score_json_uri")
     }
 
     private val _state = MutableStateFlow(SettingsState())
@@ -56,17 +62,19 @@ class SettingsViewModel @Inject constructor(
             dataStore.data.collect { prefs ->
                 _state.update {
                     it.copy(
-                        metaWeight       = prefs[KEY_META]    ?: 0.40f,
-                        counterWeight    = prefs[KEY_COUNTER] ?: 0.30f,
-                        synergyWeight    = prefs[KEY_SYNERGY] ?: 0.30f,
-                        overlayOpacity   = prefs[KEY_OPACITY] ?: 0.87f,
-                        autoShowOverlay  = prefs[KEY_AUTO_SHOW] ?: true,
-                        voiceAlertsEnabled = prefs[KEY_VOICE] ?: false,
-                        autoSync         = prefs[KEY_AUTO_SYNC] ?: true,
-                        lastSyncedLabel  = prefs[KEY_LAST_SYNCED] ?: "Never",
-                        defaultRank      = prefs[KEY_DEFAULT_RANK] ?: "Epic",
-                        overlayGranted   = Settings.canDrawOverlays(context),
-                        accessibilityGranted = isAccessibilityEnabled()
+                        metaWeight            = prefs[KEY_META]    ?: 0.40f,
+                        counterWeight         = prefs[KEY_COUNTER] ?: 0.30f,
+                        synergyWeight         = prefs[KEY_SYNERGY] ?: 0.30f,
+                        overlayOpacity        = prefs[KEY_OPACITY] ?: 0.87f,
+                        autoShowOverlay       = prefs[KEY_AUTO_SHOW] ?: true,
+                        voiceAlertsEnabled    = prefs[KEY_VOICE] ?: false,
+                        autoSync              = prefs[KEY_AUTO_SYNC] ?: true,
+                        lastSyncedLabel       = prefs[KEY_LAST_SYNCED] ?: "Never",
+                        defaultRank           = prefs[KEY_DEFAULT_RANK] ?: "Epic",
+                        overlayGranted        = Settings.canDrawOverlays(context),
+                        accessibilityGranted  = isAccessibilityEnabled(),
+                        banPhaseScreenshotUri = prefs[KEY_BAN_SCREENSHOT_URI] ?: "",
+                        scoreDescriptionsJsonUri = prefs[KEY_SCORE_JSON_URI] ?: ""
                     )
                 }
             }
@@ -131,6 +139,10 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
+    fun setDefaultRank(rank: String)            = save { it[KEY_DEFAULT_RANK]        = rank }
+    fun setBanPhaseScreenshotUri(uri: String)   = save { it[KEY_BAN_SCREENSHOT_URI]  = uri  }
+    fun setScoreDescriptionsJsonUri(uri: String) = save { it[KEY_SCORE_JSON_URI]     = uri  }
 
     private fun save(block: suspend (MutablePreferences) -> Unit) =
         viewModelScope.launch { dataStore.edit { block(it) } }

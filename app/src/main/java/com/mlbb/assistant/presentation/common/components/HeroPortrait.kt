@@ -101,12 +101,21 @@ fun HeroPortrait(
                     )
                 }
                 else -> {
-                    AsyncImage(
-                        model              = hero.imageUrl,
-                        contentDescription = null,   // parent semantics covers hero name + tier
-                        contentScale       = ContentScale.Crop,
-                        modifier           = Modifier.fillMaxSize()
-                    )
+                    if (hero.imageUrl.isNotBlank()) {
+                        AsyncImage(
+                            model              = hero.imageUrl,
+                            contentDescription = null,   // parent semantics covers hero name + tier
+                            contentScale       = ContentScale.Crop,
+                            modifier           = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Icon(
+                            imageVector        = Icons.Rounded.QuestionMark,
+                            contentDescription = null,
+                            tint               = TextDisabled,
+                            modifier           = Modifier.size(size * 0.45f)
+                        )
+                    }
                     // Disabled overlay drawn on top of the image
                     if (isDisabled) {
                         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)))

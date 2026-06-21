@@ -28,5 +28,20 @@ data class SettingsState(
     val calibrationResult: WeightCalibrator.CalibrationResult? = null,
 
     /** True while the background calibration computation is running. */
-    val isCalibrating: Boolean = false
+    val isCalibrating: Boolean = false,
+
+    /**
+     * Content URI (as String) of a user-selected screenshot of the banning
+     * phase.  The app uses this as a pixel-map reference for rank-aware
+     * portrait matching.  Empty string means no screenshot has been set.
+     */
+    val banPhaseScreenshotUri: String = "",
+
+    /**
+     * Content URI (as String) of a user-selected JSON file containing text
+     * descriptions for each score level.  The overlay widget reads this file
+     * to display human-readable score summaries.  Empty string means the
+     * built-in default descriptions are used.
+     */
+    val scoreDescriptionsJsonUri: String = ""
 )

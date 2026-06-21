@@ -26,7 +26,6 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.material.icons.rounded.SportsMartialArts
 import androidx.compose.material.icons.rounded.SportsKabaddi
@@ -34,7 +33,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,7 +40,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -71,7 +68,6 @@ fun HomeScreen(
     onOpenExplorer: () -> Unit,
     onOpenMeta:     () -> Unit,
     onOpenHistory:  () -> Unit,
-    onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -89,19 +85,11 @@ fun HomeScreen(
                     .background(SurfaceMid)
                     .statusBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.SportsMartialArts, contentDescription = null, tint = MLBBGold, modifier = Modifier.size(22.dp))
-                    Text("MLBB ASSISTANT", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                }
-                IconButton(
-                    onClick  = onOpenSettings,
-                    modifier = Modifier.semantics { contentDescription = "Settings" }
-                ) {
-                    Icon(Icons.Rounded.Settings, contentDescription = null, tint = TextSecondary)
-                }
+                Icon(Icons.Rounded.SportsMartialArts, contentDescription = null, tint = MLBBGold, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("MLBB ASSISTANT", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
 
             Column(
@@ -116,26 +104,10 @@ fun HomeScreen(
 
                 // Quick actions
                 SectionHeader("QUICK ACTIONS")
-                val screenWidthDp = LocalConfiguration.current.screenWidthDp
-                val useTwoColumns = screenWidthDp < 600
-                if (useTwoColumns) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            QuickActionCard("Hero Explorer", Icons.Rounded.Person,      MLBBBlue,        Modifier.weight(1f)) { onOpenExplorer() }
-                            QuickActionCard("Meta Board",   Icons.Rounded.Leaderboard, MLBBTeal,        Modifier.weight(1f)) { onOpenMeta() }
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            QuickActionCard("Draft History", Icons.Rounded.History,    TextSecondary,   Modifier.weight(1f)) { onOpenHistory() }
-                            QuickActionCard("Settings",      Icons.Rounded.Settings,   SurfaceElevated, Modifier.weight(1f)) { onOpenSettings() }
-                        }
-                    }
-                } else {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        QuickActionCard("Heroes",  Icons.Rounded.Person,      MLBBBlue,        Modifier.weight(1f)) { onOpenExplorer() }
-                        QuickActionCard("Meta",    Icons.Rounded.Leaderboard, MLBBTeal,        Modifier.weight(1f)) { onOpenMeta() }
-                        QuickActionCard("History", Icons.Rounded.History,     TextSecondary,   Modifier.weight(1f)) { onOpenHistory() }
-                        QuickActionCard("Settings",Icons.Rounded.Settings,    SurfaceElevated, Modifier.weight(1f)) { onOpenSettings() }
-                    }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    QuickActionCard("Hero Explorer", Icons.Rounded.Person,      MLBBBlue,      Modifier.weight(1f)) { onOpenExplorer() }
+                    QuickActionCard("Meta Board",   Icons.Rounded.Leaderboard, MLBBTeal,      Modifier.weight(1f)) { onOpenMeta() }
+                    QuickActionCard("Draft History", Icons.Rounded.History,     TextSecondary, Modifier.weight(1f)) { onOpenHistory() }
                 }
 
                 // Top meta heroes

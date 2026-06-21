@@ -3,7 +3,6 @@ package com.mlbb.assistant.presentation.welcome
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -198,102 +197,115 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
 
     var currentStep by remember { mutableIntStateOf(0) }
 
-    val steps = listOf(
-        // ── Step 1: Overlay (Draw Over Other Apps) ────────────────────────────
-        PermissionStep(
-            icon        = "🖼️",
-            title       = "Draw Over Other Apps",
-            description = "Allows the draft assistant to float above MLBB while you play.",
-            why         = "Without this, the overlay cannot appear on top of the game.",
-            actionLabel = "Grant Permission",
-            onAction    = { ctx ->
-                ctx.startActivity(
-                    Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:${ctx.packageName}")
-                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }
-        ),
-        // ── Step 2: Open New Windows While Running in Background ─────────────
-        PermissionStep(
-            icon        = "⚙️",
-            title       = "Open New Windows in Background",
-            description = "Keeps the draft assistant active while MLBB is in the foreground.",
-            why         = "Without this, the overlay is suspended by the OS as soon as you switch to the game, defeating its purpose.",
-            actionLabel = "Open Background Settings",
-            skipLabel   = "Skip for now",
-            onAction    = { ctx -> openBackgroundRunningSettings(ctx) }
-        ),
-        // ── Step 3: Battery Optimisation ─────────────────────────────────────
-        PermissionStep(
-            icon        = "🔋",
-            title       = "Disable Battery Optimisation",
-            description = "Prevents Android from killing the overlay service when the screen is on.",
-            why         = "Battery optimisation pauses background apps mid-draft, causing the assistant to go silent at the worst moment.",
-            actionLabel = "Disable Battery Optimisation",
-            skipLabel   = "Skip (may cause drops)",
-            onAction    = { ctx ->
-                val pm = ctx.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
-                if (!pm.isIgnoringBatteryOptimizations(ctx.packageName)) {
-                    try {
+    /**
+     * Steps are built once at composition time.
+     * The "Restricted Settings" step is only inserted on Android 13+ (API 33) because
+     * that is the first version where Android blocks accessibility services for
+     * sideloaded apps until the user explicitly enables "Allow restricted settings"
+     * in App Info.  On earlier Android versions this step would do nothing useful
+     * and would only confuse users.
+     */
+    val steps = remember {
+        buildList {
+            // ── Step 1: Overlay (Draw Over Other Apps) ────────────────────────
+            add(PermissionStep(
+                icon        = "🖼️",
+                title       = "Draw Over Other Apps",
+                description = "Allows the draft assistant to float above MLBB while you play.",
+                why         = "Without this, the overlay cannot appear on top of the game.",
+                actionLabel = "Grant Permission",
+                onAction    = { ctx ->
+                    ctx.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${ctx.packageName}")
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            ))
+
+            // ── Step 2: Open New Windows While Running in Background ──────────
+            add(PermissionStep(
+                icon        = "⚙️",
+                title       = "Open New Windows in Background",
+                description = "Keeps the draft assistant active while MLBB is in the foreground.",
+                why         = "Without this, the overlay is suspended by the OS as soon as you switch to the game, defeating its purpose.",
+                actionLabel = "Open Background Settings",
+                skipLabel   = "Skip for now",
+                onAction    = { ctx -> openBackgroundRunningSettings(ctx) }
+            ))
+
+            // ── Step 3: Background Start Activity (AppOps OP_BACKGROUND_START_ACTIVITY, code 10021) ──
+            add(PermissionStep(
+                icon        = "⚡",
+                title       = "Background Start Activity",
+                description = "Grants the app permission to open overlay windows while MLBB is in the foreground (AppOps OP_BACKGROUND_START_ACTIVITY, code 10021).",
+                why         = "Without this AppOps grant, Android silently blocks the overlay from launching its UI. In App Info go to Battery → select \"Unrestricted\".",
+                actionLabel = "Open App Info → Battery",
+                skipLabel   = "Skip (overlay may not open in-game)",
+                onAction    = { ctx ->
+                    tryStartActivity(
+                        ctx,
+                        // Direct App battery settings (API 33+)
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:${ctx.packageName}")
+                        ),
+                        // Fallback: generic settings
+                        Intent(Settings.ACTION_SETTINGS)
+                    )
+                }
+            ))
+
+            // ── Step 4: App Auto-Start ────────────────────────────────────────
+            add(PermissionStep(
+                icon        = "🚀",
+                title       = "App Auto-Start",
+                description = "Lets the overlay restart automatically if Android kills it.",
+                why         = "On Xiaomi, OPPO, Vivo, Huawei and similar phones, apps without auto-start cannot relaunch their services — the bubble disappears and never comes back.",
+                actionLabel = "Open Auto-Start Settings",
+                skipLabel   = "My phone doesn't have this",
+                onAction    = { ctx -> openAutoStartSettings(ctx) }
+            ))
+
+            // ── Step 5: Restricted Settings — only on Android 13+ (API 33) ───
+            // Prior to API 33 there is no "Allow restricted settings" toggle in App Info,
+            // so showing this step on older devices would mislead users.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(PermissionStep(
+                    icon        = "🔓",
+                    title       = "Restricted Settings",
+                    description = "On Android 13 and newer, sideloaded apps need explicit permission to use certain protected features (overlay, accessibility).",
+                    why         = "If you installed this app outside the Play Store, Android may block the permissions above until you tap 'Allow restricted settings' in App Info.",
+                    actionLabel = "Open App Info",
+                    skipLabel   = "Installed from Play Store",
+                    onAction    = { ctx ->
                         ctx.startActivity(
                             Intent(
-                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                 Uri.parse("package:${ctx.packageName}")
                             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
-                    } catch (_: Exception) {
-                        ctx.startActivity(
-                            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        )
                     }
+                ))
+            }
+
+            // ── Step 6: Accessibility Service ─────────────────────────────────
+            add(PermissionStep(
+                icon        = "♿",
+                title       = "Accessibility Service",
+                description = "Detects when MLBB is open and automatically shows the bubble.",
+                why         = "Without this, you must launch the overlay manually from the app.",
+                actionLabel = "Open Accessibility Settings",
+                onAction    = { ctx ->
+                    ctx.startActivity(
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
                 }
-            }
-        ),
-        // ── Step 4: App Auto-Start ────────────────────────────────────────────
-        PermissionStep(
-            icon        = "🚀",
-            title       = "App Auto-Start",
-            description = "Lets the overlay restart automatically if Android kills it.",
-            why         = "On Xiaomi, OPPO, Vivo, Huawei and similar phones, apps without auto-start cannot relaunch their services — the bubble disappears and never comes back.",
-            actionLabel = "Open Auto-Start Settings",
-            skipLabel   = "My phone doesn't have this",
-            onAction    = { ctx -> openAutoStartSettings(ctx) }
-        ),
-        // ── Step 5: Restricted Settings (Android 12+) ────────────────────────
-        PermissionStep(
-            icon        = "🔓",
-            title       = "Restricted Settings",
-            description = "On Android 12 and newer, sideloaded apps need explicit permission to use certain protected features (overlay, accessibility).",
-            why         = "If you installed this app outside the Play Store, Android may block the permissions above until you tap 'Allow restricted settings' in App Info.",
-            actionLabel = "Open App Info",
-            skipLabel   = "Installed from Play Store",
-            onAction    = { ctx ->
-                ctx.startActivity(
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:${ctx.packageName}")
-                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }
-        ),
-        // ── Step 6: Accessibility Service ─────────────────────────────────────
-        PermissionStep(
-            icon        = "♿",
-            title       = "Accessibility Service",
-            description = "Detects when MLBB is open and automatically shows the bubble.",
-            why         = "Without this, you must launch the overlay manually from the app.",
-            actionLabel = "Open Accessibility Settings",
-            onAction    = { ctx ->
-                ctx.startActivity(
-                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }
-        )
-    )
+            ))
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),

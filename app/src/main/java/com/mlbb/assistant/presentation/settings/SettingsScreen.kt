@@ -1,8 +1,15 @@
 package com.mlbb.assistant.presentation.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings as SystemSettings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -18,14 +25,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Warning
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings as SystemSettings
-import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -48,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -63,10 +75,16 @@ import com.mlbb.assistant.presentation.common.theme.SurfaceCard
 import com.mlbb.assistant.presentation.common.theme.SurfaceDark
 import com.mlbb.assistant.presentation.common.theme.SurfaceElevated
 import com.mlbb.assistant.presentation.common.theme.SurfaceMid
+import com.mlbb.assistant.presentation.common.theme.TextDisabled
 import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+private val MLBB_RANKS = listOf(
+    "Warrior", "Elite", "Master", "Grandmaster", "Epic",
+    "Legend", "Mythic", "Mythical Honor", "Mythical Glory", "Mythical Immortal"
+)
 
 @Composable
 fun SettingsScreen(
@@ -166,16 +184,31 @@ fun SettingsScreen(
 
             // Section 5.2.2 — Calibration transparency
             CalibrationSection(
-                result       = state.calibrationResult,
+                result        = state.calibrationResult,
                 isCalibrating = state.isCalibrating,
-                onRefresh    = { viewModel.runCalibration() },
-                onApply      = { viewModel.applyCalibrationWeights() }
+                onRefresh     = { viewModel.runCalibration() },
+                onApply       = { viewModel.applyCalibrationWeights() }
             )
 
             // Draft preferences
             SettingsSection("DRAFT PREFERENCES") {
-                InfoRow("Default rank", state.defaultRank)
+                RankSelectorRow(
+                    currentRank = state.defaultRank,
+                    onRankSelected = { viewModel.setDefaultRank(it) }
+                )
             }
+
+            // Ban phase reference screenshot
+            BanPhaseScreenshotSection(
+                currentUri = state.banPhaseScreenshotUri,
+                onUriSelected = { viewModel.setBanPhaseScreenshotUri(it) }
+            )
+
+            // Widget score descriptions JSON
+            ScoreDescriptionsJsonSection(
+                currentUri = state.scoreDescriptionsJsonUri,
+                onUriSelected = { viewModel.setScoreDescriptionsJsonUri(it) }
+            )
 
             // Data
             SettingsSection("DATA") {
@@ -218,15 +251,203 @@ fun SettingsScreen(
     }
 }
 
+// ── Rank selector ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun RankSelectorRow(currentRank: String, onRankSelected: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment     = Alignment.CenterVertically
+    ) {
+        Text("Default rank", color = TextSecondary, fontSize = 13.sp)
+
+        Box {
+            Row(
+                modifier = Modifier
+                    .background(SurfaceElevated, RoundedCornerShape(6.dp))
+                    .clickable { expanded = true }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .semantics { contentDescription = "Default rank: $currentRank. Tap to change." },
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(currentRank, color = MLBBGold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Icon(
+                    imageVector        = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = null,
+                    tint               = TextSecondary,
+                    modifier           = Modifier.size(16.dp)
+                )
+            }
+            DropdownMenu(
+                expanded         = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                MLBB_RANKS.forEach { rank ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                rank,
+                                color      = if (rank == currentRank) MLBBGold else TextPrimary,
+                                fontWeight = if (rank == currentRank) FontWeight.Bold else FontWeight.Normal,
+                                fontSize   = 13.sp
+                            )
+                        },
+                        onClick = {
+                            onRankSelected(rank)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Ban phase reference screenshot ───────────────────────────────────────────
+
+@Composable
+private fun BanPhaseScreenshotSection(currentUri: String, onUriSelected: (String) -> Unit) {
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { onUriSelected(it.toString()) }
+    }
+
+    SettingsSection("BAN PHASE REFERENCE SCREENSHOT") {
+        Text(
+            "Point the app to a screenshot you took of the ban phase. The overlay uses this image as a pixel-map reference for hero portrait matching.",
+            color    = TextSecondary,
+            fontSize = 12.sp
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        if (currentUri.isNotBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceElevated, RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Rounded.Image, contentDescription = null,
+                    tint = SuccessGreen, modifier = Modifier.size(16.dp))
+                Text(
+                    Uri.parse(currentUri).lastPathSegment ?: currentUri,
+                    color    = TextPrimary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { launcher.launch(arrayOf("image/*")) },
+                colors  = ButtonDefaults.buttonColors(containerColor = SurfaceElevated),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Rounded.FolderOpen, contentDescription = null,
+                    modifier = Modifier.size(16.dp), tint = MLBBGold)
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    if (currentUri.isBlank()) "Select Screenshot" else "Replace",
+                    color    = TextPrimary,
+                    fontSize = 13.sp
+                )
+            }
+            if (currentUri.isNotBlank()) {
+                TextButton(onClick = { onUriSelected("") }) {
+                    Text("Clear", color = ErrorRed, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+// ── Widget score descriptions JSON ────────────────────────────────────────────
+
+@Composable
+private fun ScoreDescriptionsJsonSection(currentUri: String, onUriSelected: (String) -> Unit) {
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { onUriSelected(it.toString()) }
+    }
+
+    SettingsSection("WIDGET SCORE DESCRIPTIONS") {
+        Text(
+            "Select a JSON file containing custom text descriptions for each score level. The overlay widget reads this file instead of the built-in defaults.",
+            color    = TextSecondary,
+            fontSize = 12.sp
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        if (currentUri.isNotBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceElevated, RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Rounded.FolderOpen, contentDescription = null,
+                    tint = SuccessGreen, modifier = Modifier.size(16.dp))
+                Text(
+                    Uri.parse(currentUri).lastPathSegment ?: currentUri,
+                    color    = TextPrimary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+        } else {
+            Text(
+                "Using built-in defaults",
+                color    = TextDisabled,
+                fontSize = 12.sp
+            )
+            Spacer(Modifier.height(4.dp))
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { launcher.launch(arrayOf("application/json", "text/plain")) },
+                colors  = ButtonDefaults.buttonColors(containerColor = SurfaceElevated),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Rounded.FolderOpen, contentDescription = null,
+                    modifier = Modifier.size(16.dp), tint = MLBBGold)
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    if (currentUri.isBlank()) "Select JSON File" else "Replace",
+                    color    = TextPrimary,
+                    fontSize = 13.sp
+                )
+            }
+            if (currentUri.isNotBlank()) {
+                TextButton(onClick = { onUriSelected("") }) {
+                    Text("Clear", color = ErrorRed, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
 // ── Section 5.2.2 — Calibration transparency card ────────────────────────────
 
-/**
- * Shows the [WeightCalibrator] result in plain language so users understand
- * why the engine recommends adjusting their scoring weights.
- *
- * Accessibility: The confidence progress bar carries a contentDescription
- * that reads the value as a percentage for TalkBack (Section 6.5).
- */
 @Composable
 private fun CalibrationSection(
     result:        WeightCalibrator.CalibrationResult?,
@@ -256,7 +477,6 @@ private fun CalibrationSection(
                 )
             }
             else -> {
-                // Rationale text
                 Text(
                     stringResource(R.string.calibration_rationale_label),
                     color      = MLBBGold,
@@ -273,29 +493,27 @@ private fun CalibrationSection(
                 HorizontalDivider(color = SurfaceElevated)
                 Spacer(Modifier.height(4.dp))
 
-                // Confidence bar
-                val confPct = (result.confidence * 100).toInt()
+                val confPct  = (result.confidence * 100).toInt()
                 val confDesc = "${stringResource(R.string.calibration_confidence_label)}: $confPct%"
                 Text(confDesc, color = TextSecondary, fontSize = 11.sp)
                 LinearProgressIndicator(
-                    progress      = { result.confidence },
-                    modifier      = Modifier
+                    progress   = { result.confidence },
+                    modifier   = Modifier
                         .fillMaxWidth()
                         .semantics { contentDescription = confDesc },
-                    color         = MLBBTeal,
-                    trackColor    = SurfaceElevated
+                    color      = MLBBTeal,
+                    trackColor = SurfaceElevated
                 )
 
                 Spacer(Modifier.height(4.dp))
 
-                // Suggested weight preview
                 val sw = result.suggestedWeights
                 Text(
                     "Suggested: Meta ${"%.0f".format(sw.meta * 100)}%  " +
                     "Counter ${"%.0f".format(sw.counter * 100)}%  " +
                     "Synergy ${"%.0f".format(sw.synergy * 100)}%",
-                    color    = TextPrimary,
-                    fontSize = 12.sp,
+                    color      = TextPrimary,
+                    fontSize   = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
@@ -317,6 +535,8 @@ private fun CalibrationSection(
         }
     }
 }
+
+// ── Shared primitives ─────────────────────────────────────────────────────────
 
 @Composable
 private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {

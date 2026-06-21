@@ -65,7 +65,6 @@ fun AppNavGraph(
                 onOpenExplorer = { navController.navigate(AppRoute.HeroList.route) },
                 onOpenMeta     = { navController.navigate(AppRoute.MetaBoard.route) },
                 onOpenHistory  = { navController.navigate(AppRoute.History.route) },
-                onOpenSettings = { navController.navigate(AppRoute.Settings.route) },
             )
         }
 
