@@ -3,6 +3,7 @@ package com.mlbb.assistant.domain.engine
 import com.mlbb.assistant.domain.model.DraftHistoryItem
 import com.mlbb.assistant.domain.model.DraftOutcome
 import com.mlbb.assistant.domain.scoring.ScoreWeights
+import kotlin.math.abs
 
 /**
  * Analyses recent [DraftHistoryItem] records to produce a calibrated
@@ -15,10 +16,13 @@ import com.mlbb.assistant.domain.scoring.ScoreWeights
  * 3. Increase the weight for a component where the winning sessions score
  *    significantly higher than losing ones, capped at ±0.15 adjustment per
  *    calibration run.
- * 4. Normalise the result so meta + counter + synergy = 1.0.
+ * 4. Normalise the result so meta + synergy + counter = 1.0.
  *
  * The calibrator requires at least [MIN_SESSIONS] outcomes recorded to
  * avoid over-fitting on tiny samples.
+ *
+ * DRAW sessions are excluded from calibration because they carry no
+ * directional signal.
  */
 object WeightCalibrator {
 
@@ -35,10 +39,10 @@ object WeightCalibrator {
     /**
      * Produces a [CalibrationResult] from [history].
      * Returns null if there are fewer than [MIN_SESSIONS] sessions with
-     * known outcomes (WIN or LOSS).
+     * known WIN or LOSS outcomes.
      */
     fun calibrate(history: List<DraftHistoryItem>, current: ScoreWeights): CalibrationResult? {
-        val labelled = history.filter { it.outcome != DraftOutcome.UNKNOWN }
+        val labelled = history.filter { it.outcome == DraftOutcome.WIN || it.outcome == DraftOutcome.LOSS }
         if (labelled.size < MIN_SESSIONS) return null
 
         val wins   = labelled.filter { it.outcome == DraftOutcome.WIN }
@@ -50,7 +54,7 @@ object WeightCalibrator {
         val avgCounter = diff(wins, losses) { it.counterScore.toFloat() }
         val avgSynergy = diff(wins, losses) { it.synergyScore.toFloat() }
 
-        val total = Math.abs(avgMeta) + Math.abs(avgCounter) + Math.abs(avgSynergy)
+        val total = abs(avgMeta) + abs(avgCounter) + abs(avgSynergy)
         if (total < 0.001f) {
             return CalibrationResult(
                 current, 0f,
@@ -62,12 +66,13 @@ object WeightCalibrator {
         val newCounter = (current.counter + clampDelta(avgCounter / total * LEARN_RATE)).coerceAtLeast(0.05f)
         val newSynergy = (current.synergy + clampDelta(avgSynergy / total * LEARN_RATE)).coerceAtLeast(0.05f)
 
-        val suggested = ScoreWeights.normalized(newMeta, newCounter, newSynergy)
+        // Argument order matches ScoreWeights.normalized(meta, synergy, counter).
+        val suggested  = ScoreWeights.normalized(newMeta, newSynergy, newCounter)
         val confidence = (labelled.size.toFloat() / (labelled.size + 20)).coerceIn(0f, 1f)
 
         val dominant = listOf(
             "Meta" to avgMeta, "Counter" to avgCounter, "Synergy" to avgSynergy
-        ).maxByOrNull { Math.abs(it.second) }
+        ).maxByOrNull { abs(it.second) }
 
         val rationale = dominant?.let {
             "Winning drafts had ${if (it.second > 0) "higher" else "lower"} ${it.first} scores. " +

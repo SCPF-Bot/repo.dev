@@ -6,8 +6,9 @@ package com.mlbb.assistant.domain.model
  * enum entries do not require a schema migration.
  */
 enum class DraftOutcome(val display: String, val emoji: String) {
-    WIN("Win", "🏆"),
-    LOSS("Loss", "💀"),
+    WIN("Win",     "🏆"),
+    LOSS("Loss",   "💀"),
+    DRAW("Draw",   "🤝"),
     UNKNOWN("Unknown", "❓");
 
     companion object {

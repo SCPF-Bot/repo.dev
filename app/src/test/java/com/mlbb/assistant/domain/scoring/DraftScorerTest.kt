@@ -5,11 +5,13 @@ import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
 import com.mlbb.assistant.domain.model.Tier
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the pure mathematical scoring formula exposed by [DraftScorer.computeScore].
+ * Unit tests for the pure mathematical scoring formula exposed by [DraftScorer.computeScore]
+ * and the full per-hero scoring pipeline exposed by [DraftScorer.score] / [DraftScorer.rankAll].
  *
  * Formula: score = metaWeight * winRate
  *                + counterWeight * (enemies countered / total enemies)
@@ -23,7 +25,8 @@ class DraftScorerTest {
         id: Int,
         winRate: Double = 0.5,
         counters: List<Int> = emptyList(),
-        synergies: List<Int> = emptyList()
+        synergies: List<Int> = emptyList(),
+        counteredBy: List<Int> = emptyList()
     ) = Hero(
         id                = id,
         name              = "Hero$id",
@@ -37,7 +40,7 @@ class DraftScorerTest {
         banRate           = 0.05,
         imageUrl          = "",
         counters          = counters,
-        counteredBy       = emptyList(),
+        counteredBy       = counteredBy,
         synergies         = synergies,
         recommendedSpells = emptyList(),
         coreItems         = emptyList(),
@@ -65,7 +68,7 @@ class DraftScorerTest {
 
     @Test
     fun `counter score increases when hero counters all enemies`() {
-        val enemy = hero(2)
+        val enemy          = hero(2)
         val heroWithCounter = hero(1, counters = listOf(2))
         val heroNoCounter   = hero(1)
 
@@ -96,7 +99,7 @@ class DraftScorerTest {
 
     @Test
     fun `synergy score increases when hero synergises with ally`() {
-        val ally = hero(3)
+        val ally        = hero(3)
         val heroWithSyn = hero(1, synergies = listOf(3))
         val heroNoSyn   = hero(1)
 
@@ -131,5 +134,86 @@ class DraftScorerTest {
         val h = hero(1, winRate = 0.0)
         val score = DraftScorer.computeScore(h, listOf(hero(2)), listOf(hero(3)), weights)
         assertTrue(score >= 0.0)
+    }
+
+    // ----- score() pipeline -----
+
+    @Test
+    fun `score function does not throw for any valid pick index`() {
+        val h = hero(1, winRate = 0.5, synergies = listOf(2))
+        val ally = hero(2)
+        for (idx in 0..10) {
+            val result = DraftScorer.score(
+                candidate    = h,
+                alliedPicks  = listOf(ally),
+                enemyPicks   = emptyList(),
+                bannedIds    = emptySet(),
+                weights      = weights,
+                missingLanes = emptyList(),
+                currentTurn  = null,
+                pickIndex    = idx,
+                maxPickIndex = 10
+            )
+            assertTrue("Score at pickIndex=$idx must be in [0,1]", result.totalScore in 0f..1f)
+        }
+    }
+
+    @Test
+    fun `score produces a different total at pickIndex 0 vs pickIndex 9 for asymmetric weights`() {
+        // With asymmetric base weights (synergy != counter), the adaptive curve should
+        // produce different totals at early vs late picks for a hero with strong synergy.
+        val asymWeights = ScoreWeights(0.50f, 0.30f, 0.20f)  // meta, synergy, counter
+        val ally = hero(2)
+        val h    = hero(1, winRate = 0.50, synergies = listOf(2))
+
+        val earlyScore = DraftScorer.score(h, listOf(ally), emptyList(), emptySet(),
+            asymWeights, emptyList(), null, pickIndex = 0, maxPickIndex = 10)
+        val lateScore  = DraftScorer.score(h, listOf(ally), emptyList(), emptySet(),
+            asymWeights, emptyList(), null, pickIndex = 9, maxPickIndex = 10)
+
+        // Adaptive weights shift at later picks; total scores must differ.
+        assertNotEquals(
+            "Adaptive weights should produce different totals at pickIndex=0 vs 9",
+            earlyScore.totalScore, lateScore.totalScore
+        )
+    }
+
+    // ----- rankAll -----
+
+    @Test
+    fun `rankAll excludes banned heroes`() {
+        val pool = listOf(hero(1), hero(2), hero(3))
+        val result = DraftScorer.rankAll(
+            pool        = pool,
+            alliedPicks = emptyList(),
+            enemyPicks  = emptyList(),
+            bannedIds   = setOf(2),
+            weights     = weights,
+            currentTurn = null
+        )
+        assertTrue("Banned hero 2 must not appear in results",
+            result.none { it.hero.id == 2 })
+        assertEquals(2, result.size)
+    }
+
+    @Test
+    fun `rankAll returns results sorted by descending totalScore`() {
+        val pool = listOf(
+            hero(1, winRate = 0.70),
+            hero(2, winRate = 0.40),
+            hero(3, winRate = 0.55)
+        )
+        val result = DraftScorer.rankAll(pool, emptyList(), emptyList(), emptySet(), weights, null)
+        for (i in 0 until result.size - 1) {
+            assertTrue("Results must be sorted descending",
+                result[i].totalScore >= result[i + 1].totalScore)
+        }
+    }
+
+    @Test
+    fun `computeBounds returns DEFAULT for pool smaller than 4`() {
+        val small = listOf(hero(1), hero(2), hero(3))
+        val bounds = DraftScorer.computeBounds(small)
+        assertEquals(DraftScorer.ScoreBounds.DEFAULT, bounds)
     }
 }

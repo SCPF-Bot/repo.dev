@@ -16,6 +16,27 @@ class RankRuleEngineTest {
     // ── getBanStructure ───────────────────────────────────────────────────────
 
     @Test
+    fun warriorBanStructureMatchesEpic() {
+        val warrior = RankRuleEngine.getBanStructure(Rank.WARRIOR)
+        val epic    = RankRuleEngine.getBanStructure(Rank.EPIC)
+        assertEquals(epic, warrior)
+    }
+
+    @Test
+    fun eliteBanStructureMatchesEpic() {
+        val elite = RankRuleEngine.getBanStructure(Rank.ELITE)
+        val epic  = RankRuleEngine.getBanStructure(Rank.EPIC)
+        assertEquals(epic, elite)
+    }
+
+    @Test
+    fun masterBanStructureMatchesEpic() {
+        val master = RankRuleEngine.getBanStructure(Rank.MASTER)
+        val epic   = RankRuleEngine.getBanStructure(Rank.EPIC)
+        assertEquals(epic, master)
+    }
+
+    @Test
     fun epicBanStructureHas6TotalAndNoRound2() {
         val s = RankRuleEngine.getBanStructure(Rank.EPIC)
         assertEquals(6, s.totalBans)
@@ -122,9 +143,28 @@ class RankRuleEngineTest {
     }
 
     @Test
+    fun fromStringRecognisesWarrior() {
+        assertEquals(Rank.WARRIOR, RankRuleEngine.fromString("Warrior"))
+        assertEquals(Rank.WARRIOR, RankRuleEngine.fromString("WARRIOR III"))
+    }
+
+    @Test
+    fun fromStringRecognisesElite() {
+        assertEquals(Rank.ELITE, RankRuleEngine.fromString("Elite"))
+        assertEquals(Rank.ELITE, RankRuleEngine.fromString("ELITE II"))
+    }
+
+    @Test
+    fun fromStringRecognisesMaster() {
+        assertEquals(Rank.MASTER, RankRuleEngine.fromString("Master"))
+        assertEquals(Rank.MASTER, RankRuleEngine.fromString("master i"))
+    }
+
+    @Test
     fun fromStringReturnsUnknownForGibberish() {
         assertEquals(Rank.UNKNOWN, RankRuleEngine.fromString(""))
-        assertEquals(Rank.UNKNOWN, RankRuleEngine.fromString("Warrior"))
+        assertEquals(Rank.UNKNOWN, RankRuleEngine.fromString("xyz123"))
+        assertEquals(Rank.UNKNOWN, RankRuleEngine.fromString("GrandMaster"))
     }
 
     // ── inferFromBanCount ─────────────────────────────────────────────────────
@@ -152,6 +192,14 @@ class RankRuleEngineTest {
     @Test
     fun epicHas3BannerSlots() {
         assertEquals(3, RankRuleEngine.getBannerSlots(Rank.EPIC).size)
+    }
+
+    @Test
+    fun warriorEliteMasterHave3BannerSlots() {
+        listOf(Rank.WARRIOR, Rank.ELITE, Rank.MASTER).forEach { rank ->
+            assertEquals("Expected 3 banner slots for $rank",
+                3, RankRuleEngine.getBannerSlots(rank).size)
+        }
     }
 
     @Test

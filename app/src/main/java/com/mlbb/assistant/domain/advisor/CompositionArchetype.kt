@@ -53,13 +53,15 @@ enum class CompositionArchetype(
         /**
          * Derives the primary archetype from a team's [CompositionProfile].
          *
-         * Heuristics (in priority order):
-         * 1. 3 + assassins / high-mobility divers → DIVE
-         * 2. 2 + long-range poke mages / marksmen (no sustain) → POKE
-         * 3. 2 + supports / high sustain → TURTLE
-         * 4. 2 + AoE ult heroes (flagged via hasCCUlt) → WOMBO_COMBO
-         * 5. 1 high-mobility carry + weak teamfight → SPLIT_PUSH
-         * 6. Everything else → BALANCED
+         * Priority order (highest → lowest):
+         * 1. WOMBO_COMBO — 2+ heroes with CC ults AND high CC level overall.
+         *    Checked first because a WOMBO_COMBO comp often also has assassins/divers,
+         *    and the combo identity is the defining win-condition.
+         * 2. DIVE — 2+ assassins with high team mobility.
+         * 3. POKE — 3+ ranged carries (mages + marksmen) with low sustain.
+         * 4. TURTLE — 2+ supports with meaningful sustain.
+         * 5. SPLIT_PUSH — at least one assassin/fighter with minimal frontline (0–1 tank/support).
+         * 6. BALANCED — everything else.
          */
         fun detect(profile: CompositionProfile, heroRoles: List<String>, ccUltCount: Int): CompositionArchetype {
             val assassinCount  = heroRoles.count { it == "Assassin" }
@@ -69,12 +71,17 @@ enum class CompositionArchetype(
             val marksmanCount  = heroRoles.count { it == "Marksman" }
 
             return when {
+                // Wombo-combo: hard CC ults + sufficient frontline to enable the chain.
+                ccUltCount >= 2 && profile.ccLevel == CCLevel.HIGH &&
+                        (tankCount + supportCount) >= 1 -> WOMBO_COMBO
+                // Dive: assassin-heavy with team-wide high mobility.
                 assassinCount >= 2 && profile.mobilityLevel == MobilityLevel.HIGH -> DIVE
-                (tankCount >= 2 || (tankCount >= 1 && assassinCount >= 1)) &&
-                        profile.ccLevel == CCLevel.HIGH && ccUltCount >= 2 -> WOMBO_COMBO
+                // Poke: 3+ ranged damage dealers with no meaningful sustain.
                 (mageCount + marksmanCount) >= 3 &&
                         profile.sustainLevel == SustainLevel.LOW -> POKE
+                // Turtle / sustain: double support backed by sustain.
                 supportCount >= 2 && profile.sustainLevel != SustainLevel.LOW -> TURTLE
+                // Split push: mobile carry with virtually no frontline.
                 assassinCount >= 1 && (tankCount + supportCount) <= 1 -> SPLIT_PUSH
                 else -> BALANCED
             }

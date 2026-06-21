@@ -70,7 +70,11 @@ object BanRecommender {
     /**
      * Returns absolute and reactive ban lists separately.
      *
-     * Absolute bans are selected first: isOP || isToxicMechanic || banRate > 0.40
+     * Absolute bans (Section 3.3.3):
+     *   isToxicMechanic = true  OR  isOP = true  OR  banRate ≥ 0.40
+     * Any single flag is sufficient — the previous code erroneously required
+     * BOTH isOP AND isToxicMechanic, which under-flagged many must-ban heroes.
+     *
      * Reactive bans are context-sensitive: they counter allied picks or strengthen
      * the enemy's inferred composition archetype.
      */
@@ -86,25 +90,23 @@ object BanRecommender {
 
         val pool = availableHeroes.filter { it.id !in bannedIds && it.id !in pickedIds }
 
-        // Absolute ban criterion: consistently OP/toxic/community-consensus ban.
+        // Absolute ban criterion: any one flag is sufficient.
         val isAbsolute: (Hero) -> Boolean = { hero ->
-            hero.isOP && hero.isToxicMechanic ||
-            hero.banRate >= 0.40 ||
-            (hero.isOP && hero.winRate >= 0.54)
+            hero.isToxicMechanic ||
+            hero.isOP            ||
+            hero.banRate >= 0.40
         }
 
-        // Reactive: directly counters one of our picks, or has high counter-into-enemy value.
-        val alliedIds   = alliedPicks.map { it.id }.toSet()
-        val enemyIds    = enemyPicks.map { it.id }.toSet()
+        // Reactive: directly counters one of our picks, or synergises with an enemy pick.
         val isReactive: (Hero) -> Boolean = { hero ->
             alliedPicks.any { ally -> hero.id in ally.counteredBy } ||
             enemyPicks.any  { ep   -> hero.id in ep.synergies }
         }
 
         val scored = pool.map { hero ->
-            val baseScore = computeBaseScore(hero, preferredLanes)
+            val baseScore     = computeBaseScore(hero, preferredLanes)
             val reactiveBonus = if (isReactive(hero)) 0.20f else 0f
-            val totalScore = (baseScore + reactiveBonus).coerceIn(0f, 1f)
+            val totalScore    = (baseScore + reactiveBonus).coerceIn(0f, 1f)
 
             val category = when {
                 isAbsolute(hero) -> BanCategory.ABSOLUTE
@@ -144,7 +146,7 @@ object BanRecommender {
 
     private fun buildBanReason(hero: Hero, alliedPicks: List<Hero>, enemyPicks: List<Hero>): String {
         val counteringAlly = alliedPicks.firstOrNull { ally -> hero.id in ally.counteredBy }
-        val synergyEnemy   = enemyPicks.firstOrNull { ep -> hero.id in ep.synergies }
+        val synergyEnemy   = enemyPicks.firstOrNull  { ep   -> hero.id in ep.synergies }
         return when {
             counteringAlly != null ->
                 "Directly counters your ${counteringAlly.name} — reactive ban priority"
@@ -156,8 +158,10 @@ object BanRecommender {
                 "OP in current meta — %.0f%% ban rate".format(hero.banRate * 100)
             hero.isOP ->
                 "Strong pick — %.0f%% win rate this patch".format(hero.winRate * 100)
-            hero.banRate > 0.20 ->
+            hero.banRate >= 0.40 ->
                 "Community consensus ban — %.0f%% ban rate".format(hero.banRate * 100)
+            hero.banRate > 0.20 ->
+                "High community ban pressure — %.0f%% ban rate".format(hero.banRate * 100)
             else ->
                 "Counters common team compositions"
         }

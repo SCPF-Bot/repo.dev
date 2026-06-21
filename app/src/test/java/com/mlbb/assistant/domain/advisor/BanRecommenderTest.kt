@@ -9,13 +9,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for [BanRecommender.rank].
+ * Unit tests for [BanRecommender.rank] and [BanRecommender.rankSplit].
  *
  * Scoring formula:
  *   metaScore = (winRate - 0.50).coerceAtLeast(0) * 2 + banRate * 1.5
  *   bonus     = toxicMechanic(+0.30) + isOP(+0.25) + laneBonus(+0.10)
  *   total     = (metaScore + bonuses).coerceIn(0, 1)
  * Result is sorted descending and limited to top 3.
+ *
+ * Absolute ban criterion (Section 3.3.3):
+ *   isToxicMechanic = true  OR  isOP = true  OR  banRate ≥ 0.40
  */
 class BanRecommenderTest {
 
@@ -29,25 +32,25 @@ class BanRecommenderTest {
         isOP: Boolean = false,
         lane: Lane = Lane.GOLD
     ) = Hero(
-        id               = id,
-        name             = "Hero$id",
-        role             = "Fighter",
-        secondaryRole    = null,
-        lane             = lane,
-        tier             = Tier.B,
-        patchTrend       = 0.0,
-        winRate          = winRate,
-        pickRate         = 0.10,
-        banRate          = banRate,
-        imageUrl         = "",
-        counters         = emptyList(),
-        counteredBy      = emptyList(),
-        synergies        = emptyList(),
+        id                = id,
+        name              = "Hero$id",
+        role              = "Fighter",
+        secondaryRole     = null,
+        lane              = lane,
+        tier              = Tier.B,
+        patchTrend        = 0.0,
+        winRate           = winRate,
+        pickRate          = 0.10,
+        banRate           = banRate,
+        imageUrl          = "",
+        counters          = emptyList(),
+        counteredBy       = emptyList(),
+        synergies         = emptyList(),
         recommendedSpells = emptyList(),
-        coreItems        = emptyList(),
-        flexLanes        = emptyList(),
-        isToxicMechanic  = isToxicMechanic,
-        isOP             = isOP
+        coreItems         = emptyList(),
+        flexLanes         = emptyList(),
+        isToxicMechanic   = isToxicMechanic,
+        isOP              = isOP
     )
 
     // ── Pool filtering ───────────────────────────────────────────────────────
@@ -151,12 +154,78 @@ class BanRecommenderTest {
         val laneHero  = hero(1, winRate = 0.55, lane = Lane.MID)
         val otherHero = hero(2, winRate = 0.55, lane = Lane.GOLD)
         val result = BanRecommender.rank(
-            availableHeroes  = listOf(laneHero, otherHero),
-            bannedIds        = emptySet(),
-            pickedIds        = emptySet(),
-            weights          = weights,
-            preferredLanes   = listOf("MID")
+            availableHeroes = listOf(laneHero, otherHero),
+            bannedIds       = emptySet(),
+            pickedIds       = emptySet(),
+            weights         = weights,
+            preferredLanes  = listOf("MID")
         )
         assertEquals(laneHero.id, result.first().hero.id)
+    }
+
+    // ── Absolute ban criterion (Section 3.3.3) ────────────────────────────────
+
+    @Test
+    fun `hero with ONLY isToxicMechanic gets ABSOLUTE category`() {
+        val toxic = hero(1, isToxicMechanic = true, isOP = false, banRate = 0.05)
+        val result = BanRecommender.rankSplit(
+            availableHeroes = listOf(toxic),
+            bannedIds = emptySet(), pickedIds = emptySet(), weights = weights
+        )
+        assertTrue("Toxic hero should be in absolute list", result.absolute.isNotEmpty())
+        assertEquals(BanCategory.ABSOLUTE, result.absolute.first().category)
+    }
+
+    @Test
+    fun `hero with ONLY isOP gets ABSOLUTE category`() {
+        val op = hero(1, isOP = true, isToxicMechanic = false, banRate = 0.05)
+        val result = BanRecommender.rankSplit(
+            availableHeroes = listOf(op),
+            bannedIds = emptySet(), pickedIds = emptySet(), weights = weights
+        )
+        assertTrue("OP hero should be in absolute list", result.absolute.isNotEmpty())
+        assertEquals(BanCategory.ABSOLUTE, result.absolute.first().category)
+    }
+
+    @Test
+    fun `hero with high banRate only gets ABSOLUTE category`() {
+        val highBan = hero(1, banRate = 0.45, isOP = false, isToxicMechanic = false)
+        val result = BanRecommender.rankSplit(
+            availableHeroes = listOf(highBan),
+            bannedIds = emptySet(), pickedIds = emptySet(), weights = weights
+        )
+        assertTrue("High-banRate hero should be in absolute list", result.absolute.isNotEmpty())
+        assertEquals(BanCategory.ABSOLUTE, result.absolute.first().category)
+    }
+
+    @Test
+    fun `non-threatening hero is SITUATIONAL not ABSOLUTE`() {
+        val normal = hero(1, isOP = false, isToxicMechanic = false, banRate = 0.10)
+        val result = BanRecommender.rankSplit(
+            availableHeroes = listOf(normal),
+            bannedIds = emptySet(), pickedIds = emptySet(), weights = weights
+        )
+        assertTrue("Non-threatening hero should not be absolute", result.absolute.isEmpty())
+        assertTrue("Non-threatening hero should be situational",
+            result.reactive.isEmpty() || result.reactive.none { it.hero.id == 1 })
+    }
+
+    // ── Reactive ban (context-sensitive) ─────────────────────────────────────
+
+    @Test
+    fun `hero that counters an allied pick gets REACTIVE category`() {
+        val ally   = hero(2)
+        val threat = hero(1).copy(id = 1)
+        // Create an ally that is countered-by threat hero (id=1)
+        val allyCounted = ally.copy(counteredBy = listOf(1))
+        val result = BanRecommender.rankSplit(
+            availableHeroes = listOf(threat),
+            bannedIds       = emptySet(),
+            pickedIds       = emptySet(),
+            weights         = weights,
+            alliedPicks     = listOf(allyCounted),
+            enemyPicks      = emptyList()
+        )
+        assertTrue("Hero countering an ally should be REACTIVE", result.reactive.isNotEmpty())
     }
 }

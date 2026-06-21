@@ -1,6 +1,21 @@
 package com.mlbb.assistant.domain.engine
 
+/**
+ * All rank tiers recognised by the app.
+ *
+ * Tiers are ordered from lowest (WARRIOR) to highest (IMMORTAL), followed by
+ * UNKNOWN as a sentinel.  The ordinal values are used by
+ * [DraftSessionManager.upgradeRankFromObservedBans] to determine whether an
+ * inferred rank should replace the current one.
+ *
+ * Note: WARRIOR/ELITE/MASTER are treated identically to EPIC for ban-structure
+ * purposes (6 total bans, no round 2) because they share the same in-game
+ * draft rules.
+ */
 enum class Rank(val display: String) {
+    WARRIOR("Warrior"),
+    ELITE("Elite"),
+    MASTER("Master"),
     EPIC("Epic"),
     LEGEND("Legend"),
     MYTHIC("Mythic"),
@@ -23,7 +38,11 @@ data class BanStructure(
 object RankRuleEngine {
 
     fun getBanStructure(rank: Rank): BanStructure = when (rank) {
-        Rank.EPIC -> BanStructure(
+        Rank.WARRIOR,
+        Rank.ELITE,
+        Rank.MASTER,
+        Rank.EPIC,
+        Rank.UNKNOWN -> BanStructure(
             totalBans = 6, round1PerTeam = 3, round2PerTeam = 0, hasRound2 = false
         )
         Rank.LEGEND -> BanStructure(
@@ -35,17 +54,21 @@ object RankRuleEngine {
         Rank.IMMORTAL -> BanStructure(
             totalBans = 10, round1PerTeam = 3, round2PerTeam = 2, hasRound2 = true
         )
-        Rank.UNKNOWN -> BanStructure(
-            totalBans = 6, round1PerTeam = 3, round2PerTeam = 0, hasRound2 = false
-        )
     }
 
-    /** S1–S5 slots that are designated banners at Epic rank */
+    /** S1–S5 slots that are designated banners per rank tier. */
     fun getBannerSlots(rank: Rank): List<Int> = when (rank) {
-        Rank.EPIC -> listOf(3, 4, 5) // S3, S4, S5
+        Rank.WARRIOR,
+        Rank.ELITE,
+        Rank.MASTER,
+        Rank.EPIC -> listOf(3, 4, 5) // S3, S4, S5 only
         else      -> listOf(1, 2, 3, 4, 5) // all players can ban
     }
 
+    /**
+     * Parses a freeform rank string (e.g. from OCR or user input) into a [Rank].
+     * Matching is case-insensitive and tolerates common suffixes like "I", "IV", "III".
+     */
     fun fromString(raw: String): Rank {
         val s = raw.trim().lowercase()
         return when {
@@ -55,11 +78,14 @@ object RankRuleEngine {
             s.contains("mythic")           -> Rank.MYTHIC
             s.contains("legend")           -> Rank.LEGEND
             s.contains("epic")             -> Rank.EPIC
+            s.contains("master")           -> Rank.MASTER
+            s.contains("elite")            -> Rank.ELITE
+            s.contains("warrior")          -> Rank.WARRIOR
             else                           -> Rank.UNKNOWN
         }
     }
 
-    /** Fallback: infer rank from observed ban count */
+    /** Fallback: infer rank tier from the number of observed bans in the lobby. */
     fun inferFromBanCount(observedBans: Int): Rank = when {
         observedBans >= 10 -> Rank.MYTHIC
         observedBans >= 8  -> Rank.LEGEND

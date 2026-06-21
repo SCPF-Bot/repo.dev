@@ -14,19 +14,23 @@ import javax.inject.Inject
  * Score computation uses simple heuristics from available session data so that
  * this use case stays pure (no android.* imports, no Room references).
  *
+ * Simulation drafts ([DraftSession.isSimulation] == true) are still saved so
+ * that the history screen can show them with a "Simulation" badge, but they are
+ * excluded from [WeightCalibrator] calibration runs.
+ *
  * @return the Room row-id of the saved record, or -1 on any failure.
  */
 class SaveDraftSessionUseCase @Inject constructor(
     private val repository: DraftSessionRepository
 ) {
     suspend operator fun invoke(session: DraftSession): Long {
-        val ourPicks    = session.ourPickedHeroes
-        val enemyPicks  = session.enemyPickedHeroes
+        val ourPicks   = session.ourPickedHeroes
+        val enemyPicks = session.enemyPickedHeroes
 
-        // Meta score: average win rate of our picks vs average win rate of their picks (0–100).
-        val ourMeta    = if (ourPicks.isEmpty())   50 else (ourPicks.map { it.winRate }.average() * 100).toInt()
-        val enemyMeta  = if (enemyPicks.isEmpty()) 50 else (enemyPicks.map { it.winRate }.average() * 100).toInt()
-        val metaScore  = ourMeta.coerceIn(0, 100)
+        // Meta score: average win rate of our picks (0–100).
+        val metaScore = if (ourPicks.isEmpty()) 50
+                        else (ourPicks.map { it.winRate }.average() * 100).toInt()
+                                .coerceIn(0, 100)
 
         // Counter score: ratio of our heroes that counter at least one enemy pick.
         val counterScore = if (ourPicks.isEmpty() || enemyPicks.isEmpty()) 50 else {
@@ -42,7 +46,7 @@ class SaveDraftSessionUseCase @Inject constructor(
             ((effective.toFloat() / ourPicks.size) * 100).toInt().coerceIn(0, 100)
         }
 
-        // Overall draft score: weighted average.
+        // Overall draft score: weighted average (meta 40 %, counter 30 %, synergy 30 %).
         val draftScore = ((metaScore * 0.4 + counterScore * 0.3 + synergyScore * 0.3)).toInt()
 
         val item = DraftHistoryItem(
@@ -54,7 +58,9 @@ class SaveDraftSessionUseCase @Inject constructor(
             counterScore            = counterScore,
             synergyScore            = synergyScore,
             followedRecommendations = session.followedRecommendations,
-            totalRecommendations    = session.totalRecommendations
+            totalRecommendations    = session.totalRecommendations,
+            outcome                 = session.outcome,
+            isSimulation            = session.isSimulation
         )
 
         return runCatching { repository.saveSession(item) }.getOrDefault(-1L)

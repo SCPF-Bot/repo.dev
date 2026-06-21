@@ -208,7 +208,8 @@ object DraftScorer {
         val newMeta    = (base.meta    - boost * 2f).coerceAtLeast(0.05f)
         val newSynergy = base.synergy + boost
         val newCounter = base.counter + boost
-        return ScoreWeights.normalized(newMeta, newCounter, newSynergy)
+        // Argument order matches ScoreWeights.normalized(meta, synergy, counter).
+        return ScoreWeights.normalized(newMeta, newSynergy, newCounter)
     }
 
     // ── Component scoring ─────────────────────────────────────────────────────

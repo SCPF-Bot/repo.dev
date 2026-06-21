@@ -52,6 +52,38 @@ fun <T> NetworkResult<T>.getOrNull(): T? =
     if (this is NetworkResult.Success) data else null
 
 /**
+ * Transforms the [NetworkResult.Success.data] value with [transform], leaving
+ * [Loading] and [Error] states unchanged.  Useful for chaining data conversions
+ * in repositories without unwrapping the result.
+ *
+ * Example:
+ *   heroResult.mapSuccess { entities -> entities.map { it.toDomain() } }
+ */
+inline fun <T, R> NetworkResult<T>.mapSuccess(transform: (T) -> R): NetworkResult<R> = when (this) {
+    is NetworkResult.Loading -> NetworkResult.Loading
+    is NetworkResult.Success -> NetworkResult.Success(transform(data))
+    is NetworkResult.Error   -> this
+}
+
+/**
+ * Runs [action] when this is [NetworkResult.Success], then returns the original result
+ * unchanged.  Designed for side-effects such as caching or logging inside a chain.
+ */
+inline fun <T> NetworkResult<T>.onSuccess(action: (T) -> Unit): NetworkResult<T> {
+    if (this is NetworkResult.Success) action(data)
+    return this
+}
+
+/**
+ * Runs [action] when this is [NetworkResult.Error], then returns the original result
+ * unchanged.  Designed for side-effects such as error reporting or analytics.
+ */
+inline fun <T> NetworkResult<T>.onError(action: (message: String, cause: Throwable?) -> Unit): NetworkResult<T> {
+    if (this is NetworkResult.Error) action(message, cause)
+    return this
+}
+
+/**
  * Convenience builder: wraps a suspending block in a [NetworkResult].
  * Returns [NetworkResult.Success] on completion or [NetworkResult.Error] on any exception.
  */

@@ -1,13 +1,12 @@
 package com.mlbb.assistant.domain.engine
 
+import com.mlbb.assistant.domain.model.CoreItem
 import com.mlbb.assistant.domain.model.DraftOutcome
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
 import com.mlbb.assistant.domain.model.Tier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -17,25 +16,30 @@ import org.junit.Test
  * These tests verify that [DraftSessionManager] transitions states
  * correctly and that [DraftSession] computed properties hold invariants
  * after mutations.  They do NOT test file serialisation (which requires
- * Android instrumentation) but do cover the JSON-round-trip helpers if
- * added in the future.
+ * Android instrumentation) but do cover the state round-trip helpers.
  */
 class DraftSessionSerializationTest {
 
     private fun makeHero(id: Int, name: String = "Hero$id") = Hero(
-        id         = id,
-        name       = name,
-        role       = "Marksman",
-        lane       = Lane.GOLD,
-        tier       = Tier.S,
-        winRate    = 0.52,
-        banRate    = 0.10,
-        pickRate   = 0.15,
-        patchTrend = 0.0,
-        counters   = emptySet(),
-        counteredBy = emptySet(),
-        synergies  = emptySet(),
-        flexLanes  = emptySet()
+        id                = id,
+        name              = name,
+        role              = "Marksman",
+        secondaryRole     = null,
+        lane              = Lane.GOLD,
+        tier              = Tier.S,
+        winRate           = 0.52,
+        banRate           = 0.10,
+        pickRate          = 0.15,
+        patchTrend        = 0.0,
+        imageUrl          = "",
+        counters          = emptyList(),
+        counteredBy       = emptyList(),
+        synergies         = emptyList(),
+        recommendedSpells = emptyList(),
+        coreItems         = emptyList(),
+        flexLanes         = emptyList(),
+        isToxicMechanic   = false,
+        isOP              = false
     )
 
     // ── initSession ───────────────────────────────────────────────────────────
@@ -99,8 +103,8 @@ class DraftSessionSerializationTest {
 
     @Test
     fun allBannedHeroesIncludesBothSides() {
-        val mgr   = DraftSessionManager()
-        val ourH  = makeHero(1)
+        val mgr    = DraftSessionManager()
+        val ourH   = makeHero(1)
         val theirH = makeHero(2)
         mgr.initSession(Rank.EPIC, ourTeamFirst = true)
         mgr.startBanPhase()
@@ -154,6 +158,30 @@ class DraftSessionSerializationTest {
         assertEquals(DraftOutcome.WIN, mgr.session.value.outcome)
     }
 
+    @Test
+    fun setOutcomeLossIsDistinctFromWin() {
+        val mgr = DraftSessionManager()
+        mgr.initSession(Rank.EPIC, ourTeamFirst = true)
+        mgr.setOutcome(DraftOutcome.LOSS)
+        assertEquals(DraftOutcome.LOSS, mgr.session.value.outcome)
+        assertFalse(DraftOutcome.WIN == mgr.session.value.outcome)
+    }
+
+    @Test
+    fun setOutcomeDrawIsSupported() {
+        val mgr = DraftSessionManager()
+        mgr.initSession(Rank.EPIC, ourTeamFirst = true)
+        mgr.setOutcome(DraftOutcome.DRAW)
+        assertEquals(DraftOutcome.DRAW, mgr.session.value.outcome)
+    }
+
+    @Test
+    fun defaultOutcomeIsUnknown() {
+        val mgr = DraftSessionManager()
+        mgr.initSession(Rank.EPIC, ourTeamFirst = true)
+        assertEquals(DraftOutcome.UNKNOWN, mgr.session.value.outcome)
+    }
+
     // ── isSimulation flag ─────────────────────────────────────────────────────
 
     @Test
@@ -166,12 +194,29 @@ class DraftSessionSerializationTest {
         assertTrue(mgr.session.value.isSimulation)
     }
 
+    @Test
+    fun nonSimulationSessionHasFalseFlag() {
+        val mgr = DraftSessionManager()
+        mgr.initSession(Rank.EPIC, ourTeamFirst = true, isSimulation = false)
+        assertFalse(mgr.session.value.isSimulation)
+    }
+
+    @Test
+    fun setSimulationToggleWorks() {
+        val mgr = DraftSessionManager()
+        mgr.initSession(Rank.EPIC, ourTeamFirst = true)
+        mgr.setSimulation(true)
+        assertTrue(mgr.session.value.isSimulation)
+        mgr.setSimulation(false)
+        assertFalse(mgr.session.value.isSimulation)
+    }
+
     // ── unavailableIds invariant ───────────────────────────────────────────────
 
     @Test
     fun unavailableIdsContainsBansAndPicks() {
-        val mgr  = DraftSessionManager()
-        val ban1 = makeHero(10)
+        val mgr   = DraftSessionManager()
+        val ban1  = makeHero(10)
         val pick1 = makeHero(20)
         mgr.initSession(Rank.EPIC, ourTeamFirst = true)
         mgr.startBanPhase()

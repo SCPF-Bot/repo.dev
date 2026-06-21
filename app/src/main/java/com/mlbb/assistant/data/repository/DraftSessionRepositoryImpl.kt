@@ -3,6 +3,7 @@ package com.mlbb.assistant.data.repository
 import com.mlbb.assistant.data.local.database.DraftSessionDao
 import com.mlbb.assistant.data.local.database.DraftSessionEntity
 import com.mlbb.assistant.domain.model.DraftHistoryItem
+import com.mlbb.assistant.domain.model.DraftOutcome
 import com.mlbb.assistant.domain.repository.DraftSessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -31,31 +32,35 @@ class DraftSessionRepositoryImpl @Inject constructor(
 // ── Mapping extensions ────────────────────────────────────────────────────────
 
 private fun DraftSessionEntity.toDomain() = DraftHistoryItem(
-    id                     = id,
-    timestamp              = timestamp,
-    rank                   = rank,
-    draftScore             = draftScore,
-    metaScore              = metaScore,
-    counterScore           = counterScore,
-    synergyScore           = synergyScore,
+    id                      = id,
+    timestamp               = timestamp,
+    rank                    = rank,
+    draftScore              = draftScore,
+    metaScore               = metaScore,
+    counterScore            = counterScore,
+    synergyScore            = synergyScore,
     followedRecommendations = followedRecommendations,
-    totalRecommendations    = totalRecommendations
+    totalRecommendations    = totalRecommendations,
+    outcome                 = DraftOutcome.fromString(outcome),
+    isSimulation            = isSimulation
 )
 
 private fun DraftHistoryItem.toEntity() = DraftSessionEntity(
-    id                     = id,
-    timestamp              = timestamp,
-    rank                   = rank,
-    banTotal               = 0,          // not tracked in DraftHistoryItem; future field
-    enemyBanIds            = emptyList(),
-    yourBanIds             = emptyList(),
-    enemyPickIds           = emptyList(),
-    yourPickIds            = emptyList(),
-    ourTeamFirst           = true,
-    draftScore             = draftScore,
-    metaScore              = metaScore,
-    counterScore           = counterScore,
-    synergyScore           = synergyScore,
+    id                      = id,
+    timestamp               = timestamp,
+    rank                    = rank,
+    banTotal                = 0,          // not tracked in DraftHistoryItem; future field
+    enemyBanIds             = emptyList(),
+    yourBanIds              = emptyList(),
+    enemyPickIds            = emptyList(),
+    yourPickIds             = emptyList(),
+    ourTeamFirst            = true,
+    draftScore              = draftScore,
+    metaScore               = metaScore,
+    counterScore            = counterScore,
+    synergyScore            = synergyScore,
     followedRecommendations = followedRecommendations,
-    totalRecommendations    = totalRecommendations
+    totalRecommendations    = totalRecommendations,
+    outcome                 = outcome.name,
+    isSimulation            = isSimulation
 )
