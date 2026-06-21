@@ -1,89 +1,57 @@
-# [REVIEW] DEPENDENCY_GRAPH.md — Fan-In / Fan-Out Map
+# DEPENDENCY GRAPH — Fan-In / Fan-Out Analysis
+_Generated: 2026-06-21 | Phase 1 Step 7_
 
-_Fan-In = how many other files import this file. Fan-Out = how many files this file imports._
-_Files with Fan-In > 5 are architectural bottlenecks — refactor LAST._
-_Leaf nodes (Fan-Out ≈ 0, Fan-In ≤ 1) — refactor FIRST._
+## Critical Core Files (Fan-In > 5) — Refactor LAST
 
----
-
-## Critical Core Files (Fan-In ≥ 5) — Touch Last
-
-| File | Fan-In (approx.) | Notes |
+| File | Fan-In | Notes |
 |---|---|---|
-| `domain/model/Hero.kt` | ~20 | Used in almost every layer. Any change cascades everywhere. |
-| `domain/engine/DraftSessionManager.kt` | ~8 | Shared singleton — DraftViewModel, OverlayService, DraftHistoryVM, etc. |
-| `domain/usecase/GetHeroesUseCase.kt` | ~6 | Used by DraftVM, HeroListVM, HomeVM, OverlayService |
-| `presentation/common/components/HeroPortrait.kt` | ~10 | Used by HeroGrid, DraftScreen, HomeScreen, overlay components |
-| `presentation/common/theme/Color.kt` | ~15 | Imported directly in many screens (bypassing M3 colorScheme in places) |
-| `domain/scoring/DraftScorer.kt` | ~5 | GetSuggestionsUseCase, OverlayService |
-| `data/local/database/DraftSessionDao.kt` | ~4 | Used by repositories **AND** directly by HomeVM & SettingsVM ⚠️ |
+| `domain/model/Hero.kt` | ~20 | Used by nearly every layer — scoring, advisors, UI, DB mappers |
+| `domain/engine/DraftSessionManager.kt` | ~10 | `DraftSession` and `DraftAction` types consumed by overlay, draft screen, advisors |
+| `domain/scoring/DraftScorer.kt` | ~8 | `HeroScore` consumed by overlay, draft screen, suggestion card |
+| `domain/advisor/CompositionAnalyzer.kt` | ~6 | Used by MiniWidget, BanPhaseContent, DraftScorer |
+| `presentation/common/theme/Color.kt` | ~25 | All overlay and screen composables import brand colors |
+| `presentation/common/components/HeroPortrait.kt` | ~8 | Used by MiniWidget, HeroGrid, SuggestionCard, BanPhaseContent |
 
----
+## Leaf Nodes (Fan-Out=0, Fan-In ≤ 1) — Refactor FIRST
 
-## Leaf Nodes (Fan-Out ≈ 0) — Refactor First
+| File | Fan-In | Notes |
+|---|---|---|
+| `utils/DateFormatter.kt` | ~3 | Pure utility — safe to refactor early |
+| `utils/Extensions.kt` | ~5 | Pure utility — safe to refactor early |
+| `utils/NetworkResult.kt` | ~4 | Simple sealed class — safe |
+| `utils/JsonParser.kt` | 1 | Only called by `HeroRepositoryImpl` |
+| `domain/model/DraftOutcome.kt` | ~3 | Simple enum |
+| `domain/model/Proficiency.kt` | ~3 | Simple enum |
+| `data/export/DraftExporter.kt` | 1 | Only called by export use case |
+| `service/VoiceAlertService.kt` | 0 | **No callers found — dead code candidate** |
 
-| File | Fan-In | Fan-Out | Notes |
-|---|---|---|---|
-| `utils/NetworkResult.kt` | ~2 | 0 | Pure sealed class utility |
-| `utils/DateFormatter.kt` | ~2 | 0 | Pure Kotlin utility |
-| `domain/model/DraftOutcome.kt` | ~4 | 0 | Enum only |
-| `domain/model/Proficiency.kt` | ~3 | 0 | Enum only |
-| `domain/scoring/ScoreWeights.kt` | ~5 | 0 | Data class only |
-| `capture/PhaseDetectionConfig.kt` | ~3 | 0 | Constants object |
-| `capture/SlotRegions.kt` | ~2 | 0 | Data class only |
-| `domain/advisor/CompositionArchetype.kt` | ~2 | 0 | Enum |
+## Feature → File Dependency Map
 
----
+| Feature | Primary Files |
+|---|---|
+| Hero draft overlay | `OverlayService`, `MiniWidget`, `DraftPanel`, `BanPhaseContent`, `PickPhaseContent`, `TradingPhaseContent`, `FinalReportContent`, `FloatingBubble` |
+| Draft scoring & suggestions | `DraftScorer`, `DraftScoreCalculator`, `DraftSessionManager`, `GetSuggestionsUseCase`, `ScoreWeights` |
+| Hero database | `HeroEntity`, `HeroDao`, `HeroRepositoryImpl`, `JsonParser`, `default_heroes.json`, `SyncHeroesUseCase` |
+| Screen capture / OCR | `FrameProcessor`, `PhaseDetector`, `PhaseOcrDetector`, `PortraitMatcher`, `PerceptualHash`, `RankDetector`, `SlotRegions`, `draft_ui_map.json` |
+| Settings & calibration | `SettingsScreen`, `SettingsViewModel`, `SettingsState`, `WeightCalibrator`, `PreferencesDataStore` |
+| Draft history & replay | `DraftHistoryScreen`, `DraftReplayScreen`, `DraftHistoryViewModel`, `DraftSessionEntity`, `DraftSessionDao`, `DraftSessionRepositoryImpl` |
+| Navigation | `AppNavGraph`, `AppRoute`, `AppShell` |
 
-## Feature Dependency Map
+## Layer Dependency Order (Bottom-Up)
 
-### Feature: Draft Screen (`DraftScreen` / `DraftViewModel`)
-Depends on: `GetHeroesUseCase` → `HeroRepository` → `HeroDao`
-           `GetSuggestionsUseCase` → `DraftScorer`
-           `SaveDraftSessionUseCase` → `DraftSessionRepository` → `DraftSessionDao`
-           `DraftSessionManager` (singleton, shared)
+```
+utils/              ← No dependencies (leaf)
+domain/model/       ← Depends on: nothing (pure Kotlin)
+domain/repository/  ← Depends on: domain/model
+domain/usecase/     ← Depends on: domain/model, domain/repository
+domain/scoring/     ← Depends on: domain/model
+domain/advisor/     ← Depends on: domain/model, domain/scoring
+domain/engine/      ← Depends on: domain/model, domain/advisor
+data/remote/        ← Depends on: domain/model
+data/local/         ← Depends on: domain/model
+data/repository/    ← Depends on: domain/repository, data/local, data/remote
+di/                 ← Depends on: all above
+service/            ← Depends on: domain, data
+presentation/       ← Depends on: domain, di, service
+```
 
-### Feature: Home Screen (`HomeScreen` / `HomeViewModel`)
-Depends on: `GetHeroesUseCase` → `HeroRepository` → `HeroDao`
-           **`DraftSessionDao` (direct — VIOLATION)** ← should use `DraftSessionRepository`
-           `InsightsState` (internal data class)
-
-### Feature: Settings (`SettingsScreen` / `SettingsViewModel`)
-Depends on: `DataStore<Preferences>`
-           `SyncHeroesUseCase`
-           **`DraftSessionDao` (direct — VIOLATION)** ← should use `DraftSessionRepository`
-           `WeightCalibrator`
-           `@ApplicationContext`
-
-### Feature: Hero Explorer (`HeroListScreen` / `HeroListViewModel`)
-Depends on: `GetHeroesUseCase`, `SyncHeroesUseCase`
-Note: `HeroListViewModel` is ALSO used by `MetaBoardScreen` and `HeroDetailScreen`
-      in `AppNavGraph` — each destination creates its own VM instance, so heroes
-      are loaded independently per screen (potential double load).
-
-### Feature: Overlay (`OverlayService`)
-Depends on: `DraftSessionManager`, `GetHeroesUseCase`, `DataStore<Preferences>`,
-            `ScreenCaptureManager`, `PortraitMatcher`, `PhaseDetector`, `BanRecommender`,
-            `CompositionAnalyzer`, `DraftScorer`, `ScoreWeights`
-Note: OverlayService is the most complex file. No ViewModel wraps it (correct for a Service).
-
-### Feature: Draft History (`DraftHistoryScreen`)
-Depends on: `GetDraftHistoryUseCase` → `DraftSessionRepository` → `DraftSessionDao`
-            `DraftSessionManager`
-
----
-
-## Architectural Violations
-
-| # | Violation | Severity | Files Involved |
-|---|---|---|---|
-| V-01 | ViewModel injects DAO directly (bypasses repository) | High | `HomeViewModel` injects `DraftSessionDao` |
-| V-02 | ViewModel injects DAO directly (bypasses repository) | High | `SettingsViewModel` injects `DraftSessionDao` |
-| V-03 | Domain model imports Compose runtime annotations | Medium | `Hero.kt` imports `@Immutable`, `@Stable` |
-| V-04 | Domain scorer imports Compose runtime annotation | Medium | `DraftScorer.kt` imports `@Stable` for `HeroScore` |
-| V-05 | VM specifies Dispatchers.IO for use-case call | Low | `DraftViewModel.saveSession()` |
-| V-06 | Unused imports in component | Low | `ConnectivityBanner.kt` — unused `hiltViewModel`, `collectAsStateWithLifecycle` |
-| V-07 | Shared VM reused across unrelated screens | Medium | `HeroListViewModel` shared by MetaBoard + HeroDetail |
-| V-08 | Dynamic color overrides brand palette on API 31+ | Medium | `Theme.kt` |
-| V-09 | Unused XML colors (template leftovers) | Low | `colors.xml` |
-| V-10 | DataStore preference keys duplicated across files | Low | `SettingsViewModel` keys vs `PreferencesDataStore` fields |

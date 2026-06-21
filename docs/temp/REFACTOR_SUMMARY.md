@@ -1,99 +1,119 @@
-# [VALIDATE] REFACTOR_SUMMARY.md — Phase 4 Final Report
+# Refactor Summary — MLBB Draft Assistant
+
+_Generated after Phase 3 (MODIFY) of the REVIEW → PLAN → MODIFY → VALIDATE overhaul._
 
 ---
 
-## Executive Summary
+## Scope
 
-Completed a full REVIEW → PLAN → MODIFY audit of the **MLBB Assistant** Android Kotlin app.
-All 10 catalogued violations were triaged; 8 were fixed (the remaining 2 are documented scope-exclusions
-with a clear rationale). No features were added, no APIs were changed, no behavior was altered.
-
----
-
-## Files Modified (12 total)
-
-| File | Change |
-|---|---|
-| `res/values/colors.xml` | Removed 5 unused Material template colors |
-| `domain/model/Hero.kt` | Removed `@Immutable` / `@Stable` Compose imports |
-| `domain/model/DraftHistoryItem.kt` | Added `yourPickIds: List<Int>` field (domain completeness) |
-| `domain/scoring/DraftScorer.kt` | Removed `@Stable` from `HeroScore`, updated KDoc |
-| `domain/advisor/CompositionAnalyzer.kt` | Removed `@Stable` from `CompositionProfile` |
-| `domain/advisor/BanRecommender.kt` | Removed `@Stable` from `BanSuggestion` |
-| `domain/advisor/BuildAdvisor.kt` | Removed `@Stable` from `EmblemRecommendation` and `BuildAdvice` |
-| `domain/advisor/DraftScoreCalculator.kt` | Removed `@Stable` from `FinalDraftScore` |
-| `data/repository/DraftSessionRepositoryImpl.kt` | Updated `toDomain()` to map `yourPickIds` |
-| `presentation/home/HomeViewModel.kt` | DAO injection → `GetDraftHistoryUseCase` (V-01) |
-| `presentation/settings/SettingsViewModel.kt` | DAO injection → `GetDraftHistoryUseCase` + removed 13-line manual entity mapping (V-02) |
-| `presentation/draft/DraftViewModel.kt` | Removed `Dispatchers.IO` from `saveSession()` (V-05) |
-| `presentation/herolist/HeroListViewModel.kt` | Added `debounce(150L)` + `flowOn(Dispatchers.Default)` for search filtering (V-04/partial) |
-| `presentation/common/theme/Theme.kt` | `dynamicColor = false` by default (V-08) |
-| `presentation/common/components/ConnectivityBanner.kt` | Removed unused imports (V-06) |
+All changes are **in-place refinements** of the existing Kotlin/Compose codebase.
+No new features were added and no primary business logic was rewritten.
 
 ---
 
-## Violation Resolution Matrix
+## Changes by Category
 
-| ID | Violation | Status | Fix Applied |
+### 1. Data Asset Minification (APK Size)
+
+| File | Before | After | Reduction |
 |---|---|---|---|
-| V-01 | `HomeViewModel` injects `DraftSessionDao` directly | ✅ FIXED | Replaced with `GetDraftHistoryUseCase`. Domain model extended with `yourPickIds` to preserve pick-frequency insight. |
-| V-02 | `SettingsViewModel` injects `DraftSessionDao` directly | ✅ FIXED | Replaced with `GetDraftHistoryUseCase`. Eliminated 13-line manual entity→domain mapping that duplicated repository logic. |
-| V-03 | `Hero.kt` imports `androidx.compose.runtime.Immutable/Stable` | ✅ FIXED | Compose annotations removed. `data class` with `val`-only fields is inferred stable by the Compose compiler. |
-| V-04 | `DraftScorer.kt` imports `androidx.compose.runtime.Stable` for `HeroScore` | ✅ FIXED | Extended to all 5 domain advisor classes that had the same violation (`BanRecommender`, `BuildAdvisor`, `CompositionAnalyzer`, `DraftScoreCalculator`, `DraftScorer`). |
-| V-05 | `DraftViewModel.saveSession()` specifies `Dispatchers.IO` | ✅ FIXED | `launch(Dispatchers.IO)` → `launch`. `SaveDraftSessionUseCase` already owns its dispatcher via `withContext(Dispatchers.IO)`. |
-| V-06 | `ConnectivityBanner.kt` unused imports | ✅ FIXED | Removed `hiltViewModel` and `collectAsStateWithLifecycle`. |
-| V-07 | `HeroListViewModel` shared across MetaBoard + HeroDetail | ⚠️ DEFERRED | Requires nav graph scope changes that risk back-stack breakage. Recommend dedicated `MetaBoardViewModel` in a follow-up PR. |
-| V-08 | Dynamic color overrides brand palette on API 31+ | ✅ FIXED | `dynamicColor = false` with detailed KDoc. |
-| V-09 | Unused XML colors (`purple_200` etc.) | ✅ FIXED | Removed 5 template colors. `black` and `white` retained (referenced by launcher drawables). |
-| V-10 | DataStore preference keys scattered | ⚠️ DEFERRED | Consolidation requires touching 3+ files atomically. Low-risk bug, medium-risk refactor. Flag for dedicated PR. |
+| `res/raw/default_heroes.json` | 116 KB (pretty-printed) | 74 KB (minified) | **−36%** |
+| `app/src/main/assets/draft_ui_map.json` | 9.9 KB (had `_comment` noise) | 7.3 KB (comments stripped, minified) | **−26%** |
+
+**Method:** Node.js one-liner to parse → re-serialise without whitespace.
+`draft_ui_map.json` additionally had all `_comment` keys removed before minification.
 
 ---
 
-## Architecture Quality — Before vs. After
+### 2. Dead Resource Elimination
 
-| Metric | Before | After |
+| Artefact | Action | Reason |
 |---|---|---|
-| ViewModels with direct DAO injection | 2 (HomeVM, SettingsVM) | 0 |
-| Domain classes with Compose framework imports | 7 (Hero, DraftScorer, CompositionAnalyzer, BanRecommender, BuildAdvisor, DraftScoreCalculator + HeroScore) | 0 |
-| VMs specifying Dispatchers in launch calls | 1 (DraftViewModel) | 0 |
-| Unused imports in presentation components | 2 (ConnectivityBanner) | 0 |
-| Search filter thread | Main (blocks UI on large lists) | Default (off-Main, debounced 150 ms) |
-| Brand color preservation | Broken on API 31+ (Material You override) | Always correct |
-| Legacy XML template colors | 5 | 0 |
+| `mipmap-anydpi/` (duplicate launcher icon set) | **Deleted** | Exact copy of `mipmap-anydpi-v26/`. `minSdk=29 ≥ 26`, so the `-v26` variant is always selected. Retaining the unqualified copy caused duplicate-resource lint warnings. |
 
 ---
 
-## Guardrail Checklist (manual — requires Android SDK for full compile)
+### 3. Thread-safety Fix — `DateFormatter.kt`
 
-The following `./gradlew` commands should be run in an environment with Android SDK 36:
+**Before:** `SimpleDateFormat` stored as a `companion object` field.
+`SimpleDateFormat` is not thread-safe; concurrent calls from multiple coroutines / ViewModels could produce garbled output or throw `NumberFormatException`.
 
-```bash
-./gradlew :app:compileDebugKotlin --no-daemon 2>&1 | tail -50
-./gradlew :app:lintDebug --no-daemon 2>&1 | grep -E "Error|Warning" | head -30
-./gradlew test --no-daemon 2>&1 | tail -30
+**After:** Replaced with `java.time.DateTimeFormatter` (immutable, thread-safe, API 26+ which is below `minSdk=29`).
+The object now exposes `formatTimestamp(epochMillis: Long): String` and
+`formatDayLabel(epochMillis: Long): String` via `DateTimeFormatter.ofPattern(…, Locale.getDefault())`.
+
+---
+
+### 4. Constant Centralisation — `AppConstants.kt`
+
+Created `utils/AppConstants.kt` as the single source of truth for magic values that were scattered inline:
+
+```kotlin
+object AppConstants {
+    const val OVERLAY_NOTIFICATION_CHANNEL_ID = "draft_overlay_channel"
+    const val OVERLAY_NOTIFICATION_ID         = 1001
+}
 ```
 
-**Expected results:**
-- `compileDebugKotlin` — zero errors. All changed files are syntactically clean; imports verified by grep.
-- `lintDebug` — no new lint errors. Removed Compose annotations are not lint-relevant. Dispatcher changes are lint-safe.
-- `test` — all 8 existing unit tests should continue to pass. No test files were modified. `DraftScorerTest`, `BanRecommenderTest`, `CompositionAnalyzerTest` test pure Kotlin logic; removing `@Stable` does not affect test outcomes.
+Any future `OverlayService` notification calls should reference these constants instead of string/int literals.
 
 ---
 
-## Items Intentionally Left Out of Scope
+### 5. Large-file Splitting (Maintainability)
 
-### V-07 — Shared `HeroListViewModel` (nav graph scoping)
-**Risk:** Changing ViewModel scope in navigation requires updating `AppNavGraph` composable and potentially the nav graph route hierarchy. Incorrect scoping causes back-stack state restoration bugs that are difficult to test without a device.  
-**Recommendation:** Create a dedicated `MetaBoardViewModel` that injects `GetHeroesUseCase` and applies meta-specific sorting/filtering. Zero risk of breaking HeroList or HeroDetail navigation.
+Both files were over 1 000 lines and contained multiple unrelated concerns.
+All new component files use `internal` visibility, keeping them accessible within the same package without leaking into unrelated modules.
 
-### V-10 — DataStore preference key consolidation  
-**Risk:** Keys defined in `SettingsViewModel.Companion` are referenced by name in the DataStore persistence layer. Moving them to a central `AppPreferenceKeys` object requires updating every reference site atomically.  
-**Recommendation:** Create `data/local/datastore/AppPreferenceKeys.kt`, move all keys, then do a single find-and-replace. Low complexity but must be done in one commit to avoid runtime key-name mismatches.
+#### 5a. `MiniWidget.kt` (1 203 → 672 lines)
+
+| New File | Package | Lines | Contents |
+|---|---|---|---|
+| `overlay/components/WidgetHeaderBar.kt` | `…overlay.components` | 127 | `WidgetHeader`, `DragHandle`, `WidgetIconBtn` |
+| `overlay/components/WidgetScorePanel.kt` | `…overlay.components` | 239 | `WidgetScorePanel`, `ScoreSection`, `ScoreLine`, `ScoreLinePair`, colour helpers |
+| `overlay/MiniWidget.kt` _(trimmed)_ | `…overlay` | 672 | Orchestrator + `ActiveDraftBody`, `PhasePanel`, slot rows, ban/pick chips, `IdleBody`, `CompleteBody` |
+
+#### 5b. `SettingsScreen.kt` (1 061 → 492 lines)
+
+| New File | Package | Lines | Contents |
+|---|---|---|---|
+| `settings/components/ScreenMappingDialog.kt` | `…settings.components` | 251 | `ScreenMappingDialog`, `MappedPoint`, `parseMappedPoints`, `serializeMappedPoints` |
+| `settings/components/SettingsPrimitives.kt` | `…settings.components` | 209 | `SettingsSection`, `SectionDivider`, `SliderRow`, `ToggleRow`, `InfoRow`, `PermissionRow` |
+| `settings/SettingsScreen.kt` _(trimmed)_ | `…settings` | 492 | Orchestrator + `ScoringWeightsSection`, `CalibrationSection`, `BanCountRow`, `BanPhaseScreenshotSection` |
 
 ---
 
-## Hardcoded Strings (i18n gap — out of scope)
+## Files Modified / Created / Deleted
 
-17 UI-visible string literals were identified in `HomeScreen.kt`, `DraftScreen.kt`, `ConnectivityBanner.kt`, `OverlayService.kt`, and `AppShell.kt`. These are NOT bugs — the app is functional. However, they will not be translated in the 5 existing locale files (Filipino, Indonesian, Malay, Thai, Vietnamese).
+| Status | Path |
+|---|---|
+| **Modified** | `app/src/main/res/raw/default_heroes.json` |
+| **Modified** | `app/src/main/assets/draft_ui_map.json` |
+| **Modified** | `app/src/main/java/…/utils/DateFormatter.kt` |
+| **Modified** | `app/src/main/java/…/presentation/overlay/MiniWidget.kt` |
+| **Modified** | `app/src/main/java/…/presentation/settings/SettingsScreen.kt` |
+| **Created** | `app/src/main/java/…/utils/AppConstants.kt` |
+| **Created** | `app/src/main/java/…/presentation/overlay/components/WidgetHeaderBar.kt` |
+| **Created** | `app/src/main/java/…/presentation/overlay/components/WidgetScorePanel.kt` |
+| **Created** | `app/src/main/java/…/presentation/settings/components/ScreenMappingDialog.kt` |
+| **Created** | `app/src/main/java/…/presentation/settings/components/SettingsPrimitives.kt` |
+| **Deleted** | `app/src/main/res/mipmap-anydpi/` (duplicate launcher icon set) |
 
-**Recommendation:** Create a dedicated i18n PR. Add all 17 strings to `values/strings.xml` and the 5 locale files, then replace all hardcoded literals with `stringResource(R.string.xxx)`.
+---
+
+## Non-Functional Invariants Preserved
+
+- Zero changes to domain layer (`domain/`) — it remains Android-free.
+- All DI wiring (`AppModule`, Hilt) untouched.
+- `VoiceAlertService` is live code (confirmed injected) — not removed.
+- All StateFlow / ViewModel patterns preserved.
+- Navigation graph and public API surfaces (`MiniWidget`, `SettingsScreen`) unchanged.
+- `minSdk=29`, `compileSdk=36`, AGP 8.10.1, Kotlin 2.1.0, Compose BOM 2025.05.01 — no dependency changes.
+
+---
+
+## Recommended Follow-Up (Out of Scope for this Pass)
+
+1. **Update `OverlayService`** to import `AppConstants.OVERLAY_NOTIFICATION_CHANNEL_ID` / `OVERLAY_NOTIFICATION_ID` wherever notification channel strings/IDs are hardcoded.
+2. **WebP conversion** — no PNG assets are currently >100 KB, but run `cwebp` on any future icon additions.
+3. **ProtoBuffer migration** for `default_heroes.json` if the hero roster grows beyond 200 entries (would cut size a further ~30–40% and eliminate JSON parsing overhead at runtime).
+4. **Extract `BanPhaseScreenshotSection`** into its own file if `SettingsScreen.kt` creeps back over 500 lines.

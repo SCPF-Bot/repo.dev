@@ -1,167 +1,110 @@
-# [PLAN] OFFICIAL_TEMPLATES.md — Canonical Patterns & Sources
+# OFFICIAL TEMPLATES — Canonical Patterns Reference
+_Generated: 2026-06-21 | Phase 2_
+_Source constraint: developer.android.com, kotlinlang.org (2024–2026)_
 
 ---
 
-## T-01: Repository Pattern — ViewModel Should NOT Inject DAOs
-**Source:** https://developer.android.com/topic/architecture/recommendations  
-**Verified:** 2024 — "UI layer should depend on domain or data layer via repositories/use cases, never directly on DAOs."
+## T-01: java.time DateTimeFormatter (replaces SimpleDateFormat)
+**Source:** https://kotlinlang.org/api/latest/jvm/stdlib/ + Android API 26+ (minSdk=29 ✅)
+**Replaces:** `DateFormatter.kt` usage of `SimpleDateFormat`
 
 ```kotlin
-// WRONG — ViewModel injects DAO directly
-class HomeViewModel @Inject constructor(
-    private val draftSessionDao: DraftSessionDao  // ← violation
-) : ViewModel()
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
-// CORRECT — ViewModel depends on use case or repository interface
-class HomeViewModel @Inject constructor(
-    private val getDraftHistoryUseCase: GetDraftHistoryUseCase  // ← canonical
-) : ViewModel()
+// Thread-safe; create once as a constant
+private val ABSOLUTE_FORMATTER = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
+private val FULL_FORMATTER      = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm", Locale.getDefault())
+private val TIME_FORMATTER      = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+
+fun formatAbsolute(timestampMs: Long): String =
+    LocalDateTime.ofInstant(Instant.ofEpochMilli(timestampMs), ZoneId.systemDefault())
+        .format(ABSOLUTE_FORMATTER)
 ```
 
 ---
 
-## T-02: Domain Layer Purity — No Framework Imports
-**Source:** https://developer.android.com/topic/architecture  
-**Verified:** 2024 — "The domain layer contains pure Kotlin classes. It has no dependency on the Android framework."
+## T-02: Composable Extraction Pattern (large file splitting)
+**Source:** https://developer.android.com/jetpack/compose/composables-best-practices (2025)
+
+Rule: Each Composable should do one thing. If a file exceeds ~300 lines, extract private composable
+functions into their own files in a `components/` sub-package.
 
 ```kotlin
-// WRONG — domain model imports Compose annotations
-import androidx.compose.runtime.Immutable  // ← framework dependency in domain
-data class Hero(...)
-
-// CORRECT — use Kotlin stdlib or no annotation
-// @Immutable semantics can be replaced by making the class a data class with val-only properties
-// OR move @Immutable to the presentation layer's UI model if strictly needed there
-data class Hero(...)  // pure Kotlin data class — compiler infers immutability
-```
-
----
-
-## T-03: StateFlow in ViewModel — Correct Pattern
-**Source:** https://developer.android.com/kotlin/flow/stateflow-and-sharedflow  
-**Verified:** 2024
-
-```kotlin
-// CORRECT — existing code matches this pattern
-private val _state = MutableStateFlow(MyState())
-val state: StateFlow<MyState> = _state.asStateFlow()
-
-// Collect in Compose — CORRECT (existing code uses this)
-val state by viewModel.state.collectAsStateWithLifecycle()
-```
-
----
-
-## T-04: IO Dispatcher — Use Case Owns Threading, Not ViewModel
-**Source:** https://developer.android.com/kotlin/coroutines/coroutines-best-practices  
-**Verified:** 2024 — "Inject Dispatchers. Make coroutine classes testable by injecting Dispatchers. The ViewModel should not hard-code Dispatchers."
-
-```kotlin
-// WRONG — ViewModel explicitly dispatches to IO
-private fun saveSession(session: DraftSession) {
-    viewModelScope.launch(Dispatchers.IO) {  // ← ViewModel should not specify dispatcher
-        saveDraftSessionUseCase(session)
-    }
+// Before (monolithic):
+@Composable
+fun SettingsScreen(...) {
+    // 1000 lines of mixed concerns
 }
 
-// CORRECT — Use case is responsible for dispatcher
-class SaveDraftSessionUseCase @Inject constructor(...) {
-    suspend operator fun invoke(session: DraftSession): Long =
-        withContext(Dispatchers.IO) { ... }  // ← dispatcher lives in the use case
-}
+// After (extracted):
+// presentation/settings/components/PermissionSection.kt
+@Composable
+internal fun PermissionSection(state: SettingsState, onAction: (SettingsAction) -> Unit) { ... }
 
-// ViewModel becomes:
-private fun saveSession(session: DraftSession) {
-    viewModelScope.launch {  // no dispatcher — use case handles it
-        saveDraftSessionUseCase(session)
+// presentation/settings/components/CalibrationSection.kt
+@Composable
+internal fun CalibrationSection(state: SettingsState, onAction: (SettingsAction) -> Unit) { ... }
+
+// presentation/settings/SettingsScreen.kt (~100 lines)
+@Composable
+fun SettingsScreen(...) {
+    Column {
+        PermissionSection(state, onAction)
+        CalibrationSection(state, onAction)
+        // ...
     }
 }
 ```
 
 ---
 
-## T-05: Dynamic Color — Explicit Opt-In for Branded Apps
-**Source:** https://developer.android.com/develop/ui/views/theming/dynamic-colors  
-**Verified:** 2024 — "Dynamic colors are optional. Apps with established brand colors may choose not to apply dynamic colors."
+## T-03: JSON Minification (data asset optimization)
+**Source:** https://developer.android.com/topic/performance/reduce-apk-size (2025)
 
-```kotlin
-// WRONG for a branded app — dynamic color enabled by default
-fun MLBBAssistantTheme(
-    dynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
-    ...
-)
+Minified JSON has no whitespace or newlines. Valid syntax is preserved.
+Tool: `python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin), separators=(',', ':')))" < input.json > output.json`
 
-// CORRECT — disabled by default to preserve brand identity
-fun MLBBAssistantTheme(
-    dynamicColor: Boolean = false,  // opt-in, not opt-out
-    ...
-)
+For JSON files with comment keys (`_comment`), strip before minifying:
+```python
+import json
+with open('input.json') as f:
+    data = json.load(f)
+# Remove comment keys at top level
+data = {k: v for k, v in data.items() if not k.startswith('_')}
+print(json.dumps(data, separators=(',', ':')))
 ```
 
 ---
 
-## T-06: Compose @Immutable / @Stable Placement
-**Source:** https://developer.android.com/jetpack/compose/performance/stability  
-**Verified:** 2024 — "@Immutable and @Stable are Compose compiler hints. They belong on UI/presentation layer classes, not on domain models."
+## T-04: Notification Channel ID Constant
+**Source:** https://developer.android.com/develop/ui/views/notifications/channels (2024)
 
 ```kotlin
-// Domain model — no Compose annotation needed
-// data class with val-only fields is inferred stable by the compiler
-data class Hero(val id: Int, val name: String, ...)  // in domain/model/
-
-// Presentation UI state — @Immutable is appropriate here
-@Immutable
-data class HeroListState(val heroes: List<Hero> = emptyList(), ...)  // in presentation/
-```
-
----
-
-## T-07: Flow Filter on Background Thread
-**Source:** https://developer.android.com/kotlin/flow  
-**Verified:** 2024 — "Use flowOn() to change the context of flow emission. The downstream collector is unaffected."
-
-```kotlin
-// WRONG — filter runs on calling thread (potentially Main)
-heroes.filter { ... }.filter { ... }
-
-// CORRECT — expensive operations run on Default
-getHeroesUseCase()
-    .map { heroes -> applyFilters(heroes, query, role) }
-    .flowOn(Dispatchers.Default)
-    .collect { filtered -> _state.update { it.copy(filteredHeroes = filtered) } }
-```
-
----
-
-## T-08: Shared ViewModel Across NavGraph Destinations
-**Source:** https://developer.android.com/guide/navigation/use-graph/programmatic#share_ui-related_data_between_destinations_with_viewmodel  
-**Verified:** 2024
-
-```kotlin
-// CORRECT — scope VM to a parent nav graph entry to share state
-val sharedVm: HeroListViewModel = hiltViewModel(
-    navController.getBackStackEntry("hero_graph")
-)
-```
-
----
-
-## T-09: Unused Imports — Kotlin Style Guide
-**Source:** https://kotlinlang.org/docs/coding-conventions.html#imports  
-**Verified:** 2024 — "Do not use star imports. Remove unused imports."
-
----
-
-## T-10: Centralize DataStore Keys
-**Source:** https://developer.android.com/training/data-storage/datastore#preferences-datastore  
-**Verified:** 2024 — "Define preferences keys once. Duplicating keys across files can cause silent mismatches."
-
-```kotlin
-// CORRECT — single source of truth for all keys
-object AppPreferenceKeys {
-    val KEY_META    = floatPreferencesKey("weight_meta")
-    val KEY_COUNTER = floatPreferencesKey("weight_counter")
-    val KEY_SYNERGY = floatPreferencesKey("weight_synergy")
-    // ... all other keys
+// In a constants file (e.g., AppConstants.kt)
+object AppConstants {
+    const val OVERLAY_NOTIFICATION_CHANNEL_ID = "draft_overlay_channel"
+    const val OVERLAY_NOTIFICATION_ID = 1001
 }
 ```
+
+---
+
+## T-05: Kotlin collectAsStateWithLifecycle (already used — document for consistency)
+**Source:** https://developer.android.com/jetpack/compose/libraries#lifecycle-runtime-ktx (2025)
+
+```kotlin
+// Correct pattern (already used in project — confirming compliance)
+val state by viewModel.uiState.collectAsStateWithLifecycle()
+```
+
+---
+
+## T-06: Room Paging (already used — confirming compliance)
+**Source:** https://developer.android.com/topic/libraries/architecture/paging/v3-paged-data (2025)
+
+The project correctly uses `room-paging` + `paging-compose` for hero grid. No changes needed.
+

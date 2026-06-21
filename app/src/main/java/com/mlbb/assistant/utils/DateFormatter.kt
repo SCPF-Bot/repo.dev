@@ -1,7 +1,9 @@
 package com.mlbb.assistant.utils
 
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -9,19 +11,26 @@ import java.util.concurrent.TimeUnit
  * Pure utility object for formatting Unix millisecond timestamps into
  * human-readable strings.
  *
- * All formatting is locale-aware using [Locale.getDefault()] so the output
- * adapts to the user's device locale without additional configuration.
- *
- * Thread safety: [SimpleDateFormat] is NOT thread-safe. Every call creates a
- * new formatter instance — acceptable because this is a UI utility used only
- * on the main thread. If performance becomes a concern, use [java.time.format.DateTimeFormatter]
- * (API 26+) which is thread-safe by design.
+ * Uses [DateTimeFormatter] (API 26+, minSdk = 29 ✅) which is thread-safe
+ * by design — formatters are created once and reused across all calls.
  */
 object DateFormatter {
 
     private const val MILLIS_PER_MINUTE = 60_000L
     private const val MILLIS_PER_HOUR   = 3_600_000L
     private const val MILLIS_PER_DAY    = 86_400_000L
+
+    private val ABSOLUTE_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
+
+    private val FULL_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm", Locale.getDefault())
+
+    private val TIME_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+
+    private fun Long.toLocalDateTime(): LocalDateTime =
+        LocalDateTime.ofInstant(Instant.ofEpochMilli(this), ZoneId.systemDefault())
 
     /**
      * Formats [timestampMs] as a short relative time string when the event is
@@ -35,8 +44,7 @@ object DateFormatter {
      *   - Older          → "Jun 15, 2026"
      */
     fun formatRelative(timestampMs: Long): String {
-        val nowMs  = System.currentTimeMillis()
-        val deltaMs = nowMs - timestampMs
+        val deltaMs = System.currentTimeMillis() - timestampMs
 
         return when {
             deltaMs < MILLIS_PER_MINUTE ->
@@ -50,7 +58,7 @@ object DateFormatter {
                 "${hours}h ago"
             }
             deltaMs < MILLIS_PER_DAY * 2 -> {
-                val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestampMs))
+                val time = timestampMs.toLocalDateTime().format(TIME_FORMATTER)
                 "Yesterday, $time"
             }
             else -> formatAbsolute(timestampMs)
@@ -62,12 +70,12 @@ object DateFormatter {
      * Use for history list items where relative time is not meaningful.
      */
     fun formatAbsolute(timestampMs: Long): String =
-        SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(timestampMs))
+        timestampMs.toLocalDateTime().format(ABSOLUTE_FORMATTER)
 
     /**
      * Formats [timestampMs] as a full date-time string (e.g. "Jun 15, 2026 18:30").
      * Use for detail screens or export labels.
      */
     fun formatFull(timestampMs: Long): String =
-        SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(Date(timestampMs))
+        timestampMs.toLocalDateTime().format(FULL_FORMATTER)
 }
