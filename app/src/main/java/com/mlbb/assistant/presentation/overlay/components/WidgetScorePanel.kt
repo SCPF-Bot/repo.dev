@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -161,7 +163,7 @@ internal fun WidgetScorePanel(
 
 @Composable
 private fun ScoreDismissButton(onDismiss: () -> Unit) {
-    androidx.compose.foundation.layout.Box(
+    Box(
         Modifier
             .background(TextDisabled.copy(0.12f), RoundedCornerShape(4.dp))
             .clickable { onDismiss() }
@@ -229,7 +231,7 @@ private fun sustainColor(level: SustainLevel) = when (level) {
 /** Shared 1 dp horizontal divider used inside the overlay score panel. */
 @Composable
 internal fun WidgetHRule(alpha: Float = 0.15f) {
-    androidx.compose.foundation.layout.Box(
+    Box(
         Modifier
             .fillMaxWidth()
             .height(1.dp)
