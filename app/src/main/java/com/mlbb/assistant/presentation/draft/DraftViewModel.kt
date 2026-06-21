@@ -91,7 +91,9 @@ class DraftViewModel @Inject constructor(
     }
 
     private fun saveSession(session: DraftSession) {
-        viewModelScope.launch(Dispatchers.IO) {
+        // SaveDraftSessionUseCase owns dispatcher selection (withContext(Dispatchers.IO) inside).
+        // The ViewModel does not need to specify a dispatcher here.
+        viewModelScope.launch {
             val rowId = saveDraftSessionUseCase(session)
             if (rowId >= 0) {
                 Timber.i("Draft session saved — row id $rowId")

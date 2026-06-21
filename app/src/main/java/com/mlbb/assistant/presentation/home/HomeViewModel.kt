@@ -2,10 +2,10 @@ package com.mlbb.assistant.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mlbb.assistant.data.local.database.DraftSessionDao
-import com.mlbb.assistant.data.local.database.DraftSessionEntity
+import com.mlbb.assistant.domain.model.DraftHistoryItem
 import com.mlbb.assistant.domain.model.DraftOutcome
 import com.mlbb.assistant.domain.model.Hero
+import com.mlbb.assistant.domain.usecase.GetDraftHistoryUseCase
 import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,7 +52,7 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getHeroesUseCase: GetHeroesUseCase,
-    private val draftSessionDao: DraftSessionDao
+    private val getDraftHistoryUseCase: GetDraftHistoryUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -62,7 +62,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 getHeroesUseCase(),
-                draftSessionDao.getAllSessions()
+                getDraftHistoryUseCase.all()
             ) { heroes, sessions ->
                 val topMeta = heroes.sortedByDescending { it.winRate }.take(8)
                 val insights = computeInsights(sessions)
@@ -75,25 +75,25 @@ class HomeViewModel @Inject constructor(
 
     // ── Section 5.1.2 ─────────────────────────────────────────────────────────
 
-    private fun computeInsights(sessions: List<DraftSessionEntity>): InsightsState {
+    private fun computeInsights(sessions: List<DraftHistoryItem>): InsightsState {
         // Exclude simulation sessions — they don't represent real match outcomes.
         val real = sessions.filter { !it.isSimulation }
-        val withOutcome = real.filter { DraftOutcome.fromString(it.outcome) != DraftOutcome.UNKNOWN }
+        val withOutcome = real.filter { it.outcome != DraftOutcome.UNKNOWN }
 
         if (withOutcome.size < InsightsState.MIN_FOR_INSIGHTS) {
             return InsightsState(
-                isAvailable   = false,
-                sessionCount  = withOutcome.size,
+                isAvailable    = false,
+                sessionCount   = withOutcome.size,
                 sessionsNeeded = (InsightsState.MIN_FOR_INSIGHTS - withOutcome.size).coerceAtLeast(0)
             )
         }
 
-        val wins = withOutcome.count { DraftOutcome.fromString(it.outcome) == DraftOutcome.WIN }
+        val wins = withOutcome.count { it.outcome == DraftOutcome.WIN }
         val winPct = wins * 100 / withOutcome.size
 
-        val totalRec   = withOutcome.sumOf { it.totalRecommendations }
+        val totalRec    = withOutcome.sumOf { it.totalRecommendations }
         val followedRec = withOutcome.sumOf { it.followedRecommendations }
-        val followPct  = if (totalRec > 0) followedRec * 100 / totalRec else 0
+        val followPct   = if (totalRec > 0) followedRec * 100 / totalRec else 0
 
         // Top-picked hero by frequency across all of our pick slots.
         val pickFreq = mutableMapOf<Int, Int>()
@@ -105,13 +105,13 @@ class HomeViewModel @Inject constructor(
         val topId = pickFreq.maxByOrNull { it.value }?.key ?: -1
 
         return InsightsState(
-            isAvailable            = true,
-            sessionCount           = withOutcome.size,
-            sessionsNeeded         = 0,
-            winRatePct             = winPct,
+            isAvailable             = true,
+            sessionCount            = withOutcome.size,
+            sessionsNeeded          = 0,
+            winRatePct              = winPct,
             recommendationFollowPct = followPct,
-            topPickHeroId          = topId,
-            topPickHeroName        = "" // resolved by screen via hero list if needed
+            topPickHeroId           = topId,
+            topPickHeroName         = "" // resolved by screen via hero list if needed
         )
     }
 }

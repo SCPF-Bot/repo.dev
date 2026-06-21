@@ -1,9 +1,5 @@
 package com.mlbb.assistant.domain.model
 
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.Stable
-
-@Immutable
 data class Hero(
     val id: Int,
     val name: String,
@@ -35,7 +31,6 @@ data class Hero(
     val hasCCUlt: Boolean = false
 )
 
-@Immutable
 data class CoreItem(
     val id: Int,
     val name: String,

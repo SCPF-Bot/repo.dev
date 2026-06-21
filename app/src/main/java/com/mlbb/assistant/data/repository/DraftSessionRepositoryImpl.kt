@@ -42,7 +42,8 @@ private fun DraftSessionEntity.toDomain() = DraftHistoryItem(
     followedRecommendations = followedRecommendations,
     totalRecommendations    = totalRecommendations,
     outcome                 = DraftOutcome.fromString(outcome),
-    isSimulation            = isSimulation
+    isSimulation            = isSimulation,
+    yourPickIds             = yourPickIds
 )
 
 private fun DraftHistoryItem.toEntity() = DraftSessionEntity(

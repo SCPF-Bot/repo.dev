@@ -17,5 +17,12 @@ data class DraftHistoryItem(
     /** Match outcome recorded after the session, defaults to UNKNOWN for legacy rows. */
     val outcome: DraftOutcome = DraftOutcome.UNKNOWN,
     /** True when the draft was run in simulation mode (not a real match). */
-    val isSimulation: Boolean = false
+    val isSimulation: Boolean = false,
+    /**
+     * Hero IDs of the friendly team's picks in this session.
+     * Slot values of -1 represent unfilled or unavailable pick slots.
+     * Used by the home screen to compute the most-picked hero insight.
+     * Defaults to empty list so legacy callers that don't populate it are unaffected.
+     */
+    val yourPickIds: List<Int> = emptyList()
 )

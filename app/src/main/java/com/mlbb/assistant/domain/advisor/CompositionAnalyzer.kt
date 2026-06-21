@@ -1,6 +1,5 @@
 package com.mlbb.assistant.domain.advisor
 
-import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
 import com.mlbb.assistant.domain.advisor.CompositionArchetype
@@ -8,11 +7,9 @@ import com.mlbb.assistant.domain.advisor.CompositionArchetype
 /**
  * Composition snapshot derived from the current set of heroes.
  *
- * @Stable tells the Compose compiler all public fields are stable types
- * (Float, enum, List<String>), enabling skipping recomposition when the
- * object reference is unchanged.
+ * Pure-Kotlin domain data class with val-only fields; the Compose compiler
+ * infers stability automatically without a framework annotation.
  */
-@Stable
 data class CompositionProfile(
     val physicalPct: Float,
     val magicPct: Float,

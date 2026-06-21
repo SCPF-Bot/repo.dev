@@ -1,6 +1,5 @@
 package com.mlbb.assistant.domain.advisor
 
-import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Tier
 import kotlin.math.roundToInt
@@ -8,11 +7,9 @@ import kotlin.math.roundToInt
 /**
  * Immutable score snapshot for a completed draft session.
  *
- * @Stable tells the Compose compiler that all public fields are stable types
- * (Int, List<String>), enabling skipping recomposition when the object's
- * referential identity has not changed.
+ * Pure-Kotlin domain data class with val-only fields; the Compose compiler
+ * infers stability automatically without a framework annotation.
  */
-@Stable
 data class FinalDraftScore(
     val overall: Int,           // 0–100
     val metaAdherence: Int,

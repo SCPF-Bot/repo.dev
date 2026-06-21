@@ -1,6 +1,5 @@
 package com.mlbb.assistant.domain.advisor
 
-import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 
@@ -23,10 +22,9 @@ enum class BanCategory(val display: String) {
 /**
  * Recommendation returned by [BanRecommender].
  *
- * @Stable tells the Compose compiler all public fields are stable types,
- * enabling skipping recomposition when the object reference is unchanged.
+ * Pure-Kotlin domain data class; Compose compiler infers stability from
+ * val-only fields without a framework annotation.
  */
-@Stable
 data class BanSuggestion(
     val hero: Hero,
     val score: Float,

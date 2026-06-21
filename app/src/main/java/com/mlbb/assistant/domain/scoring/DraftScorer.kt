@@ -1,6 +1,5 @@
 package com.mlbb.assistant.domain.scoring
 
-import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
 import com.mlbb.assistant.domain.engine.PickTurn
 import com.mlbb.assistant.domain.model.Hero
@@ -11,10 +10,9 @@ import com.mlbb.assistant.domain.model.Tier
 /**
  * Per-hero recommendation score emitted by [DraftScorer].
  *
- * @Stable tells the Compose compiler all public fields have stable types,
- * enabling skipping of recomposition when the instance reference is unchanged.
+ * This is a pure-Kotlin domain data class. All fields are val with stable types,
+ * so the Compose compiler infers stability automatically — no @Stable annotation needed.
  */
-@Stable
 data class HeroScore(
     val hero: Hero,
     val totalScore: Float,

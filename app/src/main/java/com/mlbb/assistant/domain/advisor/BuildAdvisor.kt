@@ -1,6 +1,5 @@
 package com.mlbb.assistant.domain.advisor
 
-import androidx.compose.runtime.Stable
 import com.mlbb.assistant.domain.model.CoreItem
 import com.mlbb.assistant.domain.model.Hero
 
@@ -10,7 +9,6 @@ import com.mlbb.assistant.domain.model.Hero
  * MLBB emblems are categorised by the 2024/2025 system:
  * Mage, Assassin, Fighter, Marksman, Tank, Support, Common.
  */
-@Stable
 data class EmblemRecommendation(
     val name: String,
     val tier3Talent: String,
@@ -23,10 +21,9 @@ data class EmblemRecommendation(
  * TD-02: Extended to carry up to 6 items (3 core + 3 situational) so the
  * overlay can present a full build, not just the first 3 items.
  *
- * @Stable tells the Compose compiler all public fields are stable types,
- * enabling skipping recomposition when the object reference is unchanged.
+ * Pure-Kotlin domain data class; Compose compiler infers stability from
+ * val-only fields without a framework annotation.
  */
-@Stable
 data class BuildAdvice(
     val battleSpell: String,
     val altSpell: String,

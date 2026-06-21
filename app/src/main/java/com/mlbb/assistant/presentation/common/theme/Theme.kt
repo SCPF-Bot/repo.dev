@@ -42,12 +42,17 @@ private val MLBBDarkColorScheme = darkColorScheme(
 )
 
 /**
- * Dynamic color (Material You) is enabled on API 31+.
- * On older devices the branded dark scheme is used as the fallback.
+ * MLBB Assistant theme — always uses the branded dark colour scheme.
+ *
+ * Dynamic color (Material You) is explicitly disabled by default because this app
+ * has a strong brand identity (gold / teal / red palette) that must not be overridden
+ * by the user's wallpaper colors on API 31+ devices. If the team opts to support
+ * Material You in a future release, expose a user-controlled toggle in Settings and
+ * pass that preference here.
  */
 @Composable
 fun MLBBAssistantTheme(
-    dynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (dynamicColor) {

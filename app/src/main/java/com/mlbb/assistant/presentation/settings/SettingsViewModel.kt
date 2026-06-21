@@ -11,11 +11,9 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mlbb.assistant.data.local.database.DraftSessionDao
 import com.mlbb.assistant.domain.engine.WeightCalibrator
-import com.mlbb.assistant.domain.model.DraftHistoryItem
-import com.mlbb.assistant.domain.model.DraftOutcome
 import com.mlbb.assistant.domain.scoring.ScoreWeights
+import com.mlbb.assistant.domain.usecase.GetDraftHistoryUseCase
 import com.mlbb.assistant.domain.usecase.SyncHeroesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,7 +32,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val syncHeroesUseCase: SyncHeroesUseCase,
-    private val draftSessionDao: DraftSessionDao,
+    private val getDraftHistoryUseCase: GetDraftHistoryUseCase,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -108,22 +106,7 @@ class SettingsViewModel @Inject constructor(
     fun runCalibration() {
         viewModelScope.launch {
             _state.update { it.copy(isCalibrating = true) }
-            val sessions = draftSessionDao.getAllSessions().first()
-            val history  = sessions.map { s ->
-                DraftHistoryItem(
-                    id                     = s.id,
-                    timestamp              = s.timestamp,
-                    rank                   = s.rank,
-                    draftScore             = s.draftScore,
-                    metaScore              = s.metaScore,
-                    counterScore           = s.counterScore,
-                    synergyScore           = s.synergyScore,
-                    followedRecommendations = s.followedRecommendations,
-                    totalRecommendations   = s.totalRecommendations,
-                    outcome                = DraftOutcome.fromString(s.outcome),
-                    isSimulation           = s.isSimulation
-                )
-            }
+            val history = getDraftHistoryUseCase.all().first()
             val currentWeights = ScoreWeights(
                 meta    = _state.value.metaWeight,
                 counter = _state.value.counterWeight,
