@@ -50,8 +50,8 @@ class SettingsViewModel @Inject constructor(
         /** Content URI of the user's ban-phase reference screenshot. */
         val KEY_BAN_SCREENSHOT_URI  = stringPreferencesKey("ban_screenshot_uri")
 
-        /** Content URI of the user's score-descriptions JSON file. */
-        val KEY_SCORE_JSON_URI      = stringPreferencesKey("score_json_uri")
+        /** JSON-serialised normalised tap positions mapped onto the ban-phase screenshot. */
+        val KEY_SCREEN_MAPPING      = stringPreferencesKey("screen_mapping")
     }
 
     private val _state = MutableStateFlow(SettingsState())
@@ -70,11 +70,11 @@ class SettingsViewModel @Inject constructor(
                         voiceAlertsEnabled    = prefs[KEY_VOICE] ?: false,
                         autoSync              = prefs[KEY_AUTO_SYNC] ?: true,
                         lastSyncedLabel       = prefs[KEY_LAST_SYNCED] ?: "Never",
-                        defaultRank           = prefs[KEY_DEFAULT_RANK] ?: "Epic",
+                        defaultRank           = prefs[KEY_DEFAULT_RANK] ?: "6 bans (Epic)",
                         overlayGranted        = Settings.canDrawOverlays(context),
                         accessibilityGranted  = isAccessibilityEnabled(),
                         banPhaseScreenshotUri = prefs[KEY_BAN_SCREENSHOT_URI] ?: "",
-                        scoreDescriptionsJsonUri = prefs[KEY_SCORE_JSON_URI] ?: ""
+                        screenMappingJson     = prefs[KEY_SCREEN_MAPPING]    ?: ""
                     )
                 }
             }
@@ -140,9 +140,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setDefaultRank(rank: String)            = save { it[KEY_DEFAULT_RANK]        = rank }
-    fun setBanPhaseScreenshotUri(uri: String)   = save { it[KEY_BAN_SCREENSHOT_URI]  = uri  }
-    fun setScoreDescriptionsJsonUri(uri: String) = save { it[KEY_SCORE_JSON_URI]     = uri  }
+    fun setDefaultRank(rank: String)          = save { it[KEY_DEFAULT_RANK]       = rank }
+    fun setBanPhaseScreenshotUri(uri: String) = save { it[KEY_BAN_SCREENSHOT_URI] = uri  }
+    fun setScreenMapping(json: String)        = save { it[KEY_SCREEN_MAPPING]     = json }
 
     private fun save(block: suspend (MutablePreferences) -> Unit) =
         viewModelScope.launch { dataStore.edit { block(it) } }
