@@ -401,6 +401,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             enemyWarnings   = enemyWarnings.toList(),
                             onMinimize      = { collapseTobubble() },
                             onClose         = { stopSelf() },
+                            onUndo          = { draftSessionManager.undo() },
+                            onScoreDetails  = { handleScoreDetails() },
                             onHeroSelected  = { hero -> handleManualHeroSelection(hero) },
                             onStartDraft    = { ourTeamFirst -> handleManualDraftStart(ourTeamFirst) }
                         )
@@ -616,6 +618,20 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         draftSessionManager.startBanPhase()
         // Ensure widget is expanded and on-screen.
         if (!isExpanded.value) expandToWidget()
+    }
+
+    // ── Score details from mini-widget tap ───────────────────────────────────
+
+    /**
+     * Opens the main app to the score / history detail screen when the user
+     * taps "📊 Score" in the bottom action bar of the mini-widget.
+     * The overlay stays visible; the app is brought to the foreground on top.
+     */
+    private fun handleScoreDetails() {
+        val intent = packageManager
+            .getLaunchIntentForPackage(packageName)
+            ?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        if (intent != null) startActivity(intent)
     }
 
     // ── Manual hero selection from mini-widget tap ────────────────────────────
