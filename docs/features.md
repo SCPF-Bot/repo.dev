@@ -13,6 +13,7 @@
 > **Legacy** = deprecated or superseded flows still present in source.
 
 Reconciled against `versionName 2.0.0` (versionCode 2).
+Last updated: 2026-06-23 (P0/P1/P2 refactoring pass — see `docs/temp/findings.md` delta summary).
 
 ---
 
@@ -55,7 +56,7 @@ Reconciled against `versionName 2.0.0` (versionCode 2).
 | 2.5 | Hero portrait identification (perceptual hash) | 🧪 | `capture/PortraitMatcher.kt`, `PerceptualHash.kt` |
 | 2.6 | Hybrid dHash + histogram matching | ✅ | `capture/PortraitMatcher.kt` |
 | 2.7 | Parallel lazy preload of portrait hashes (TD-08) | ✅ | `capture/PortraitMatcher.kt` |
-| 2.8 | Slot-fill detection via normalised luminance threshold (TD-04) | ✅ | `capture/FrameProcessor.kt` |
+| 2.8 | Slot-fill detection via normalised luminance threshold (TD-04, P1-01) | ✅ | `capture/FrameProcessor.kt` (`isSlotFilled` — `copyPixelsToBuffer` bulk read) |
 | 2.9 | Normalised slot region map (resolution-independent) | ⚠️ | `capture/SlotRegions.kt`, `assets/draft_ui_map.json` |
 | 2.10 | Rank detection from emblem region | ✅ | `capture/RankDetector.kt` |
 | 2.11 | First-pick side detection | ✅ | `capture/FirstPickDetector.kt` |
@@ -80,7 +81,7 @@ Reconciled against `versionName 2.0.0` (versionCode 2).
 | 3.10 | Human-readable recommendation reasons | ✅ | `scoring/DraftScorer.kt` (`buildReason`) |
 | 3.11 | Badge classification (RISING/META/SYNERGY/COUNTER/BALANCED) | ✅ | `scoring/DraftScorer.kt` |
 | 3.12 | Whole-pool ranking, banned heroes filtered out | ✅ | `scoring/DraftScorer.kt` (`rankAll`) |
-| 3.13 | Lightweight linear scoring path for tests/simple callers | 🧪 | `scoring/DraftScorer.kt` (`computeScore`) |
+| 3.13 | Lightweight linear scoring path for tests only (`@VisibleForTesting`, P2-03) | 🧪 | `scoring/DraftScorer.kt` (`computeScore`) |
 
 ---
 

@@ -24,13 +24,20 @@ class MainActivity : ComponentActivity() {
      * We pass the result directly to OverlayService so it can set up
      * MediaProjection and start the autonomous capture loop — without
      * keeping a local ScreenCaptureManager here.
+     *
+     * P0-03 fix: replaced `result.data!!` with a safe early-return pattern.
+     * The manual `!= null` guard was correct but used `!!` anyway, which
+     * bypasses Kotlin's smart-cast and will crash if `data` is somehow null
+     * (e.g. under aggressive R8 class rewriting in release builds, or if the
+     * activity-result contract changes). Using `?: return@registerForActivityResult`
+     * is both safer and idiomatic.
      */
     private val projectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == RESULT_OK && result.data != null) {
-            OverlayService.startWithProjection(this, result.resultCode, result.data!!)
-        }
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val data = result.data ?: return@registerForActivityResult
+        OverlayService.startWithProjection(this, result.resultCode, data)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

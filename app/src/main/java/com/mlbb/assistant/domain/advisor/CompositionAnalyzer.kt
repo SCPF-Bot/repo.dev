@@ -30,6 +30,20 @@ object CompositionAnalyzer {
     private val sustainRoles = setOf("Support", "Fighter")
     private val highCCRoles  = setOf("Tank", "Support")
 
+    /**
+     * P2-01 fix: magic float thresholds extracted into named constants.
+     *
+     * Previously `0.80f` appeared as a bare literal in [analyze] (warnings)
+     * and [generateWeaknesses], and `0.4f` appeared in [generateStrengths],
+     * with no indication of what they represented or whether they were the
+     * same conceptual value. Named constants clarify intent and make
+     * patch-level threshold adjustments a single-place change.
+     */
+    private object CompThresholds {
+        const val DAMAGE_FULL  = 0.80f   // ≥ 80 % single damage type → composition-wide warning
+        const val DAMAGE_MIXED = 0.40f   // > 40 % of each type → considered "mixed" damage
+    }
+
     fun analyze(heroes: List<Hero>): CompositionProfile {
         if (heroes.isEmpty()) return CompositionProfile(0f, 0f, CCLevel.NONE, MobilityLevel.LOW, SustainLevel.LOW, emptyList())
 
@@ -61,8 +75,8 @@ object CompositionAnalyzer {
         }
 
         val warnings = buildList {
-            if (physicalPct >= 0.80f) add("⚠️ Full physical — one Dominance Ice counters team")
-            if (magicPct    >= 0.80f) add("⚠️ Full magic — build Oracle to counter")
+            if (physicalPct >= CompThresholds.DAMAGE_FULL) add("⚠️ Full physical — one Dominance Ice counters team")
+            if (magicPct    >= CompThresholds.DAMAGE_FULL) add("⚠️ Full magic — build Oracle to counter")
             if (ccLevel == CCLevel.NONE) add("⚠️ No CC — dive compositions will dominate")
             if (sustainLevel == SustainLevel.LOW) add("⚠️ Low sustain — avoid extended fights")
             if (mobilityLevel == MobilityLevel.HIGH) add("⚠️ High enemy mobility — bring crowd control")
@@ -114,14 +128,15 @@ object CompositionAnalyzer {
         if (profile.ccLevel == CCLevel.HIGH)             add("✅ Strong CC chain")
         if (profile.sustainLevel == SustainLevel.HIGH)   add("✅ Excellent team sustain")
         if (profile.mobilityLevel == MobilityLevel.HIGH) add("✅ High mobility — great rotations")
-        if (profile.magicPct > 0.4f && profile.physicalPct > 0.4f) add("✅ Mixed damage — hard to itemize against")
+        if (profile.magicPct > CompThresholds.DAMAGE_MIXED && profile.physicalPct > CompThresholds.DAMAGE_MIXED)
+            add("✅ Mixed damage — hard to itemize against")
     }
 
     fun generateWeaknesses(profile: CompositionProfile): List<String> = buildList {
-        if (profile.ccLevel      == CCLevel.NONE)      add("⚠️ Lack of CC")
-        if (profile.sustainLevel == SustainLevel.LOW)  add("⚠️ Squishy lineup")
-        if (profile.physicalPct  >= 0.80f)             add("⚠️ Full physical damage")
-        if (profile.magicPct     >= 0.80f)             add("⚠️ Full magic damage")
+        if (profile.ccLevel      == CCLevel.NONE)             add("⚠️ Lack of CC")
+        if (profile.sustainLevel == SustainLevel.LOW)         add("⚠️ Squishy lineup")
+        if (profile.physicalPct  >= CompThresholds.DAMAGE_FULL) add("⚠️ Full physical damage")
+        if (profile.magicPct     >= CompThresholds.DAMAGE_FULL) add("⚠️ Full magic damage")
     }
 
     /**

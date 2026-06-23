@@ -10,6 +10,7 @@ import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.repository.HeroRepository
 import com.mlbb.assistant.utils.JsonParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -24,12 +25,23 @@ import javax.inject.Inject
  *
  * Flow-returning functions remain unwrapped — their emissions are already
  * delivered on IO by Room's built-in executor.
+ *
+ * P1-02 fix: retry logic has been moved here from the OkHttp interceptor layer.
+ * The previous [RetryInterceptor] used [Thread.sleep] which blocked an OkHttp
+ * dispatcher thread for up to 4 seconds per retry. The new [syncWithRetry]
+ * uses coroutine [delay] — non-blocking and cancellation-aware — so the thread
+ * is released during the back-off window and concurrent requests are unaffected.
  */
 class HeroRepositoryImpl @Inject constructor(
     private val heroDao: HeroDao,
     private val metaApi: MetaApi,
     private val jsonParser: JsonParser
 ) : HeroRepository {
+
+    companion object {
+        private const val MAX_SYNC_RETRIES = 3
+        private const val RETRY_BASE_DELAY_MS = 500L
+    }
 
     // Flow-based queries: Room delivers on IO automatically.
     override fun getHeroes(): Flow<List<Hero>> =
@@ -71,25 +83,43 @@ class HeroRepositoryImpl @Inject constructor(
         pagingSourceFactory = { heroDao.getHeroesPaged(query, lane) }
     ).flow.map { pagingData -> pagingData.map { it.toDomain() } }
 
-    // ── TD-06: IO-safe suspend functions ─────────────────────────────────────
+    // ── TD-06 / P1-02: IO-safe suspend functions with coroutine retry ─────────
 
     /**
-     * TD-06: Network call + DB write are both wrapped on [Dispatchers.IO].
-     * JSON seed fallback is also explicit.
+     * Syncs hero meta data from the network with coroutine-based retry back-off.
+     *
+     * Retry policy: up to [MAX_SYNC_RETRIES] attempts with exponential back-off
+     * (500 ms, 1 000 ms, 1 500 ms). Uses [delay] so the calling coroutine is
+     * suspended — not blocked — during back-off windows.
+     *
+     * On total failure falls back to the local DB; if the DB is also empty,
+     * seeds from the bundled JSON asset.
      */
     override suspend fun syncHeroes(): Unit = withContext(Dispatchers.IO) {
-        runCatching {
-            Timber.d("syncHeroes: fetching meta snapshot from network")
-            val snapshot = metaApi.getMetaSnapshot()
-            heroDao.replaceAll(snapshot.heroes.map { it.toEntity() })
-            Timber.i("syncHeroes: synced ${snapshot.heroes.size} heroes from network")
-        }.onFailure { error ->
-            Timber.w(error, "syncHeroes: network failed — falling back to local JSON seed")
-            val existing = heroDao.getTopMetaHeroes(1)
-            if (existing.isEmpty()) {
-                Timber.d("syncHeroes: DB empty, seeding from bundled JSON")
-                seedFromJson()
+        var lastError: Throwable? = null
+
+        repeat(MAX_SYNC_RETRIES) { attempt ->
+            runCatching {
+                Timber.d("syncHeroes: fetching meta snapshot (attempt ${attempt + 1}/$MAX_SYNC_RETRIES)")
+                val snapshot = metaApi.getMetaSnapshot()
+                heroDao.replaceAll(snapshot.heroes.map { it.toEntity() })
+                Timber.i("syncHeroes: synced ${snapshot.heroes.size} heroes from network")
+                return@withContext   // success — exit early
+            }.onFailure { e ->
+                lastError = e
+                Timber.w(e, "syncHeroes: attempt ${attempt + 1} failed")
+                if (attempt < MAX_SYNC_RETRIES - 1) {
+                    delay(RETRY_BASE_DELAY_MS * (attempt + 1))
+                }
             }
+        }
+
+        // All network attempts exhausted — fall back to local data.
+        Timber.w(lastError, "syncHeroes: all $MAX_SYNC_RETRIES attempts failed — using local data")
+        val existing = heroDao.getTopMetaHeroes(1)
+        if (existing.isEmpty()) {
+            Timber.d("syncHeroes: DB empty, seeding from bundled JSON")
+            seedFromJson()
         }
     }
 

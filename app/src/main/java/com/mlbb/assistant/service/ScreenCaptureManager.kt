@@ -43,15 +43,18 @@ class ScreenCaptureManager(private val context: Context) {
         val mpm = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection = mpm.getMediaProjection(resultCode, data)
 
-        imageReader = ImageReader.newInstance(
-            screenWidth, screenHeight, PixelFormat.RGBA_8888, 2
-        )
+        // P0-01 fix: capture imageReader into a local val immediately after construction.
+        // The field `imageReader` is a mutable var; if stopCapture() is called on another
+        // thread between assignment and use, the !! operator would produce an NPE.
+        // Using a local val eliminates the TOCTOU race entirely.
+        val reader = ImageReader.newInstance(screenWidth, screenHeight, PixelFormat.RGBA_8888, 2)
+        imageReader = reader
 
         virtualDisplay = mediaProjection?.createVirtualDisplay(
             "MLBBCapture",
             screenWidth, screenHeight, screenDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            imageReader!!.surface,
+            reader.surface,   // local val — never null, no !! needed
             null, null
         )
 

@@ -37,6 +37,21 @@ data class BuildAdvice(
 
 object BuildAdvisor {
 
+    /**
+     * P2-01 fix: magic float thresholds extracted into named constants.
+     *
+     * Previously `0.60f`, `0.70f`, `0.80f` appeared as bare literals in
+     * [adjustItems], [buildItemReasons], and [buildMacroTips] with no
+     * indication of what they meant or whether they were independent values
+     * or part of a shared scale. Named constants make the intent explicit and
+     * allow patch-level recalibration in a single place.
+     */
+    private object BuildThresholds {
+        const val DAMAGE_MODERATE = 0.60f   // ≥ 60 % of a type → consider defensive items
+        const val DAMAGE_HEAVY    = 0.70f   // ≥ 70 % → prioritise typed resistance
+        const val DAMAGE_FULL     = 0.80f   // ≥ 80 % → rush frontliner armour/MR immediately
+    }
+
     fun getAdvice(yourHero: Hero, enemyComp: CompositionProfile): BuildAdvice {
         val spellPair        = recommendSpell(yourHero, enemyComp)
         val (core, situational) = adjustItems(yourHero, enemyComp)
@@ -68,7 +83,7 @@ object BuildAdvisor {
             isRoam   -> Triple("Flicker",     "Vengeance", "Engages and escapes for roamer")
             isCarry && enemy.mobilityLevel == MobilityLevel.HIGH ->
                 Triple("Sprint", "Flicker", "Escape enemy high-mobility dive comp")
-            isCarry && enemy.physicalPct > 0.7f ->
+            isCarry && enemy.physicalPct > BuildThresholds.DAMAGE_HEAVY ->
                 Triple("Inspire", "Flicker", "Maximize DPS output vs physical enemy")
             hero.role == "Fighter" && enemy.ccLevel == CCLevel.HIGH ->
                 Triple("Purify", "Vengeance", "Break free from heavy enemy CC")
@@ -96,7 +111,7 @@ object BuildAdvisor {
 
         // ── Defensive situational items ────────────────────────────────────────
 
-        if (enemy.physicalPct >= 0.60f) {
+        if (enemy.physicalPct >= BuildThresholds.DAMAGE_MODERATE) {
             if (hero.role in listOf("Tank", "Fighter")) {
                 if (core.none { it.name.contains("Cuirass") || it.name.contains("Dominance") }) {
                     situational.add(CoreItem(9001, "Antique Cuirass", 4))
@@ -106,7 +121,7 @@ object BuildAdvisor {
                 situational.add(CoreItem(9003, "Brute Force Breastplate", 4))
             }
         }
-        if (enemy.magicPct >= 0.60f) {
+        if (enemy.magicPct >= BuildThresholds.DAMAGE_MODERATE) {
             if (hero.role in listOf("Tank", "Fighter")) {
                 situational.add(CoreItem(9004, "Athena's Shield", 4))
             } else {
@@ -181,8 +196,8 @@ object BuildAdvisor {
     // ── Reason strings ────────────────────────────────────────────────────────
 
     private fun buildItemReasons(hero: Hero, enemy: CompositionProfile): List<String> = buildList {
-        if (enemy.physicalPct >= 0.70f) add("Armour items prioritised — enemy is physical-heavy")
-        if (enemy.magicPct    >= 0.70f) add("Magic resist items recommended — enemy is magic-heavy")
+        if (enemy.physicalPct >= BuildThresholds.DAMAGE_HEAVY) add("Armour items prioritised — enemy is physical-heavy")
+        if (enemy.magicPct    >= BuildThresholds.DAMAGE_HEAVY) add("Magic resist items recommended — enemy is magic-heavy")
         if (enemy.mobilityLevel == MobilityLevel.HIGH) add("Slow items help vs high-mobility enemies")
         if (hero.role == "Marksman") add("Build attack speed early for consistent DPS")
         if (enemy.sustainLevel == SustainLevel.HIGH)   add("Sea Halberd / Necklace of Durance recommended — cut enemy healing")
@@ -192,9 +207,9 @@ object BuildAdvisor {
         if (hero.lane.name == "JUNGLE") add("Invade enemy jungle early if they have a weak early jungler")
         if (hero.lane.name == "GOLD")   add("Prioritise farm — reach item spikes before teamfights")
         if (hero.lane.name == "ROAM")   add("Rotate mid after every successful gank to maintain vision")
-        if (enemy.ccLevel == CCLevel.HIGH)         add("Avoid solo engages — fight only as a group")
+        if (enemy.ccLevel == CCLevel.HIGH)           add("Avoid solo engages — fight only as a group")
         if (enemy.sustainLevel == SustainLevel.HIGH) add("Use burst combos to overwhelm before they sustain")
         if (enemy.mobilityLevel == MobilityLevel.HIGH) add("Place deep vision to track high-mobility enemies")
-        if (enemy.physicalPct >= 0.80f) add("Rush defensive armour on frontliners — enemy is fully physical")
+        if (enemy.physicalPct >= BuildThresholds.DAMAGE_FULL) add("Rush defensive armour on frontliners — enemy is fully physical")
     }
 }

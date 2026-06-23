@@ -250,7 +250,7 @@ app/src/main/java/com/mlbb/assistant/
 ├── di/                         Hilt DI modules (all SingletonComponent)
 │   ├── AppModule.kt            DataStore singleton, DraftSessionManager, VoiceAlertService
 │   ├── DatabaseModule.kt       AppDatabase with MIGRATION_1_2 + MIGRATION_2_3; all DAOs
-│   ├── NetworkModule.kt        OkHttpClient (RetryInterceptor), Retrofit, Gson, MetaApi
+│   ├── NetworkModule.kt        OkHttpClient (logging interceptor, debug only), Retrofit, Gson, MetaApi
 │   ├── OverlayModule.kt        OverlayController binding
 │   └── RepositoryModule.kt     Interface → impl bindings (HeroRepo, DraftSessionRepo)
 │
@@ -407,8 +407,10 @@ markets — alongside default English (`values`, ~75 strings).
 
 ## 11. Known limitations / sharp edges
 
-- `OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window management, and UI hosting — see `todo.md` §3.
-- CV detection accuracy depends on device resolution and ROM; `SlotRegions` / `draft_ui_map.json` may need recalibration per aspect ratio.
-- `MetaApi` has no auth or response caching layer beyond the local DB fallback.
-- `Bitmap.getPixel()` in luminance loops is a performance bottleneck; see `docs/temp/findings.md` P1-01.
-- `Thread.sleep` in `RetryInterceptor` blocks OkHttp thread-pool threads; see `docs/temp/findings.md` P1-02.
+- `OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window management, and UI hosting — see `todo.md` §3. Decomposition tracked as `P1/L` in `roadmap.md`.
+- CV detection accuracy depends on device resolution and ROM; `SlotRegions` / `draft_ui_map.json` may need recalibration per aspect ratio (validated aspect ratios: 18:9, 20:9; others require manual calibration).
+- `MetaApi` has no auth or response caching layer beyond the local DB fallback. Staleness is silent — no `lastUpdated` metadata surfaced in the UI.
+- ~~`Bitmap.getPixel()` in luminance loops is a performance bottleneck~~ — **Resolved (P1-01):** both `sampleLuminanceBaseline` and `isSlotFilled` in `FrameProcessor` now use `copyPixelsToBuffer` + byte-array iteration for bulk pixel access. See `docs/misc.md` §5 and `docs/temp/findings.md` P1-01.
+- ~~`Thread.sleep` in `RetryInterceptor` blocks OkHttp thread-pool threads~~ — **Resolved (P1-02):** `RetryInterceptor` removed; `HeroRepositoryImpl.syncHeroes()` uses coroutine `delay()` for non-blocking retry. See `docs/misc.md` §1 and `docs/temp/findings.md` P1-02.
+- `OverlayService` shared `MutableSet<Int>` slot-tracker fields are safe today (Main-thread-only) but will race if the capture loop is ever moved off Main — see `todo.md` §0 (P0-04 open).
+- `DraftScorer.computeScore` is a simplified linear scoring formula incompatible with production `HeroScore` values; annotated `@VisibleForTesting` — see `docs/misc.md` §2.

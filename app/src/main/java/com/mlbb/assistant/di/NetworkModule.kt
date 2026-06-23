@@ -8,49 +8,28 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import timber.log.Timber
-import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 /**
- * Interceptor that retries transient network failures up to [maxRetries] times
- * with exponential back-off. Only retries on [IOException] (connection errors);
- * HTTP error codes (4xx/5xx) are NOT retried and must be handled by callers.
+ * P1-02 fix: [RetryInterceptor] has been removed from this module.
+ *
+ * The previous implementation used [Thread.sleep] inside the OkHttp interceptor
+ * to implement exponential back-off. Blocking an OkHttp dispatcher thread for up
+ * to 4 seconds under concurrent network calls can starve the thread pool (max 64
+ * threads by default) and delay unrelated requests.
+ *
+ * Retry logic has been moved to [com.mlbb.assistant.data.repository.HeroRepositoryImpl]
+ * where it uses coroutine [kotlinx.coroutines.delay] — non-blocking, cancellation-
+ * aware, and properly integrated with structured concurrency.
+ *
+ * HTTP 4xx/5xx responses are NOT retried (same policy as before) and must be
+ * handled by callers via the [com.mlbb.assistant.utils.NetworkResult] sealed class.
  */
-private class RetryInterceptor(private val maxRetries: Int = 3) : Interceptor {
-    override fun intercept(chain: Interceptor.Chain): Response {
-        val request = chain.request()
-        var attempt = 0
-        var lastException: IOException? = null
-
-        while (attempt < maxRetries) {
-            try {
-                val response = chain.proceed(request)
-                if (response.isSuccessful) return response
-                // Non-2xx HTTP response — do not retry, return immediately.
-                return response
-            } catch (e: IOException) {
-                lastException = e
-                attempt++
-                if (attempt < maxRetries) {
-                    val backoffMs = (500L * attempt).coerceAtMost(4_000L)
-                    Timber.w("RetryInterceptor: attempt $attempt failed — retrying in ${backoffMs}ms")
-                    Thread.sleep(backoffMs)
-                }
-            }
-        }
-
-        throw lastException ?: IOException("RetryInterceptor: all $maxRetries retries exhausted")
-    }
-}
-
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
@@ -62,7 +41,6 @@ object NetworkModule {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-            .addInterceptor(RetryInterceptor(maxRetries = 3))
 
         if (BuildConfig.DEBUG) {
             val logging = HttpLoggingInterceptor().apply {

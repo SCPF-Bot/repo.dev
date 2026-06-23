@@ -79,40 +79,24 @@
 - TD-11: Mutex-guarded crash-log writes
 - TD-12: Bubble position persistence
 
+### P0/P1 crash-safety & performance remediation pass (2026-06-23)
+- **A1 [COMPLETED]** — P0-01: `imageReader!!.surface` → local `val reader` in `ScreenCaptureManager` — eliminates TOCTOU NPE on the capture pipeline
+- **A1 [COMPLETED]** — P0-02: `state.session!!` → `?: return@Scaffold` in `DraftReplayScreen` — eliminates smart-cast crash on mutable StateFlow property
+- **A1 [COMPLETED]** — P0-03: `result.data!!` → `?: return@registerForActivityResult` in `MainActivity` — eliminates crash on nullable activity-result intent
+- **A2 [COMPLETED]** — P1-01: `Bitmap.getPixel()` loops → `copyPixelsToBuffer` + byte-array iteration in `FrameProcessor` — 5–20× CV hot-path speedup
+- **A3 [COMPLETED]** — P1-02: `RetryInterceptor` (Thread.sleep) removed from `NetworkModule`; coroutine `delay`-based retry added to `HeroRepositoryImpl.syncHeroes()` — eliminates OkHttp thread-pool starvation under concurrent requests
+
+### P2 maintainability pass (2026-06-23)
+- **[COMPLETED]** P2-01: Magic float thresholds extracted into `BuildThresholds` (BuildAdvisor) and `CompThresholds` (CompositionAnalyzer)
+- **[COMPLETED]** P2-02: Dead constant `AppConstants.OVERLAY_NOTIFICATION_CHANNEL_ID` deleted
+- **[COMPLETED]** P2-03: `DraftScorer.computeScore` annotated `@VisibleForTesting` with KDoc warning against production use
+
+### CI (2026-06-23)
+- **[COMPLETED]** P3-02 (partial): `.github/workflows/ci.yml` added — runs `./gradlew lint testDebugUnitTest assembleDebug` on every push/PR
+
 ---
 
 ## [ACTIVE]
-
-### A1 — Crash-safety: eliminate `!!` null assertions
-**Effort:** S · **Blocked by:** nothing
-
-Fix the three `!!` operators identified in `docs/temp/findings.md` (P0-01 through P0-03).
-These are quick one-line changes with outsized safety impact. See findings for exact diffs.
-
-Files: `ScreenCaptureManager.kt`, `DraftReplayScreen.kt`, `MainActivity.kt`
-
----
-
-### A2 — Performance: replace `Bitmap.getPixel()` loops with `copyPixelsToBuffer`
-**Effort:** S · **Blocked by:** nothing
-
-`FrameProcessor.isSlotFilled()` and `sampleLuminanceBaseline()` iterate pixels via JNI
-`getPixel()` calls — 5–20× slower than buffer iteration. See `findings.md` P1-01 for
-the exact drop-in replacement implementation.
-
-Files: `capture/FrameProcessor.kt`
-
----
-
-### A3 — Performance: migrate `RetryInterceptor.Thread.sleep` to coroutine `delay`
-**Effort:** S · **Blocked by:** nothing
-
-`Thread.sleep(4_000)` in the OkHttp interceptor blocks a thread-pool thread.
-Move retry logic to `HeroRepositoryImpl.syncHeroes()` using `delay()`. See `findings.md` P1-02.
-
-Files: `di/NetworkModule.kt`, `data/repository/HeroRepositoryImpl.kt`
-
----
 
 ### A4 — Maintainability: ban value vs. ban urgency separation
 **Effort:** M · **Blocked by:** nothing
@@ -170,13 +154,15 @@ Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 - [ ] Honest self-status in the overlay: "capture unavailable", "meta data N days old", "accessibility service off"
 
 ### Architecture & code quality
+- [ ] **P0/M** `OverlayService` shared mutable sets (`filledEnemyBanSlots` etc.) — replace with `ConcurrentHashMap.newKeySet()` or assert Main-thread-only invariant (P0-04)
 - [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. Keep the service as a thin lifecycle shell.
+- [ ] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation (P1-04)
 - [ ] **P2/M** Extract overlay state into dedicated `OverlayStateHolder` (narrow recomposition scope)
 - [ ] **P2/M** Introduce `:domain` and `:data` Gradle modules to enforce dependency rule at compile time. **Blocked by:** single-module structure; requires significant build rework.
 - [ ] **P3/M** Migrate Gson → `kotlinx.serialization`. **Blocked by:** requires updating all DTOs and switching `GsonConverterFactory`. See `findings.md` P3-01 for library choice.
+- [ ] **P2/S** Consolidate `DraftScorer.computeScore` → unified `simplified = true` parameter on `score()` (current `@VisibleForTesting` annotation is the interim fix)
 
 ### Testing & CI
-- [ ] **P1/M** CI pipeline: `./gradlew lint testDebugUnitTest assembleDebug` on every PR
 - [ ] **P1/M** Room migration test (1→2→3) using `MigrationTestHelper`
 - [ ] **P1/M** Compose UI tests for Draft, HeroList, Settings, Permission Wizard
 - [ ] **P1/M** Instrumentation test for overlay foreground-service start/stop lifecycle

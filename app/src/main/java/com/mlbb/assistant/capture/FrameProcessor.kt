@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
+import java.nio.ByteBuffer
 
 data class FrameAnalysis(
     val phase: PhaseDetector.DetectedPhase,
@@ -27,6 +28,13 @@ data class FrameAnalysis(
  * of comparing mean luminance against an absolute value of 40, we compare
  * against a fraction of the *median* luminance of a calibration region so
  * adaptive-brightness and HDR displays do not cause false negatives.
+ *
+ * P1-01 fix: [sampleLuminanceBaseline] and [isSlotFilled] now use
+ * [Bitmap.copyPixelsToBuffer] + buffer-array iteration instead of
+ * repeated [Bitmap.getPixel] JNI calls. The previous implementation made
+ * one JNI call per sampled pixel; the new implementation makes a single bulk
+ * copy into a [ByteBuffer] and iterates the backing byte array in pure Kotlin.
+ * Expected improvement: 5–20× on mid-range devices.
  */
 class FrameProcessor(
     private val portraitMatcher: PortraitMatcher,
@@ -105,29 +113,45 @@ class FrameProcessor(
         lumBaseline = -1f
     }
 
-    // ── Normalised luminance baseline (TD-04) ─────────────────────────────────
+    // ── Normalised luminance baseline (TD-04, P1-01) ──────────────────────────
 
     /**
      * Samples mean luminance from the top-left 10 % × 10 % of the frame,
      * which is typically occupied by the MLBB game's stable dark background.
      * This baseline is used to normalise slot-fill detection against the raw
      * threshold, making the detector robust to adaptive-brightness displays.
+     *
+     * P1-01: Uses [Bitmap.copyPixelsToBuffer] for bulk pixel extraction,
+     * then iterates the backing byte array. Avoids one JNI call per pixel.
+     * Sampling pattern: every 2nd pixel in x and every 2nd row in y
+     * (identical density to the previous [Bitmap.getPixel] implementation).
      */
     private fun sampleLuminanceBaseline(frame: Bitmap): Float {
-        val w = (frame.width * 0.10f).toInt().coerceAtLeast(4)
+        val w = (frame.width  * 0.10f).toInt().coerceAtLeast(4)
         val h = (frame.height * 0.10f).toInt().coerceAtLeast(4)
-        var sum = 0f
-        var count = 0
-        val step = 2
-        for (x in 0 until w step step) {
-            for (y in 0 until h step step) {
-                val px = frame.getPixel(x, y)
-                val r  = android.graphics.Color.red(px)
-                val g  = android.graphics.Color.green(px)
-                val b  = android.graphics.Color.blue(px)
-                sum += (0.299f * r + 0.587f * g + 0.114f * b)
+        val crop = Bitmap.createBitmap(frame, 0, 0, w, h)
+        val bytes = ByteBuffer.allocate(crop.byteCount)
+        crop.copyPixelsToBuffer(bytes)
+        crop.recycle()
+
+        val arr      = bytes.array()
+        val rowBytes = w * 4   // ARGB_8888: 4 bytes per pixel
+        val step     = 2       // sample every 2nd pixel in x; every 2nd row in y
+        var sum      = 0f
+        var count    = 0
+        var row      = 0
+        while (row < h) {
+            var col = 0
+            while (col < w) {
+                val i = row * rowBytes + col * 4
+                val r = arr[i    ].toInt() and 0xFF
+                val g = arr[i + 1].toInt() and 0xFF
+                val b = arr[i + 2].toInt() and 0xFF
+                sum   += (0.299f * r + 0.587f * g + 0.114f * b)
                 count++
+                col   += step
             }
+            row += step
         }
         return if (count > 0) (sum / count) else PhaseDetectionConfig.LUMINANCE_DARK_THRESHOLD_RAW.toFloat()
     }
@@ -182,23 +206,38 @@ class FrameProcessor(
      *
      * This prevents HDR/auto-brightness displays from causing false negatives
      * where blank slots appear "filled" at elevated brightness levels.
+     *
+     * P1-01: Uses [Bitmap.copyPixelsToBuffer] bulk extraction instead of
+     * per-pixel [Bitmap.getPixel] JNI calls. Sampling density is identical:
+     * every 4th pixel in x and every 4th row in y.
      */
     private fun isSlotFilled(frame: Bitmap, region: SlotRegionF): Boolean {
-        val crop = SlotRegions.cropSlot(frame, region)
-        var total = 0f
-        var count = 0
-        val step = 4
-        for (x in 0 until crop.width step step) {
-            for (y in 0 until crop.height step step) {
-                val px = crop.getPixel(x, y)
-                val r  = android.graphics.Color.red(px)
-                val g  = android.graphics.Color.green(px)
-                val b  = android.graphics.Color.blue(px)
+        val crop  = SlotRegions.cropSlot(frame, region)
+        val cropW = crop.width
+        val cropH = crop.height
+        val bytes = ByteBuffer.allocate(crop.byteCount)
+        crop.copyPixelsToBuffer(bytes)
+        crop.recycle()
+
+        val arr      = bytes.array()
+        val rowBytes = cropW * 4   // ARGB_8888: 4 bytes per pixel
+        val step     = 4           // sample every 4th pixel in x; every 4th row in y
+        var total    = 0f
+        var count    = 0
+        var row      = 0
+        while (row < cropH) {
+            var col = 0
+            while (col < cropW) {
+                val i = row * rowBytes + col * 4
+                val r = arr[i    ].toInt() and 0xFF
+                val g = arr[i + 1].toInt() and 0xFF
+                val b = arr[i + 2].toInt() and 0xFF
                 total += (0.299f * r + 0.587f * g + 0.114f * b)
                 count++
+                col += step
             }
+            row += step
         }
-        crop.recycle()
 
         if (count == 0) return false
 

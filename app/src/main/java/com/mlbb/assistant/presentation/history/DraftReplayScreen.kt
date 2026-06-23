@@ -131,7 +131,12 @@ fun DraftReplayScreen(
                 }
             }
             else -> {
-                val s = state.session!!
+                // P0-02 fix: bind to a local val at the top of the else branch.
+                // Kotlin cannot smart-cast state.session (a property of a data class
+                // held in a StateFlow) — the ViewModel may emit a new null state
+                // between the null-check and any subsequent !! dereference.
+                // Binding to a local val gives the compiler a stable, non-nullable reference.
+                val s = state.session ?: return@Scaffold
                 LazyColumn(
                     contentPadding = PaddingValues(
                         top    = innerPadding.calculateTopPadding() + 8.dp,

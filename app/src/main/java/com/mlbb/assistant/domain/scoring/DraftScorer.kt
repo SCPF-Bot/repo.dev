@@ -1,5 +1,6 @@
 package com.mlbb.assistant.domain.scoring
 
+import androidx.annotation.VisibleForTesting
 import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
 import com.mlbb.assistant.domain.engine.PickTurn
 import com.mlbb.assistant.domain.model.Hero
@@ -92,6 +93,9 @@ object DraftScorer {
     /**
      * Computes a recommendation score for a single [candidate] hero.
      *
+     * This is the **canonical production scoring path**. Use this function —
+     * not [computeScore] — in all non-test callers. See [computeScore] KDoc.
+     *
      * @param pickIndex     0-based index of the current pick in the sequence.
      * @param maxPickIndex  Total picks in the draft (default 10 for 5v5).
      * @param poolMap       Personal hero pool proficiency map (TD-02).
@@ -159,8 +163,22 @@ object DraftScorer {
     }
 
     /**
-     * Simple linear scoring formula used by unit tests and lightweight callers.
+     * Simple linear scoring formula.
+     *
+     * **FOR TESTS AND LIGHTWEIGHT CALLERS ONLY.**
+     *
+     * This function uses a simplified three-term linear formula (meta + counter +
+     * synergy weighted by [weights]) and does NOT apply adaptive weight ramping,
+     * dynamic scoring bounds, positional modifiers, proficiency multipliers, or
+     * patch-velocity scaling. Scores produced here are qualitatively different
+     * from [score]/[rankAll] and MUST NOT be used in the production recommendation
+     * path or compared against [HeroScore.totalScore] values from [rankAll].
+     *
+     * P2-03 fix: annotated with [@VisibleForTesting] and expanded KDoc to make
+     * the dual-entry-point risk explicit. The correct fix long-term is to replace
+     * this with a `simplified = true` parameter on [score], tracked in todo.md §3.
      */
+    @VisibleForTesting
     fun computeScore(
         hero: Hero,
         allies: List<Hero>,
