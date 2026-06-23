@@ -8,11 +8,13 @@ import com.mlbb.assistant.domain.engine.DraftPhase
  * Detects the current MLBB draft phase from a screen frame.
  *
  * Strategy:
- *  - Samples a representative region of the screen where the
- *    active action button appears (lower-centre).
+ *  - Caller is responsible for passing the relevant crop (e.g. the action
+ *    button region from [SlotRegions.actionButton]).  [detect] samples the
+ *    **entire** bitmap it receives, so passing a pre-cropped region gives
+ *    accurate results without coupling this detector to any specific layout.
  *  - Red dominant   → BAN phase
- *  - Blue/green dom → PICK phase
- *  - Neither        → retain previous or IDLE
+ *  - Blue dominant  → PICK phase
+ *  - Neither        → UNKNOWN
  *
  * All magic-number thresholds have been moved to [PhaseDetectionConfig]
  * (TD-03) so patch-update calibration does not require reading detector logic.
@@ -34,7 +36,10 @@ object PhaseDetector {
     }
 
     /**
-     * Samples the bottom-centre 15% of the screen width × 10% height band.
+     * Samples the entire [frame] bitmap for dominant colour and returns a
+     * [PhaseResult].  Pass the full screen frame only if the action button
+     * region is not separately cropped; prefer passing a cropped action button
+     * region (via [SlotRegions.cropSlot]) for higher accuracy.
      *
      * Thresholds reference [PhaseDetectionConfig] named constants (TD-03).
      */
@@ -42,19 +47,13 @@ object PhaseDetector {
         val w = frame.width
         val h = frame.height
 
-        // Sample region: bottom 10–20% of screen, centre third
-        val left   = (w * 0.33).toInt()
-        val right  = (w * 0.67).toInt()
-        val top    = (h * 0.80).toInt()
-        val bottom = (h * 0.92).toInt()
-
         var redScore  = 0f
         var blueScore = 0f
         var samples   = 0
 
         val step = 4 // every 4th pixel for speed
-        for (x in left until right step step) {
-            for (y in top until bottom step step) {
+        for (x in 0 until w step step) {
+            for (y in 0 until h step step) {
                 if (x >= w || y >= h) continue
                 val px = frame.getPixel(x, y)
                 val r  = Color.red(px).toFloat()
