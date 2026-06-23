@@ -3,6 +3,7 @@ package com.mlbb.assistant.presentation.shell
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -23,11 +24,14 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mlbb.assistant.data.local.preferences.WizardPreference
+import com.mlbb.assistant.presentation.common.components.ConnectivityBanner
 import com.mlbb.assistant.presentation.navigation.AppNavGraph
 import com.mlbb.assistant.presentation.navigation.AppRoute
 import com.mlbb.assistant.presentation.navigation.TOP_LEVEL_ROUTES
@@ -53,11 +57,17 @@ private val NAV_ITEMS = listOf(
  * The onboarding wizard flag is read from [WizardPreference] (DataStore) via
  * [produceState] so the Composable is lifecycle-aware and avoids reading
  * SharedPreferences synchronously on the composition thread.
+ *
+ * [ConnectivityBanner] is driven by [AppShellViewModel] which wraps
+ * [com.mlbb.assistant.utils.NetworkMonitor] in a lifecycle-safe [StateFlow].
+ * The banner slides in/out at the very top of the scaffold content area so
+ * it is always visible regardless of which screen is active.
  */
 @Composable
 fun AppShell(
     onStartOverlay: () -> Unit,
-    onRequestCapture: () -> Unit
+    onRequestCapture: () -> Unit,
+    viewModel: AppShellViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
 
@@ -66,6 +76,8 @@ fun AppShell(
             value = done
         }
     }
+
+    val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
 
     val navController: NavHostController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -100,14 +112,19 @@ fun AppShell(
             }
         }
     ) { innerPadding ->
-        AppNavGraph(
-            navController    = navController,
-            startAtWizard    = !wizardDone,
-            onStartOverlay   = onStartOverlay,
-            onRequestCapture = onRequestCapture,
-            modifier         = Modifier
+        Column(
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-        )
+        ) {
+            ConnectivityBanner(isOffline = isOffline)
+            AppNavGraph(
+                navController    = navController,
+                startAtWizard    = !wizardDone,
+                onStartOverlay   = onStartOverlay,
+                onRequestCapture = onRequestCapture,
+                modifier         = Modifier.fillMaxSize()
+            )
+        }
     }
 }

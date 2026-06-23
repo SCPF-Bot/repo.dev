@@ -72,6 +72,14 @@
 - [x] Add `onScoreDetails = { handleScoreDetails() }` to `MiniWidget` call site
 - [x] Implement `handleScoreDetails()` — launch main app via `getLaunchIntentForPackage` with `FLAG_ACTIVITY_NEW_TASK`
 
+### Domain / Presentation Wire-Up (2026-06-23)
+- [x] Wire `GetDraftHistoryUseCase` into `DraftHistoryViewModel` — replaced direct `DraftSessionDao` injection; fixes layer separation and missing `yourPickIds` in history list
+- [x] Wire `DraftHistoryItem.yourPickIds` through full save path: `SaveDraftSessionUseCase` sets `yourPickIds = ourPicks.map { it.id }`; `DraftSessionRepositoryImpl.toEntity()` reads from `DraftHistoryItem.yourPickIds` (was `emptyList()`)
+- [x] Wire `CompositionAnalyzer.getCounterPickWarnings()` into `DraftViewModel.refreshSuggestions()` — result exposed as `DraftState.counterPickWarnings`
+- [x] Add `counterPickWarnings: List<String>` field to `DraftState`
+- [x] Wire `ConnectivityBanner` into `AppShell` — new `AppShellViewModel` injects `NetworkMonitor`, exposes `isOffline: StateFlow<Boolean>`; banner placed at top of scaffold content
+- [x] Replace `SimpleDateFormat` in `SettingsViewModel.syncNow()` with thread-safe `DateFormatter.formatFull()` _(TD from DateFormatter audit)_
+
 ---
 
 ## Phase 1 — Core Excellence (Months 0–3)
@@ -158,7 +166,7 @@
 
 ### 3.8 CrashLogStore Thread Safety
 
-- [ ] Add `Mutex` to `CrashLogStore.appendSync()` to prevent interleaved writes _(TD-11)_
+- [x] Add `Mutex` to `CrashLogStore.appendSync()` to prevent interleaved writes _(TD-11)_ — implemented via `synchronized(lock)` (Java monitor on `Any()` object); equivalent thread-safety without coroutine dependency, since `appendSync` is called from non-suspend crash handlers
 
 ### 3.9 Testing
 
@@ -174,6 +182,12 @@
 - [ ] Write `OverlayServiceIntegrationTest` — service restarts mid-draft and restores session state
 - [ ] Add JUnit 5 + `kotlinx-coroutines-test` to `testImplementation` dependencies
 - [ ] Add Espresso + Hilt testing dependencies for instrumented tests
+
+### 3.10 Resource Hygiene
+
+- [ ] Remove 5 unused legacy XML colors from `res/values/colors.xml`: `purple_200`, `purple_500`, `purple_700`, `teal_200`, `teal_700` (new-project template remnants; all app colors live in `Color.kt`)
+- [ ] Set `dynamicColor = false` by default in `Theme.kt` — Material You overrides the MLBB brand palette (gold/teal/red) on API 31+ devices; make it an explicit user opt-in in Settings if desired
+- [ ] Extract ~17 hardcoded `Text("…")` strings to `res/values/strings.xml` — `HomeScreen.kt` (10 strings), `DraftScreen.kt` (5 strings), `ConnectivityBanner.kt`, `OverlayService.kt` notification strings, `AppShell.kt` nav labels
 
 ---
 

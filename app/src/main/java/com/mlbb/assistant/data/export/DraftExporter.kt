@@ -12,14 +12,12 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.mlbb.assistant.data.local.database.DraftSessionEntity
 import com.mlbb.assistant.domain.model.DraftOutcome
+import com.mlbb.assistant.utils.DateFormatter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileWriter
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -93,11 +91,10 @@ class DraftExporter @Inject constructor(
         canvas.drawText("MLBB Draft Summary", 24f, 50f, paint)
 
         // Date + rank
-        val fmt = SimpleDateFormat("MMM d, yyyy · HH:mm", Locale.getDefault())
         paint.color = Color.parseColor("#A0A0B0")
         paint.textSize = 18f
         paint.typeface = Typeface.DEFAULT
-        canvas.drawText("${fmt.format(Date(s.timestamp))}", 24f, 80f, paint)
+        canvas.drawText(DateFormatter.formatFull(s.timestamp), 24f, 80f, paint)
         canvas.drawText("Rank: ${s.rank}   ${if (s.ourTeamFirst) "First pick" else "Second pick"}", 24f, 105f, paint)
 
         // Outcome badge
@@ -250,10 +247,9 @@ class DraftExporter @Inject constructor(
         }
 
     private fun toCsvRow(s: DraftSessionEntity): String {
-        val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         return listOf(
             s.id.toString(),
-            fmt.format(Date(s.timestamp)),
+            DateFormatter.formatLog(s.timestamp),
             s.rank,
             s.ourTeamFirst.toString(),
             s.isSimulation.toString(),

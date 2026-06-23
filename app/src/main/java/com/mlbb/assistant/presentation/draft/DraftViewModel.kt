@@ -2,6 +2,7 @@ package com.mlbb.assistant.presentation.draft
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.engine.DraftSession
 import com.mlbb.assistant.domain.engine.DraftSessionManager
@@ -23,10 +24,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DraftViewModel @Inject constructor(
-    private val getHeroesUseCase:    GetHeroesUseCase,
+    private val getHeroesUseCase:      GetHeroesUseCase,
     private val getSuggestionsUseCase: GetSuggestionsUseCase,
     private val saveDraftSessionUseCase: SaveDraftSessionUseCase,
-    private val draftSessionManager: DraftSessionManager
+    private val draftSessionManager:   DraftSessionManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DraftState())
@@ -84,9 +85,12 @@ class DraftViewModel @Inject constructor(
     private fun refreshSuggestions(session: DraftSession) {
         suggestionsJob?.cancel()
         suggestionsJob = viewModelScope.launch(Dispatchers.Default) {
-            // getSuggestionsUseCase already returns List<HeroScore> — no mapping needed.
             val scored = getSuggestionsUseCase(allHeroes, session, currentWeights)
-            _state.update { it.copy(suggestions = scored) }
+            val warnings = CompositionAnalyzer.getCounterPickWarnings(
+                ourPicks   = session.ourPickedHeroes,
+                enemyPicks = session.enemyPickedHeroes
+            )
+            _state.update { it.copy(suggestions = scored, counterPickWarnings = warnings) }
         }
     }
 

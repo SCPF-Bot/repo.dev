@@ -60,7 +60,8 @@ class SaveDraftSessionUseCase @Inject constructor(
             followedRecommendations = session.followedRecommendations,
             totalRecommendations    = session.totalRecommendations,
             outcome                 = session.outcome,
-            isSimulation            = session.isSimulation
+            isSimulation            = session.isSimulation,
+            yourPickIds             = ourPicks.map { it.id }
         )
 
         return runCatching { repository.saveSession(item) }.getOrDefault(-1L)

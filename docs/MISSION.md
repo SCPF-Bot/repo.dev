@@ -31,13 +31,13 @@ Every hero recommendation surfaces a human-readable reason: *"Synergizes with Ti
 The multi-factor scoring formula — meta weight (default 40%), synergy weight (default 30%), counter weight (default 30%) — is not a black box. The weights sum to 1.0 by construction, are validated at compile time, and are exposed as sliders in Settings. Named presets (META_HEAVY, COUNTER_HEAVY, SYNERGY_HEAVY) let players align the model with their playstyle without understanding the math.
 
 ### 5. Rank-aware rules, not one-size-fits-all
-MLBB drafts differ meaningfully by rank. Epic lobbies have six total bans (three per team, one round). Legend adds a second ban round for eight total. Mythic and above run ten bans across two rounds. The RankRuleEngine encodes these exact structures. The PickSequenceEngine models the 1-2-2-2-2-1 pick turn order correctly, including which side picks first, double-pick turns, and the strategically significant first and last pick positions. Advice accounts for these positional asymmetries: first-pick recommendations favor flexible, hard-to-counter heroes; last-pick recommendations favor direct counters.
+MLBB drafts differ meaningfully by rank. Epic lobbies have six total bans. Legend adds a second ban round for eight total. Mythic and above run ten bans across two rounds. The `RankRuleEngine` encodes these exact structures. The `PickSequenceEngine` models the 1-2-2-2-2-1 pick turn order correctly, including which side picks first, double-pick turns, and the strategically significant first and last pick positions.
 
 ### 6. Every design decision is an engineering decision too
-The codebase treats code quality as a product feature. Incorrect floating-point arithmetic between Kotlin `Double` and `Float` is called out explicitly with `// Kotlin has no Double ± Float operator — explicit .toFloat() required`. A previous scoring bug where `Tier.UNKNOWN` produced a negative contribution to scores is documented and fixed with a named constant (`TIER_MAX_ORDER`). Service lifecycle correctness on Android 14+ (FGS `mediaProjection` type requiring an authorized token before `startForeground`) is handled at the architectural level, not papered over. These are not incidental details — they reflect a belief that silent bugs in invisible systems erode trust in recommendations, and eroded trust makes the product useless.
+The codebase treats code quality as a product feature. Tier scoring formulas that produced negative scores for `Tier.UNKNOWN` are fixed and documented. Service lifecycle correctness on Android 14+ is handled at the architectural level. A single authoritative DataStore delegate prevents the `IllegalStateException` that occurs when two `preferencesDataStore` delegates target the same file. These are not incidental details — silent bugs in invisible systems erode trust in recommendations.
 
 ### 7. Permission onboarding is a product, not an afterthought
-Getting an overlay app through Android's layered permission system — Draw Over Other Apps, Accessibility Service, Battery Optimisation exemption, App Auto-Start, Restricted Settings unlock, Background Running — requires the user to navigate up to six separate system dialogs. The PermissionWizardScreen walks through each step in a deliberate order (from least intrusive to most intrusive, with the accessibility service last because it is the most sensitive), explains exactly *why* each permission is needed in plain language, and provides skip paths for permissions that are device-specific or optional.
+Getting an overlay app through Android's layered permission system — Draw Over Other Apps, Accessibility Service, Battery Optimisation exemption, App Auto-Start, Restricted Settings unlock, Background Running — requires the user to navigate up to six separate system dialogs. The `PermissionWizardScreen` walks through each step in deliberate order (least intrusive to most intrusive), explains exactly *why* each permission is needed in plain language, and provides skip paths for optional permissions.
 
 ---
 
@@ -57,12 +57,16 @@ Getting an overlay app through Android's layered permission system — Draw Over
 
 ---
 
-## Technical Mission
+## Long-term Vision
 
-At the engineering level, the mission is to build a **correct, maintainable, and resilient overlay service** for Android. This means:
+The vision is complete when a new user can install the app, complete the wizard, and have the overlay providing useful ban recommendations in their first ranked draft — without reading any documentation — and an experienced user at Mythical Glory rank has their scoring weights automatically tuned to their playstyle and receives feedback specific to the archetypes they face.
 
-- A single `ComposeView` that transitions between bubble and widget modes without recreation, avoiding the flicker and state loss that would come from removing and re-adding the view.
-- A touch listener that correctly mediates between View-level drag detection and Compose-level click handling — with separate code paths for bubble mode (View owns the entire sequence) and widget mode (Compose owns button clicks, View steals the sequence only on confirmed drag).
-- A foreground service that starts with the minimum required type (`SPECIAL_USE`) and upgrades to include `MEDIA_PROJECTION` only after the user has authorized screen capture — satisfying Android 14's strict token-at-startForeground requirement without crashing on devices that have not gone through the capture consent flow.
-- A single authoritative DataStore delegate (`AppDataStore.kt`) shared across all callers, preventing the `IllegalStateException: There are multiple DataStores active for the same file` crash that occurs when two `preferencesDataStore` delegates target the same file name.
-- A structured in-app log viewer backed by a rotation-capped append-only file store, so crashes and errors are visible to the user without requiring developer tools.
+Five pillars drive the long-term roadmap:
+
+1. **Autonomous awareness** — rank detection from the emblem region, first-pick side auto-detection, higher-confidence portrait matching via hybrid perceptual hash + TFLite, phase OCR for BAN_ROUND_1/2 disambiguation.
+2. **Deeper intelligence** — composition archetype recognition, draft-phase-aware scoring ramps, enemy intent inference, personal hero pool integration, patch delta weighting, ban value vs. ban urgency separation.
+3. **Historical feedback loop** — personal meta calibration from win/loss correlation, draft pattern recognition (over-ban tendencies, under-roam rate), match timeline replay.
+4. **Frictionless deployment** — deep links into exact settings pages, accessibility service health watchdog, quick re-setup at the specific revoked step, one-tap overlay relaunch from notification.
+5. **Platform resilience** — overlay state serialized to DataStore on every emission (survive OS kills mid-draft), OEM-specific auto-start workarounds maintained for Xiaomi/OPPO/Vivo/Huawei/Samsung/OnePlus, no-capture mode at full feature parity with autonomous mode.
+
+The system is always honest about its own state: if screen capture is unavailable, the overlay says so. If meta data is stale, the overlay says so. If the accessibility service dies, the user is informed.

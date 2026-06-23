@@ -15,6 +15,7 @@ import com.mlbb.assistant.domain.engine.WeightCalibrator
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetDraftHistoryUseCase
 import com.mlbb.assistant.domain.usecase.SyncHeroesUseCase
+import com.mlbb.assistant.utils.DateFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,9 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -99,9 +97,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Triggers a hero data sync and records the completion timestamp.
+     * Uses [DateFormatter.formatFull] — which is thread-safe by design —
+     * instead of the non-thread-safe [java.text.SimpleDateFormat].
+     */
     fun syncNow() = viewModelScope.launch {
         syncHeroesUseCase()
-        val label = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date())
+        val label = DateFormatter.formatFull(System.currentTimeMillis())
         dataStore.edit { it[KEY_LAST_SYNCED] = label }
     }
 

@@ -1,12 +1,10 @@
 package com.mlbb.assistant.data.local.crashlog
 
 import android.content.Context
+import com.mlbb.assistant.utils.DateFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 enum class LogLevel(val label: String) {
     CRASH("CRASH"),
@@ -24,8 +22,7 @@ data class LogEntry(
     val stackTrace: String = ""
 ) {
     val formattedTime: String
-        get() = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            .format(Date(timestamp))
+        get() = DateFormatter.formatLog(timestamp)
 }
 
 /**

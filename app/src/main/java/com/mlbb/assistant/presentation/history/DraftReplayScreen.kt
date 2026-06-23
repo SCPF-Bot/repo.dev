@@ -34,11 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mlbb.assistant.R
 import com.mlbb.assistant.data.local.database.DraftSessionDao
 import com.mlbb.assistant.data.local.database.DraftSessionEntity
@@ -51,17 +48,12 @@ import com.mlbb.assistant.presentation.common.theme.SuccessGreen
 import com.mlbb.assistant.presentation.common.theme.SurfaceMid
 import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
+import com.mlbb.assistant.utils.DateFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
@@ -71,6 +63,15 @@ data class DraftReplayState(
     val isLoading: Boolean = true
 )
 
+/**
+ * ViewModel for the Draft Replay detail screen.
+ *
+ * Note: this ViewModel injects [DraftSessionDao] directly because the detail
+ * screen requires fields (ban IDs, enemy pick IDs, `ourTeamFirst`) that are
+ * not yet modelled in [com.mlbb.assistant.domain.model.DraftHistoryItem].
+ * Once ROADMAP item 4.8 (expand `DraftHistoryItem` with full entity fields)
+ * is completed, this should be refactored to use a domain use case.
+ */
 @HiltViewModel
 class DraftReplayViewModel @Inject constructor(
     private val dao: DraftSessionDao
@@ -179,7 +180,6 @@ fun DraftReplayScreen(
 
 @Composable
 private fun ReplaySummaryCard(session: DraftSessionEntity) {
-    val fmt = SimpleDateFormat("MMM d, yyyy · HH:mm", Locale.getDefault())
     val outcome = DraftOutcome.fromString(session.outcome)
 
     Box(
@@ -195,7 +195,7 @@ private fun ReplaySummaryCard(session: DraftSessionEntity) {
                 verticalAlignment     = Alignment.CenterVertically
             ) {
                 Text(
-                    fmt.format(Date(session.timestamp)),
+                    DateFormatter.formatFull(session.timestamp),
                     color    = TextSecondary,
                     fontSize = 12.sp
                 )
