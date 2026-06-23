@@ -36,6 +36,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import coil3.ImageLoader
+import com.mlbb.assistant.capture.FirstPickDetector
 import com.mlbb.assistant.capture.PhaseDetector
 import com.mlbb.assistant.capture.PortraitMatcher
 import com.mlbb.assistant.capture.SlotRegionF
@@ -115,6 +116,13 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val filledOurBanSlots    = mutableSetOf<Int>()
     private val filledEnemyPickSlots = mutableSetOf<Int>()
     private val filledOurPickSlots   = mutableSetOf<Int>()
+
+    /**
+     * True once a single catch-up ban scan has run at the start of the PICK
+     * phase to capture any slots that were missed during the ban phases.
+     * Reset alongside the other slot tracking on each new draft.
+     */
+    private var banCatchUpDone = false
 
     // ── Companion ─────────────────────────────────────────────────────────────
 
@@ -761,14 +769,37 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     private suspend fun analyzeFrame(frame: Bitmap, currentPhase: DraftPhase) {
-        val phaseResult      = PhaseDetector.detect(frame)
-        val banButtonVisible = isBanButtonVisible(frame)
+        // Crop to the action-button region before phase detection so that
+        // PhaseDetector samples the area that actually contains the BAN/PICK
+        // button rather than a hardcoded centre-screen band.
+        val actionCrop = runCatching {
+            SlotRegions.cropSlot(frame, SlotRegions.actionButton)
+        }.getOrNull()
+        val phaseResult = if (actionCrop != null) {
+            try { PhaseDetector.detect(actionCrop) } finally { actionCrop.recycle() }
+        } else {
+            PhaseDetector.detect(frame)
+        }
 
+        val banButtonVisible = isBanButtonVisible(frame)
         withContext(Dispatchers.Main) { isBanTurn.value = banButtonVisible }
 
-        if (phaseResult.confidence > 0.5f) {
+        // Act on any non-UNKNOWN detection — the previous threshold of 0.5f
+        // required ≥50% of sampled pixels to match, which is impossible for a
+        // single coloured button.  The detection threshold (6% red pixels) is
+        // already enforced inside PhaseDetector.detect().
+        if (phaseResult.phase != PhaseDetector.DetectedPhase.UNKNOWN) {
+            // Compute first-pick on the Default dispatcher (CPU work) before
+            // switching to Main for the session-manager calls.
+            val firstPickResult = if (
+                phaseResult.phase == PhaseDetector.DetectedPhase.BAN &&
+                currentPhase == DraftPhase.IDLE
+            ) {
+                FirstPickDetector.detect(frame)
+            } else null
+
             withContext(Dispatchers.Main) {
-                autoTransitionPhase(phaseResult.phase, currentPhase)
+                autoTransitionPhase(phaseResult.phase, currentPhase, firstPickResult)
             }
         }
 
@@ -778,18 +809,42 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 val round = if (session.phase == DraftPhase.BAN_ROUND_2) 2 else 1
                 scanAndRecordBans(frame, round)
             }
-            DraftPhase.PICK -> scanAndRecordPicks(frame)
+            DraftPhase.PICK -> {
+                // One-shot catch-up: if ban slots were missed during the ban
+                // phase, their portraits are still visible at the top of the
+                // screen during the pick phase.  Scan them once at pick-phase
+                // entry and never again (banCatchUpDone gate).
+                if (!banCatchUpDone) {
+                    banCatchUpDone = true
+                    val anyBanMissed = filledEnemyBanSlots.size < SlotRegions.enemyBanSlots.size ||
+                        filledOurBanSlots.size < SlotRegions.ourBanSlots.size
+                    if (anyBanMissed) scanAndRecordBans(frame, round = 1)
+                }
+                scanAndRecordPicks(frame)
+            }
             else -> {}
         }
     }
 
     // ── Phase auto-transition ─────────────────────────────────────────────────
 
-    private fun autoTransitionPhase(detected: PhaseDetector.DetectedPhase, current: DraftPhase) {
+    private fun autoTransitionPhase(
+        detected: PhaseDetector.DetectedPhase,
+        current: DraftPhase,
+        firstPickResult: FirstPickDetector.DetectionResult? = null
+    ) {
         when {
             detected == PhaseDetector.DetectedPhase.BAN && current == DraftPhase.IDLE -> {
+                // Use FirstPickDetector result when available; fall back to true
+                // (our team first) only when the luminance difference is too small
+                // to be conclusive.
+                val ourTeamFirst = when (firstPickResult?.firstPick) {
+                    FirstPickDetector.FirstPick.OUR_TEAM   -> true
+                    FirstPickDetector.FirstPick.ENEMY_TEAM -> false
+                    else                                   -> true
+                }
                 resetDraftTracking()
-                draftSessionManager.initSession(Rank.UNKNOWN, ourTeamFirst = true)
+                draftSessionManager.initSession(Rank.UNKNOWN, ourTeamFirst = ourTeamFirst)
                 draftSessionManager.startBanPhase()
             }
             detected == PhaseDetector.DetectedPhase.BAN && current == DraftPhase.BAN_ROUND_1 -> {
@@ -813,17 +868,21 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     // ── Slot scanning ─────────────────────────────────────────────────────────
 
     private suspend fun scanAndRecordBans(frame: Bitmap, round: Int) {
+        // Ban slots are small (~52×52 px) circular crops.  The dark corners
+        // from the circular mask depress the histogram component of the hybrid
+        // score, so we use a lower confidence floor than pick slots (0.45 vs
+        // 0.55) to avoid discarding correct matches.
         SlotRegions.enemyBanSlots.forEachIndexed { i, region ->
             if (i !in filledEnemyBanSlots && isSlotFilled(frame, region)) {
                 filledEnemyBanSlots.add(i)
-                val hero = matchPortrait(frame, region, 0.65f)
+                val hero = matchPortrait(frame, region, 0.45f)
                 withContext(Dispatchers.Main) { draftSessionManager.recordEnemyBan(hero, round, i) }
             }
         }
         SlotRegions.ourBanSlots.forEachIndexed { i, region ->
             if (i !in filledOurBanSlots && isSlotFilled(frame, region)) {
                 filledOurBanSlots.add(i)
-                val hero = matchPortrait(frame, region, 0.65f)
+                val hero = matchPortrait(frame, region, 0.45f)
                 withContext(Dispatchers.Main) { draftSessionManager.recordOurBan(hero, round, i) }
             }
         }
@@ -889,6 +948,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private fun resetDraftTracking() {
         filledEnemyBanSlots.clear(); filledOurBanSlots.clear()
         filledEnemyPickSlots.clear(); filledOurPickSlots.clear()
+        banCatchUpDone = false
     }
 
     // ── 3.1.1 Session snapshot persistence ───────────────────────────────────
