@@ -93,3 +93,16 @@ ConnectivityBanner · DateFormatter (DateTimeFormatter) · NetworkResult.fold/ge
 | `exportSchema = true`, schema committed to `/schemas/` | ✅ |
 | `android:allowBackup = false` | ✅ |
 | DataStore single file, single construction path | ✅ |
+
+---
+
+## Pass 7 — User-Configurable Scoring Everywhere (Mission Pillars 1 & 4)
+
+| # | Severity | Issue | Status |
+|---|----------|-------|--------|
+| 22 | **CRITICAL** | `SettingsViewModel.runCalibration()` (runs on every Settings open) built `ScoreWeights(meta, counter, synergy)` directly from the three independently-persisted sliders. Their raw sum drifts from 1.0, so `ScoreWeights.init` threw `IllegalArgumentException` and crashed the app. | ✅ Fixed — switched to non-throwing `ScoreWeights.normalized()` |
+| 23 | **HIGH** | `OverlayService.refreshRecommendations()` hardcoded `ScoreWeights.DEFAULT`. The overlay is the *primary product* (Pillar 1) yet ignored the user's weight sliders (Pillar 4) — tuning Settings had zero effect on live draft/ban advice. | ✅ Fixed — overlay observes `PreferencesDataStore.scoreWeightsFlow` |
+| 24 | **HIGH** | In-app `DraftViewModel` exposed an unused `setWeights()` that nothing called, so the draft screen also scored on `ScoreWeights.DEFAULT`. | ✅ Fixed — reactive `observeScoringConfig()`; dead `setWeights()` removed |
+| 25 | **MEDIUM** | Personal hero pool (`HeroPoolDao` / `Proficiency`, TD-02) was implemented end-to-end but the resulting `poolMap` was never passed to `DraftScorer` anywhere — un-pooled heroes were never downweighted in real recommendations. | ✅ Fixed — both overlay and draft VM now feed the live `poolMap` into scoring |
+
+**New single source of truth:** `PreferencesDataStore.scoreWeightsFlow: Flow<ScoreWeights>` combines the three weight keys through `ScoreWeights.normalized()` (can never throw) and is collected by both `OverlayService` and `DraftViewModel`, so Settings sliders and the Hero Pool screen now drive recommendations consistently across the whole app without a restart.

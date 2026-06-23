@@ -2,11 +2,14 @@ package com.mlbb.assistant.presentation.draft
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mlbb.assistant.data.local.database.HeroPoolDao
+import com.mlbb.assistant.data.local.datastore.PreferencesDataStore
 import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.engine.DraftSession
 import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.model.Hero
+import com.mlbb.assistant.domain.model.Proficiency
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
 import com.mlbb.assistant.domain.usecase.GetSuggestionsUseCase
@@ -27,7 +30,9 @@ class DraftViewModel @Inject constructor(
     private val getHeroesUseCase:      GetHeroesUseCase,
     private val getSuggestionsUseCase: GetSuggestionsUseCase,
     private val saveDraftSessionUseCase: SaveDraftSessionUseCase,
-    private val draftSessionManager:   DraftSessionManager
+    private val draftSessionManager:   DraftSessionManager,
+    private val preferencesDataStore:  PreferencesDataStore,
+    private val heroPoolDao:           HeroPoolDao
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DraftState())
@@ -35,12 +40,14 @@ class DraftViewModel @Inject constructor(
 
     private var allHeroes:     List<Hero> = emptyList()
     private var currentWeights            = ScoreWeights.DEFAULT
+    private var poolMap: Map<Int, Proficiency> = emptyMap()
     private var heroCollectJob: Job?      = null
     private var suggestionsJob: Job?      = null
     private var didSaveSession            = false
 
     init {
         loadHeroes()
+        observeScoringConfig()
         viewModelScope.launch {
             draftSessionManager.session.collect { session ->
                 _state.update { s ->
@@ -77,15 +84,31 @@ class DraftViewModel @Inject constructor(
         }
     }
 
-    fun setWeights(meta: Float, counter: Float, synergy: Float) {
-        currentWeights = ScoreWeights.normalized(meta = meta, synergy = synergy, counter = counter)
-        refreshSuggestions(draftSessionManager.session.value)
+    /**
+     * Observes the user's scoring configuration so in-app recommendations match
+     * what they tuned in Settings (weights) and the Hero Pool screen (personal
+     * pool). [PreferencesDataStore.scoreWeightsFlow] always emits a normalised,
+     * sum-to-1.0 [ScoreWeights], so no validation is needed here.
+     */
+    private fun observeScoringConfig() {
+        viewModelScope.launch {
+            preferencesDataStore.scoreWeightsFlow.collect { weights ->
+                currentWeights = weights
+                refreshSuggestions(draftSessionManager.session.value)
+            }
+        }
+        viewModelScope.launch {
+            heroPoolDao.getAll().collect { entities ->
+                poolMap = entities.associate { it.heroId to it.toProficiency() }
+                refreshSuggestions(draftSessionManager.session.value)
+            }
+        }
     }
 
     private fun refreshSuggestions(session: DraftSession) {
         suggestionsJob?.cancel()
         suggestionsJob = viewModelScope.launch(Dispatchers.Default) {
-            val scored = getSuggestionsUseCase(allHeroes, session, currentWeights)
+            val scored = getSuggestionsUseCase(allHeroes, session, currentWeights, poolMap)
             val warnings = CompositionAnalyzer.getCounterPickWarnings(
                 ourPicks   = session.ourPickedHeroes,
                 enemyPicks = session.enemyPickedHeroes

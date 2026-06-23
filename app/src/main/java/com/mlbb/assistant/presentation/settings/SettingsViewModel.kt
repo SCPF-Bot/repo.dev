@@ -118,10 +118,16 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isCalibrating = true) }
             val history = getDraftHistoryUseCase.all().first()
-            val currentWeights = ScoreWeights(
+            // Use normalized() rather than the ScoreWeights primary constructor:
+            // the three weight sliders are persisted independently, so their raw
+            // sum drifts away from 1.0 between edits. ScoreWeights' init block
+            // throws IllegalArgumentException when the sum != 1.0, which would
+            // crash the app every time Settings opened after a slider was moved.
+            // normalized() rescales to a valid, sum-to-1.0 instance instead.
+            val currentWeights = ScoreWeights.normalized(
                 meta    = _state.value.metaWeight,
-                counter = _state.value.counterWeight,
-                synergy = _state.value.synergyWeight
+                synergy = _state.value.synergyWeight,
+                counter = _state.value.counterWeight
             )
             val result = WeightCalibrator.calibrate(history, currentWeights)
             _state.update { it.copy(calibrationResult = result, isCalibrating = false) }

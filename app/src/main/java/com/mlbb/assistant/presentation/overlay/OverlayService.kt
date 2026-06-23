@@ -36,6 +36,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import coil3.ImageLoader
+import com.mlbb.assistant.data.local.database.HeroPoolDao
+import com.mlbb.assistant.data.local.datastore.PreferencesDataStore
 import com.mlbb.assistant.capture.FirstPickDetector
 import com.mlbb.assistant.capture.PhaseDetector
 import com.mlbb.assistant.capture.PortraitMatcher
@@ -50,6 +52,7 @@ import com.mlbb.assistant.domain.engine.DraftSession
 import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.engine.Rank
 import com.mlbb.assistant.domain.model.Hero
+import com.mlbb.assistant.domain.model.Proficiency
 import com.mlbb.assistant.domain.scoring.DraftScorer
 import com.mlbb.assistant.domain.scoring.HeroScore
 import com.mlbb.assistant.domain.scoring.ScoreWeights
@@ -78,6 +81,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     @Inject lateinit var draftSessionManager: DraftSessionManager
     @Inject lateinit var getHeroesUseCase: GetHeroesUseCase
     @Inject lateinit var dataStore: DataStore<Preferences>
+    @Inject lateinit var preferencesDataStore: PreferencesDataStore
+    @Inject lateinit var heroPoolDao: HeroPoolDao
 
     // ── Lifecycle + SavedState (ComposeView in a Service requires both) ───────
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -110,6 +115,22 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val enemyWarnings   = mutableStateListOf<String>()
     private val isExpanded      = mutableStateOf(false)
     private val isBanTurn       = mutableStateOf(false)
+
+    // ── User scoring configuration (observed live from DataStore / Room) ──────
+    /**
+     * The user's configured scoring weights, kept in sync with the Settings
+     * sliders via [PreferencesDataStore.scoreWeightsFlow]. The overlay is the
+     * primary product, so its recommendations must honour the same weights the
+     * user tunes in Settings rather than a hardcoded default.
+     */
+    @Volatile private var currentWeights: ScoreWeights = ScoreWeights.DEFAULT
+
+    /**
+     * The user's personal hero pool (hero id → proficiency), observed live from
+     * Room. When non-empty, [DraftScorer] downweights un-pooled heroes so the
+     * overlay stops recommending heroes the player cannot comfortably play.
+     */
+    @Volatile private var poolMap: Map<Int, Proficiency> = emptyMap()
 
     // ── Autonomous detection state ────────────────────────────────────────────
     private val filledEnemyBanSlots  = mutableSetOf<Int>()
@@ -181,6 +202,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         createNotificationChannel()
         startFg()
         addOverlayView()
+        observeScoringConfig()
         loadHeroes()
         observeSession()
         // 3.1.1: Restore any in-progress session snapshot from a previous run.
@@ -335,7 +357,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      *
      * ──────────────────────────────────────────────────────────────────────────
      * TWO-MODE TOUCH STRATEGY
-     * ──────────────────────────────────────────────────────────────────────────
+     * ──────────────────────────────────────────────────���───────────────────────
      *
      * BUBBLE MODE (collapsed)
      * ───────────────────────
@@ -654,7 +676,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         if (intent != null) startActivity(intent)
     }
 
-    // ── Manual hero selection from mini-widget tap ────────────────────────────
+    // ── Manual hero selection from mini-widget tap ──────────────���─────────────
 
     private fun handleManualHeroSelection(hero: Hero) {
         val s = draftSessionManager.session.value
@@ -706,8 +728,28 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
     }
 
+    /**
+     * Observes the user's scoring configuration (weights + personal hero pool)
+     * and refreshes recommendations whenever it changes, so the overlay stays
+     * in sync with Settings and the Hero Pool screen without a restart.
+     */
+    private fun observeScoringConfig() {
+        serviceScope.launch {
+            preferencesDataStore.scoreWeightsFlow.collectLatest { weights ->
+                currentWeights = weights
+                refreshRecommendations(draftSessionManager.session.value)
+            }
+        }
+        serviceScope.launch {
+            heroPoolDao.getAll().collectLatest { entities ->
+                poolMap = entities.associate { it.heroId to it.toProficiency() }
+                refreshRecommendations(draftSessionManager.session.value)
+            }
+        }
+    }
+
     private fun refreshRecommendations(session: DraftSession) {
-        val w = ScoreWeights.DEFAULT
+        val w = currentWeights
         when (session.phase) {
             DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
                 banSuggestions.clear()
@@ -733,7 +775,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         enemyPicks  = session.enemyPickedHeroes,
                         bannedIds   = session.unavailableIds,
                         weights     = w,
-                        currentTurn = session.currentTurn
+                        currentTurn = session.currentTurn,
+                        poolMap     = poolMap
                     ).take(10)
                 )
                 enemyWarnings.clear()
