@@ -60,11 +60,11 @@ For the **5 core documentation files** in `/docs/`, perform a seamless merge –
 ---
 
 ## Phase 4: Autonomous Archiving
-**Generate the final archived codebase as a downloadable zip file.**
+**Generate the final archived codebase as a downloadable `tar.gz` file.**
 
-- Create a timestamped archive named `kotlin_codebase_YYYYMMDD_HHMMSS.zip`.
+- Create a timestamped archive named `kotlin_codebase_YYYYMMDD_HHMMSS.tar.gz`.
 - Strictly exclude: `build/`, `app/build/`, `.gradle/`, `*.iml`, `.idea/`, `local.properties`, `*.class`, `*.dex`.
-- Using your native artifact generation or file-encoding capabilities, attach the zip directly to your response. If artifact upload is unavailable, encode the zip as a base64 data URI and provide the `data:application/zip;base64,...` link so the user can download it instantly with one click.
+- Using your native artifact generation or file-encoding capabilities, attach the `tar.gz` directly to your response. If artifact upload is unavailable, encode the archive as a base64 data URI and provide the `data:application/tar+gzip;base64,...` link so the user can download it instantly with one click.
 
 ---
 
