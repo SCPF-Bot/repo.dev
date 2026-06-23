@@ -1,14 +1,8 @@
 # Architecture Overview — MLBB Draft Assistant
 
 > **Status:** Living document. Update whenever a module boundary, dependency, or
-> data-flow contract changes. Last reconciled against source at app `versionName 2.0.0`
-> (`versionCode 2`).
-
-This document describes **what the app is, how it is structured, how data flows
-through it, and why each architectural decision was made**. It is the canonical
-map of the codebase. For the feature catalogue see [`features.md`](./features.md),
-for the forward plan see [`roadmap.md`](./roadmap.md), and for the actionable
-backlog see [`todo.md`](./todo.md).
+> data-flow contract changes. Last reconciled against source at `versionName 2.0.0`
+> (`versionCode 2`). For audit findings see [`docs/temp/findings.md`](./temp/findings.md).
 
 ---
 
@@ -21,22 +15,23 @@ uses a computer-vision pipeline (MediaProjection + perceptual hashing) to detect
 picks and bans autonomously, and surfaces ranked hero recommendations scored by
 meta strength, synergy, and counter value.
 
-- **Package:** `com.mlbb.assistant`
-- **Min SDK:** 29 (Android 10) · **Target/Compile SDK:** 36
-- **Language:** Kotlin 2.1.0 · **Build:** AGP 8.10.1, Gradle KTS, version catalog
-- **UI:** Jetpack Compose + Material 3 (Compose BOM 2025.05.01)
-- **Module layout:** single Gradle module `:app` (root project `MLBB Assistant 2.0`)
-
-The product thesis (full detail in [`MISSION.md`](./MISSION.md)) is **overlay-first**:
-the floating bubble and MiniWidget are the primary product; the in-app screens
-exist to support them.
+| Attribute | Value |
+|---|---|
+| Package | `com.mlbb.assistant` |
+| Min SDK | 29 (Android 10) |
+| Target / Compile SDK | 36 |
+| Language | Kotlin 2.1.0 |
+| Build | AGP 8.10.1, Gradle KTS, version catalog |
+| UI | Jetpack Compose + Material 3 (BOM 2025.05.01) |
+| Module layout | Single Gradle module `:app` (root project `MLBB Assistant 2.0`) |
 
 ---
 
 ## 2. Architectural style
 
 The app follows **Clean Architecture** with a **unidirectional data flow (MVI/UDF)**
-presentation layer.
+presentation layer. The dependency rule is: `presentation → domain ← data`.
+`domain/` has **zero Android imports** and is unit-testable on the JVM.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -60,7 +55,7 @@ presentation layer.
                                  │ implemented by
 ┌───────────────────────────────▼──────────────────────────────────────┐
 │                              DATA                                      │
-│  local/database/   Room: AppDatabase, DAOs, Entities, Converters      │
+│  local/database/   Room v3: AppDatabase, DAOs, Entities, Converters   │
 │  local/datastore/  Preferences DataStore (single delegate)            │
 │  local/crashlog/   CrashLogStore + Timber AppLogTree                  │
 │  remote/api/       Retrofit MetaApi (GET /v1/meta/snapshot)           │
@@ -78,107 +73,261 @@ presentation layer.
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Dependency rule
-Source dependencies always point **inward**: `presentation → domain ← data`.
-The `domain` layer has **zero Android imports** and is unit-testable on the JVM.
-The `capture` and `service` packages sit at the Android edge and feed observations
-into the domain `DraftSessionManager`.
+---
+
+## 3. System sequence diagram (Mermaid.js)
+
+### 3.1 Autonomous detection happy path
+
+```mermaid
+sequenceDiagram
+    participant MLBB as MLBB Game
+    participant SCM  as ScreenCaptureManager
+    participant FP   as FrameProcessor
+    participant PM   as PortraitMatcher
+    participant DSM  as DraftSessionManager
+    participant DS   as DraftScorer
+    participant OVL  as OverlayService (UI)
+
+    MLBB->>SCM: Screen frame (via MediaProjection/ImageReader)
+    SCM->>FP: Bitmap frame
+    FP->>FP: PhaseDetector.detect() — identify draft phase
+    FP->>FP: isSlotFilled() — scan ban/pick slots (luminance threshold)
+    FP->>PM: cropSlot(frame, region)
+    PM-->>FP: MatchResult (heroId, confidence)
+    FP-->>OVL: FrameAnalysis (phase, newlyFilledSlots, heroIds)
+    OVL->>DSM: recordEnemyBan / recordEnemyPick(hero)
+    DSM-->>OVL: StateFlow<DraftSession> update
+    OVL->>DS: rankAll(availablePool, session, weights, poolMap)
+    DS-->>OVL: List<HeroScore> (scored + ranked)
+    OVL->>OVL: Recompose MiniWidget / phase panel
+```
+
+### 3.2 Manual fallback path
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant DraftScreen
+    participant DraftVM  as DraftViewModel
+    participant DSM      as DraftSessionManager
+    participant DS       as DraftScorer
+
+    User->>DraftScreen: Tap hero slot (ban or pick)
+    DraftScreen->>DraftVM: Intent.SelectHero(hero, slot, side)
+    DraftVM->>DSM: recordEnemyBan / recordOurPick(hero)
+    DSM-->>DraftVM: StateFlow<DraftSession> update
+    DraftVM->>DS: rankAll(...)
+    DS-->>DraftVM: List<HeroScore>
+    DraftVM-->>DraftScreen: DraftState(suggestions, session)
+    DraftScreen->>User: Renders SuggestionCard list
+```
+
+### 3.3 Hero data sync (startup)
+
+```mermaid
+sequenceDiagram
+    participant VM   as AppShellViewModel / SyncHeroesUseCase
+    participant Repo as HeroRepositoryImpl
+    participant API  as MetaApi (Retrofit)
+    participant DAO  as HeroDao (Room)
+    participant JSON as default_heroes.json (bundled)
+
+    VM->>Repo: syncHeroes()
+    Repo->>API: GET /v1/meta/snapshot
+    alt success
+        API-->>Repo: MetaSnapshotDto
+        Repo->>DAO: replaceAll(entities)
+    else network failure
+        API-->>Repo: IOException
+        Repo->>DAO: getTopMetaHeroes(1)
+        alt DB is empty
+            Repo->>JSON: JsonParser.parseHeroes()
+            JSON-->>Repo: List<HeroEntity>
+            Repo->>DAO: replaceAll(seed entities)
+        end
+    end
+```
+
+### 3.4 Scoring engine data flow (Entity Relationship)
+
+```mermaid
+erDiagram
+    Hero {
+        int id PK
+        string name
+        string role
+        string lane
+        string tier
+        float winRate
+        float banRate
+        float pickRate
+        float patchTrend
+        bool isOP
+        bool hasCCUlt
+        bool isToxicMechanic
+        list counters
+        list counteredBy
+        list synergies
+    }
+    ScoreWeights {
+        float meta
+        float synergy
+        float counter
+    }
+    HeroScore {
+        Hero hero FK
+        float totalScore
+        float metaScore
+        float synergyScore
+        float counterScore
+        string badgeLabel
+        string reason
+    }
+    DraftSession {
+        Rank rank
+        DraftPhase phase
+        list ourPicks
+        list enemyPicks
+        list bans
+        bool ourTeamFirst
+        DraftOutcome outcome
+    }
+    DraftScorer ||--o{ HeroScore : "produces"
+    DraftScorer }|--|| ScoreWeights : "uses"
+    DraftScorer }|--o{ Hero : "scores"
+    DraftSession ||--o{ Hero : "bans/picks"
+```
 
 ---
 
-## 3. Layer-by-layer map
+## 4. Folder-structure tree
 
-### 3.1 Domain layer (`domain/`)
-
-Pure Kotlin business logic. No `android.*` imports.
-
-| Package | Key types | Responsibility |
-| --- | --- | --- |
-| `model/` | `Hero`, `Lane`, `Tier`, `CoreItem`, `Proficiency`, `DraftOutcome`, `DraftHistoryItem` | Immutable domain entities. `Hero` carries stats (`winRate`, `pickRate`, `banRate`, `patchTrend`), relationships (`counters`, `counteredBy`, `synergies`), and flags (`isOP`, `hasCCUlt`, `isToxicMechanic`). |
-| `engine/` | `DraftSessionManager`, `DraftSession`, `DraftPhase`, `Rank`, `RankRuleEngine`, `PickSequenceEngine`, `WeightCalibrator`, `DraftPatternAnalyzer` | The **draft state machine** and rules. `DraftSessionManager` owns a `StateFlow<DraftSession>` with ban/pick records, an undo stack, and outcome/simulation flags. |
-| `scoring/` | `DraftScorer`, `ScoreWeights`, `HeroScore` | The recommendation engine. Multi-factor scoring with adaptive weights and dataset-derived bounds. |
-| `advisor/` | `CompositionAnalyzer`, `CompositionArchetype`, `BanRecommender`, `BuildAdvisor`, `EnemyIntentAnalyzer`, `WinConditionGenerator`, `DraftScoreCalculator` | Higher-level draft intelligence built on top of scoring. |
-| `usecase/` | `GetSuggestionsUseCase`, `GetHeroesUseCase`, `GetPagedHeroesUseCase`, `GetDraftHistoryUseCase`, `SaveDraftSessionUseCase`, `SyncHeroesUseCase`, `ToggleOverlayUseCase` | Single-responsibility orchestrators bridging presentation and repositories. |
-| `repository/` | `HeroRepository`, `DraftSessionRepository` | Abstractions implemented in the data layer. |
-| `OverlayController` | interface | Domain-side contract for toggling the overlay, decoupling use cases from the Android service. |
-
-### 3.2 Data layer (`data/`)
-
-| Package | Key types | Notes |
-| --- | --- | --- |
-| `local/database/` | `AppDatabase` (v3), `HeroDao`, `DraftSessionDao`, `HeroPoolDao`, `HeroEntity`, `DraftSessionEntity`, `HeroPoolEntity`, `Converters` | Room with `exportSchema = true` (schemas committed under `/schemas`). Constructed **only** via `DatabaseModule` which applies migrations 1→2→3. |
-| `local/datastore/` | `PreferencesDataStore` | A single `preferencesDataStore` delegate (`appDataStore`) provided exclusively by `AppModule` to avoid duplicate-delegate `IllegalStateException`. |
-| `local/preferences/` | `WizardPreference` | Onboarding progress flags. |
-| `local/crashlog/` | `CrashLogStore`, `AppLogTree` | File-backed crash/log store with a mutex for concurrent writes; `AppLogTree` is a Timber tree. |
-| `remote/api/` | `MetaApi` | `GET v1/meta/snapshot` — the single network contract. |
-| `remote/dto/` | `MetaSnapshotDto` | Wire model + `toEntity()` mapping. |
-| `repository/` | `HeroRepositoryImpl`, `DraftSessionRepositoryImpl` | Network-with-local-fallback sync; Paging 3 source for the hero grid. |
-| `export/` | `DraftExporter` | Serializes a draft session for sharing. |
-
-**Seed & fallback data:**
-- `res/raw/default_heroes.json` (~73 KB) — bundled hero roster used when the
-  network sync fails and the DB is empty.
-- `assets/draft_ui_map.json` (~7 KB) — screen-region coordinate map for the CV
-  pipeline.
-
-### 3.3 Capture pipeline (`capture/`)
-
-The autonomous detection stack. Pure-ish image processing, fed by
-`ScreenCaptureManager`.
-
-| Type | Responsibility |
-| --- | --- |
-| `ScreenCaptureManager` (in `service/`) | Owns the `MediaProjection` + `ImageReader`, emits `Bitmap` frames. |
-| `FrameProcessor` | Per-frame orchestrator. Throttles by phase, detects phase + ban-button visibility, scans ban/pick slots for new fills using a **normalised luminance threshold** (robust to HDR/auto-brightness). |
-| `PhaseDetector` / `PhaseOcrDetector` / `PhaseDetectionConfig` | Classify the current draft phase from banner colours; config constants centralised. |
-| `PortraitMatcher` + `PerceptualHash` | Identify which hero occupies a slot via dHash + histogram (hybrid) matching against preloaded portrait hashes. |
-| `SlotRegions` | Normalised rectangles for every ban/pick slot and the action button; crops frames. |
-| `RankDetector` / `FirstPickDetector` | Infer rank tier and which side picks first. |
-
-### 3.4 Service layer (`service/` + `presentation/overlay/`)
-
-| Type | Responsibility |
-| --- | --- |
-| `OverlayService` | Foreground service (`specialUse|mediaProjection`) hosting the overlay Compose tree, the draggable bubble, MiniWidget, and phase-specific panels. Persists bubble position to DataStore (TD-12). ~1,100 LOC — the largest single file. |
-| `OverlayPermissionActivity` | Transparent activity that requests "Draw over other apps". |
-| `MLBBAccessibilityService` | Detects MLBB foreground/draft context. |
-| `VoiceAlertService` | `TextToSpeech` turn announcements; shut down in `MainActivity.onDestroy`. |
-
-### 3.5 Presentation layer (`presentation/`)
-
-MVI screens, each with `Screen` + `ViewModel` (+ `State` where applicable).
-
-- **Shell & nav:** `AppShell`, `AppShellViewModel`, `AppNavGraph`, `AppRoute`.
-- **Screens:** `home`, `draft`, `herolist`, `herodetail`, `heropool`, `history`
-  (+ `DraftReplayScreen`), `metaboard`, `settings`, `log`, `welcome`
-  (`PermissionWizardScreen`), `main` (`MainActivity`).
-- **Overlay UI:** `FloatingBubble`, `MiniWidget`, `DraftPanel`, and phase content
-  composables (`BanPhaseContent`, `PickPhaseContent`, `TradingPhaseContent`,
-  `FinalReportContent`) + `WidgetHeaderBar`, `WidgetScorePanel`.
-- **Common:** themed primitives (`MLBBButton`, `MLBBTextField`, `HeroGrid`,
-  `HeroPortrait`, `RoleDashboard`, `ConnectivityBanner`, `LoadingSpinner`,
-  `BackButton`) and theme (`Color`, `Theme`, `Type`).
-
-### 3.6 Dependency injection (`di/`)
-
-Hilt, all installed in `SingletonComponent`:
-
-| Module | Provides |
-| --- | --- |
-| `AppModule` | The single `DataStore<Preferences>`, `DraftSessionManager`, `VoiceAlertService`. |
-| `DatabaseModule` | `AppDatabase` (with migrations), all DAOs. |
-| `NetworkModule` | OkHttp, Retrofit, `MetaApi`. |
-| `RepositoryModule` | Binds repository interfaces to impls. |
-| `OverlayModule` | Overlay-related bindings / `OverlayController`. |
-
-### 3.7 Utilities (`utils/`)
-
-`AppConstants`, `DateFormatter` (java.time only — no `SimpleDateFormat`),
-`Extensions`, `JsonParser`, `NetworkMonitor`, `NetworkResult`.
+```
+app/src/main/java/com/mlbb/assistant/
+│
+├── MLBBApplication.kt          Root Hilt application class; plants Timber tree + AppLogTree
+├── AppDataStore.kt             Convenience accessor for the singleton DataStore delegate
+│
+├── capture/                    Computer-vision stack (Android edge; no domain imports)
+│   ├── FirstPickDetector.kt    Infers which side has first-pick from screen region
+│   ├── FrameProcessor.kt       Per-frame orchestrator: phase detect + slot scan + dedupe
+│   ├── PerceptualHash.kt       dHash + histogram computation for portrait fingerprinting
+│   ├── PhaseDetectionConfig.kt Centralised constants for all CV thresholds (TD-03)
+│   ├── PhaseDetector.kt        Classifies draft phase from banner pixel colours
+│   ├── PhaseOcrDetector.kt     OCR disambiguation for ban round 1 vs 2
+│   ├── PortraitMatcher.kt      Hybrid dHash+histogram match against preloaded hashes (TD-08)
+│   ├── RankDetector.kt         Infers rank tier from emblem region
+│   └── SlotRegions.kt          Normalised (0–1) rectangles for all ban/pick/action slots
+│
+├── data/
+│   ├── export/
+│   │   └── DraftExporter.kt    Serialises a DraftSession for share-sheet output
+│   ├── local/
+│   │   ├── crashlog/
+│   │   │   ├── AppLogTree.kt   Timber tree; routes ERROR/WTF to CrashLogStore (TD-11)
+│   │   │   └── CrashLogStore.kt File-backed rolling log; Mutex-guarded writes
+│   │   ├── database/
+│   │   │   ├── AppDatabase.kt  Room v3; exportSchema=true; single construction path
+│   │   │   ├── Converters.kt   TypeConverters for List<Int>, List<String>, enums
+│   │   │   ├── DraftSessionDao.kt  Insert / query / delete for draft history
+│   │   │   ├── DraftSessionEntity.kt  Flat DB representation of DraftSession
+│   │   │   ├── HeroDao.kt      Flow + suspend queries; PagingSource for hero grid (TD-10)
+│   │   │   ├── HeroEntity.kt   DB-layer hero with toDomain() / toEntity() symmetry
+│   │   │   ├── HeroPoolDao.kt  Proficiency-keyed hero pool table
+│   │   │   └── HeroPoolEntity.kt  heroId + Proficiency level
+│   │   ├── datastore/
+│   │   │   └── PreferencesDataStore.kt  Typed DataStore flows: weights, wizard flags, etc.
+│   │   └── preferences/
+│   │       └── WizardPreference.kt  Onboarding step completion flags
+│   ├── remote/
+│   │   ├── api/MetaApi.kt      Retrofit interface: GET /v1/meta/snapshot
+│   │   └── dto/MetaSnapshotDto.kt  Wire model + toEntity() mapping
+│   └── repository/
+│       ├── DraftSessionRepositoryImpl.kt  Insert + query; enforces single-write-path rule
+│       └── HeroRepositoryImpl.kt  Network-with-seed-fallback; Paging3 source (TD-10)
+│
+├── di/                         Hilt DI modules (all SingletonComponent)
+│   ├── AppModule.kt            DataStore singleton, DraftSessionManager, VoiceAlertService
+│   ├── DatabaseModule.kt       AppDatabase with MIGRATION_1_2 + MIGRATION_2_3; all DAOs
+│   ├── NetworkModule.kt        OkHttpClient (RetryInterceptor), Retrofit, Gson, MetaApi
+│   ├── OverlayModule.kt        OverlayController binding
+│   └── RepositoryModule.kt     Interface → impl bindings (HeroRepo, DraftSessionRepo)
+│
+├── domain/                     Pure Kotlin; zero android.* imports
+│   ├── OverlayController.kt    Interface: toggleOverlay() — decouples use cases from Service
+│   ├── advisor/
+│   │   ├── BanRecommender.kt           Prioritised ban list from enemy threat + meta
+│   │   ├── BuildAdvisor.kt             3 core + 3 situational items per hero/context
+│   │   ├── CompositionAnalyzer.kt      Archetype, damage profile, CC/mobility/sustain
+│   │   ├── CompositionArchetype.kt     Enum: BURST_HEAVY, POKE, TEAMFIGHT, etc.
+│   │   ├── DraftScoreCalculator.kt     Aggregate session score + key insight bullets
+│   │   ├── EnemyIntentAnalyzer.kt      Infers enemy strategy from picks so far
+│   │   └── WinConditionGenerator.kt    Generates "your team wins if…" statements
+│   ├── engine/
+│   │   ├── DraftPatternAnalyzer.kt     Historical tendency analysis (over-ban, under-roam)
+│   │   ├── DraftSessionManager.kt      StateFlow<DraftSession>; ban/pick/undo/swap/outcome
+│   │   ├── PickSequenceEngine.kt       1-2-2-2-2-1 turn model; first/last-pick flags
+│   │   ├── RankRuleEngine.kt           Ban count structures per rank; rank string parser
+│   │   └── WeightCalibrator.kt         Adjusts ScoreWeights from win/loss history
+│   ├── model/
+│   │   ├── DraftHistoryItem.kt         Projection of a saved draft session for history UI
+│   │   ├── DraftOutcome.kt             WIN / LOSS / UNKNOWN
+│   │   ├── Hero.kt                     Core domain entity (stats, counters, synergies, flags)
+│   │   └── Proficiency.kt              UNRANKED / OCCASIONAL / COMFORTABLE / MAIN
+│   ├── repository/
+│   │   ├── DraftSessionRepository.kt   Insert + query interface
+│   │   └── HeroRepository.kt           CRUD + paged + search interface
+│   ├── scoring/
+│   │   ├── DraftScorer.kt              Multi-factor scorer; adaptive weights; dynamic bounds
+│   │   ├── HeroScore.kt                Output: per-hero score + badge + reason
+│   │   └── ScoreWeights.kt             Validated (sum=1.0) weight triple + presets
+│   └── usecase/
+│       ├── GetDraftHistoryUseCase.kt
+│       ├── GetHeroesUseCase.kt
+│       ├── GetPagedHeroesUseCase.kt
+│       ├── GetSuggestionsUseCase.kt
+│       ├── SaveDraftSessionUseCase.kt   Only writer to DraftSessionDao
+│       ├── SyncHeroesUseCase.kt
+│       └── ToggleOverlayUseCase.kt
+│
+├── presentation/
+│   ├── common/
+│   │   ├── components/          Shared: MLBBButton, HeroGrid, HeroPortrait, ConnectivityBanner…
+│   │   └── theme/               Color.kt, Theme.kt, Type.kt (Material 3)
+│   ├── draft/                   Manual draft screen + DraftViewModel + DraftState (@Immutable)
+│   ├── herodetail/              Hero detail screen
+│   ├── herolist/                Paged hero list + HeroListState (@Immutable)
+│   ├── heropool/                Hero pool management (SavedStateHandle filter, TD-07)
+│   ├── history/                 Draft history + replay viewer
+│   ├── home/                    Home dashboard
+│   ├── log/                     Debug log viewer (reads CrashLogStore)
+│   ├── main/MainActivity.kt     ComponentActivity; screen-capture consent; overlay start
+│   ├── metaboard/               Meta tier list display
+│   ├── navigation/              AppNavGraph + AppRoute (sealed class routes)
+│   ├── overlay/                 FloatingBubble, MiniWidget, DraftPanel, phase panels
+│   │   └── OverlayService.kt    ~1,100 LOC foreground service (refactor target)
+│   ├── settings/                Settings screen + SettingsState (@Immutable)
+│   ├── shell/                   AppShell + AppShellViewModel
+│   └── welcome/                 PermissionWizardScreen
+│
+├── service/
+│   ├── MLBBAccessibilityService.kt  Detects MLBB foreground context
+│   ├── ScreenCaptureManager.kt      Owns MediaProjection + ImageReader; emits Bitmap frames
+│   └── VoiceAlertService.kt         TextToSpeech turn announcements
+│
+└── utils/
+    ├── AppConstants.kt         Notification channel ID + notification ID constants
+    ├── DateFormatter.kt        java.time only (DateTimeFormatter, thread-safe)
+    ├── Extensions.kt           Kotlin extension helpers
+    ├── JsonParser.kt           Bundles default_heroes.json parser (Gson)
+    ├── NetworkMonitor.kt       ConnectivityManager flow for offline banner
+    └── NetworkResult.kt        Sealed class: Loading / Success<T> / Error + fold helpers
+```
 
 ---
 
-## 4. The scoring engine (the heart of the product)
+## 5. The scoring engine (the heart of the product)
 
 `DraftScorer.score(...)` produces a `HeroScore` per candidate. The formula:
 
@@ -187,140 +336,79 @@ $$\text{total} = \text{meta}\cdot w_m + \text{synergy}\cdot w_s + \text{counter}
 clamped to `[0, 1]`, then multiplied by the personal-pool proficiency multiplier.
 
 - **Weights** (`ScoreWeights`) default to meta **0.40** / synergy **0.30** /
-  counter **0.30**, validated to sum to 1.0 at construction. Presets:
-  `META_HEAVY`, `COUNTER_HEAVY`, `SYNERGY_HEAVY`.
+  counter **0.30**, validated to sum to 1.0 at construction.
 - **Adaptive weights:** as the draft progresses (`pickIndex / maxPickIndex`),
-  meta weight decays and synergy + counter rise — late picks react to the board.
+  meta weight decays and synergy + counter rise.
 - **Dynamic bounds (TD-05):** `computeBounds()` derives win-rate median ± half-IQR
-  and 90th-percentile ban/pick caps from the live pool, replacing hardcoded
-  thresholds so scoring stays calibrated across patches.
-- **Meta sub-score:** win contribution (0.35) + ban (0.30) + pick (0.15) +
-  tier (0.20), times a ±15% patch-velocity multiplier.
-- **Positional modifiers:** first-pick favours flexibility; last-pick favours
-  safety against the now-known enemy comp.
-- **Explainability:** every score carries a `badgeLabel`
-  (`↑ RISING / ◆ META / ◈ SYNERGY / ◉ COUNTER / ◎ BALANCED`) and a human
-  `reason` string.
-
-`CompositionAnalyzer` complements scoring with archetype detection, lane-coverage
-gaps, damage-profile balance, CC/mobility/sustain levels, strengths/weaknesses,
-and live counter-pick warnings.
+  and 90th-percentile ban/pick caps from the live pool.
+- **Positional modifiers:** first-pick favours flexibility; last-pick favours safety.
+- **Explainability:** every score carries a `badgeLabel` and a human `reason` string.
 
 ---
 
-## 5. The draft state machine
+## 6. The draft state machine
 
-`DraftPhase`: `IDLE → SETUP → BAN_ROUND_1 → (BAN_ROUND_2) → PICK → TRADING → COMPLETE`.
+`DraftPhase`: `IDLE → SETUP → BAN_ROUND_1 → (BAN_ROUND_2) → PICK → TRADING → COMPLETE`
 
-- `RankRuleEngine` encodes ban structures: Epic & below = 6 bans / no round 2;
-  Legend = 8 bans / round 2 (1 each); Mythic+ = 10 bans / round 2 (2 each).
-- `PickSequenceEngine` models the **1-2-2-2-2-1** turn order, flagging double
-  picks and the strategically critical first/last picks.
-- `DraftSessionManager` is the single mutator: records bans/picks, maintains an
-  **undo stack**, supports trading-phase hero swaps, records match outcome, and
-  can upgrade an unknown rank from the observed ban count.
-
----
-
-## 6. Data flow scenarios
-
-**Autonomous detection (happy path):**
-```
-MLBB on screen
-  → ScreenCaptureManager (MediaProjection) emits Bitmap
-  → FrameProcessor: detect phase + new filled slots
-  → PortraitMatcher: identify hero in each new slot
-  → DraftSessionManager.recordEnemyBan/Pick(...)
-  → DraftScorer.rankAll(...) over available pool
-  → OverlayService renders updated suggestions in the MiniWidget
-```
-
-**Manual fallback (no capture consent):** the user taps slots in the overlay /
-draft screen; the identical `DraftSessionManager` + `DraftScorer` path runs.
-
-**Hero data sync:**
-```
-SyncHeroesUseCase → HeroRepositoryImpl.syncHeroes()
-  → MetaApi.getMetaSnapshot()           [network]
-      success → heroDao.replaceAll(...)
-      failure → if DB empty, seed from res/raw/default_heroes.json
-```
-
-**History persistence:** `SaveDraftSessionUseCase` is the **only** write path to
-`DraftSessionDao`. ViewModels never touch the DAO directly; history is read via
-`GetDraftHistoryUseCase`.
+- `RankRuleEngine` encodes ban structures: Epic & below = 6 bans; Legend = 8; Mythic+ = 10.
+- `PickSequenceEngine` models the **1-2-2-2-2-1** turn order.
+- `DraftSessionManager` is the single mutator: bans/picks, undo stack, swaps, outcome.
 
 ---
 
 ## 7. Persistence & storage
 
 | Store | Tech | Contents |
-| --- | --- | --- |
+|---|---|---|
 | Relational | Room v3 | `heroes`, `draft_sessions`, `hero_pool` |
-| Key-value | DataStore Preferences | settings, wizard progress, bubble position, score weights |
-| Files | `CrashLogStore` | rolling crash/debug logs |
+| Key-value | DataStore Preferences | Settings, wizard progress, bubble position, score weights, session snapshot |
+| Files | `CrashLogStore` | Rolling crash/debug logs (mutex-guarded) |
 
-Migrations: 1→2 and 2→3 (the v2→v3 adds `hasCCUlt`). Schema JSON is exported and
-intended to be committed for safe future migrations.
+**Migrations:** 1→2 (`hasCCUlt` column added to heroes); 2→3 (verified). Schema JSON
+exported under `/schemas/` and committed for safe future migrations.
+
+**Seed & fallback data:**
+- `res/raw/default_heroes.json` (~73 KB) — bundled hero roster used when network sync fails and DB is empty.
+- `assets/draft_ui_map.json` (~7 KB) — screen-region coordinate map for the CV pipeline.
 
 ---
 
 ## 8. Cross-cutting decisions (the "why")
 
-1. **Domain purity** — no Android in `domain/` so the engine is JVM-unit-testable
-   (see `src/test`: `DraftScorerTest`, `PickSequenceEngineTest`,
-   `RankRuleEngineTest`, `DraftSessionManagerTest`, `CompositionAnalyzerTest`,
-   `BanRecommenderTest`, `PerceptualHashTest`, serialization test).
-2. **Single DataStore delegate** — exactly one `preferencesDataStore` to prevent
-   the multiple-delegate crash.
-3. **Single DB construction path** — `DatabaseModule` only; the old companion
-   factory that bypassed migrations was removed.
-4. **`toEntity()` mirrors `toDomain()`** — mapping symmetry is a maintenance
-   invariant; adding a field requires updating both.
-5. **`java.time` only** — `DateFormatter` uses `DateTimeFormatter` (thread-safe);
-   `SimpleDateFormat` is banned.
-6. **Explicit IO dispatch (TD-06)** — repository suspend functions wrap
-   `withContext(Dispatchers.IO)` defensively.
-7. **Config-driven CV** — detection thresholds live in `PhaseDetectionConfig`
-   (TD-03/04) so patch recalibration doesn't require touching detector logic.
-8. **Foreground-service correctness** — `specialUse|mediaProjection` type and the
-   `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` declaration satisfy Android 14+ rules.
-
-The recurring `TD-xx` tags throughout the source are a **technical-debt tracking
-scheme**; each resolved item is annotated at its fix site. See [`todo.md`](./todo.md)
-for the live register.
+1. **Domain purity** — no Android in `domain/` so the engine is JVM-unit-testable.
+2. **Single DataStore delegate** — exactly one `preferencesDataStore` prevents the multiple-delegate `IllegalStateException`.
+3. **Single DB construction path** — `DatabaseModule` only; the companion factory that bypassed migrations was removed.
+4. **`toEntity()` mirrors `toDomain()`** — mapping symmetry is a maintenance invariant; adding a field requires updating both.
+5. **`java.time` only** — `DateFormatter` uses `DateTimeFormatter` (thread-safe); `SimpleDateFormat` is banned.
+6. **Explicit IO dispatch (TD-06)** — repository suspend functions wrap `withContext(Dispatchers.IO)` defensively.
+7. **Config-driven CV (TD-03/04)** — all detection thresholds live in `PhaseDetectionConfig`.
+8. **Foreground-service correctness** — two-step FGS start: `SPECIAL_USE` in `onCreate`, `MEDIA_PROJECTION` added only after user grants projection token (Android 14+ compliant).
+9. **TD-xx tagging scheme** — technical debt is annotated in source at the fix site and registered in [`todo.md`](./todo.md) §1.
 
 ---
 
 ## 9. Build, tooling & dependencies
 
-- **Version catalog:** `gradle/libs.versions.toml` is the single source of truth.
-- **Key libraries:** Hilt 2.55, Room 2.7.1, Retrofit 2.11 + OkHttp 4.12, Coil 3.1,
-  Paging 3.3.6, DataStore 1.1.4, Coroutines 1.10.1, Timber 5.0.1, Navigation
-  Compose 2.9.0.
-- **Test stack:** JUnit4, MockK, Turbine, coroutines-test, Robolectric;
-  Espresso + Compose UI test for instrumentation.
-- **Release build:** R8 minify + resource shrink + ProGuard rules.
+- **Version catalog:** `gradle/libs.versions.toml` — single source of truth.
+- **Key libraries:** Hilt 2.55, Room 2.7.1, Retrofit 2.11 + OkHttp 4.12, Coil 3.1, Paging 3.3.6, DataStore 1.1.4, Coroutines 1.10.1, Timber 5.0.1, Navigation Compose 2.9.0.
+- **Test stack:** JUnit4, MockK, Turbine, coroutines-test, Robolectric; Espresso + Compose UI test for instrumentation.
+- **Release build:** R8 minify + resource shrink + ProGuard rules. Full-mode R8 enabled.
 - **API base URL:** `BuildConfig.META_API_BASE_URL`, overridable per variant.
 
 ---
 
 ## 10. Localization
 
-String resources are localized into Filipino (`values-fil`), Indonesian
-(`values-in`), Malay (`values-ms`), Thai (`values-th`), and Vietnamese
-(`values-vi`) — the core MLBB markets — alongside the default English
-(`values`, 75 strings).
+String resources are localized into Filipino (`values-fil`), Indonesian (`values-in`),
+Malay (`values-ms`), Thai (`values-th`), and Vietnamese (`values-vi`) — the core MLBB
+markets — alongside default English (`values`, ~75 strings).
 
 ---
 
 ## 11. Known limitations / sharp edges
 
-- `OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window
-  management, and UI hosting — a prime refactor target (see `todo.md`).
-- CV detection accuracy depends on device resolution and ROM; `SlotRegions` /
-  `draft_ui_map.json` may need recalibration per aspect ratio.
-- The `MetaApi` backend is a single endpoint; there is no auth or caching layer
-  beyond the local DB fallback.
-- Network base URL points at a production host that must exist for live sync;
-  otherwise the bundled JSON seed is authoritative.
+- `OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window management, and UI hosting — see `todo.md` §3.
+- CV detection accuracy depends on device resolution and ROM; `SlotRegions` / `draft_ui_map.json` may need recalibration per aspect ratio.
+- `MetaApi` has no auth or response caching layer beyond the local DB fallback.
+- `Bitmap.getPixel()` in luminance loops is a performance bottleneck; see `docs/temp/findings.md` P1-01.
+- `Thread.sleep` in `RetryInterceptor` blocks OkHttp thread-pool threads; see `docs/temp/findings.md` P1-02.
