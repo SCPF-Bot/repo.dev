@@ -37,6 +37,10 @@ data class BanStructure(
 
 object RankRuleEngine {
 
+    /** Observed total-ban counts that distinguish rank tiers (see [inferFromBanCount]). */
+    private const val MYTHIC_BAN_THRESHOLD = 10   // 10 bans = Mythic+ (round 2, 2 each)
+    private const val LEGEND_BAN_THRESHOLD = 8    // 8 bans  = Legend (round 2, 1 each)
+
     fun getBanStructure(rank: Rank): BanStructure = when (rank) {
         Rank.WARRIOR,
         Rank.ELITE,
@@ -87,8 +91,8 @@ object RankRuleEngine {
 
     /** Fallback: infer rank tier from the number of observed bans in the lobby. */
     fun inferFromBanCount(observedBans: Int): Rank = when {
-        observedBans >= 10 -> Rank.MYTHIC
-        observedBans >= 8  -> Rank.LEGEND
-        else               -> Rank.EPIC
+        observedBans >= MYTHIC_BAN_THRESHOLD -> Rank.MYTHIC
+        observedBans >= LEGEND_BAN_THRESHOLD -> Rank.LEGEND
+        else                                 -> Rank.EPIC
     }
 }

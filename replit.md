@@ -41,8 +41,7 @@ An AI-powered draft assistant for Mobile Legends: Bang Bang (MLBB). The app disp
   - `service/` — AccessibilityService, VoiceAlertService
   - `utils/` — DateFormatter, NetworkMonitor, AppConstants, CrashLogStore
   - `di/` — Hilt modules (AppModule, NetworkModule, RepositoryModule, OverlayModule)
-- `repo.dev/docs/` — all project documentation (AUDIT, ROADMAP, FEATURES, etc.)
-- `repo.dev/docs/temp/` — working refactor docs (REFACTOR_PLAN, REFACTOR_SUMMARY, etc.)
+- `repo.dev/docs/` — all project documentation (overview, features, roadmap, todo, MISSION)
 
 ## Architecture decisions
 
@@ -78,7 +77,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
-- See `repo.dev/docs/AUDIT.md` for full audit history and issue resolution matrix
-- See `repo.dev/docs/ROADMAP.md` for phased feature plan
-- See `repo.dev/docs/TODO.md` for master checklist of all actionable items
-- See `repo.dev/docs/temp/REFACTOR_PLAN.md` for refactoring checklist with completion status
+- See `repo.dev/docs/overview.md` for the full architecture map and design decisions
+- See `repo.dev/docs/features.md` for the catalogue of implemented features
+- See `repo.dev/docs/roadmap.md` for the phased feature plan and release history
+- See `repo.dev/docs/todo.md` for the master checklist of all actionable items (incl. the TD-xx register)
+- See `repo.dev/docs/MISSION.md` for the product thesis and long-term vision
