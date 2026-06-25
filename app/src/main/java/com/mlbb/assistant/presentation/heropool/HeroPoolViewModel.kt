@@ -1,5 +1,6 @@
 package com.mlbb.assistant.presentation.heropool
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@Immutable
 data class HeroPoolEntry(
     val hero:        Hero,
     val proficiency: Proficiency
@@ -29,6 +31,7 @@ data class HeroPoolEntry(
  * [SavedStateHandle], so the user's search/filter state is restored if the
  * app is killed in the background.
  */
+@Immutable
 data class HeroPoolState(
     val entries: List<HeroPoolEntry> = emptyList(),
     val isLoading: Boolean = true,

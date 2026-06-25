@@ -94,6 +94,10 @@
 ### CI (2026-06-23)
 - **[COMPLETED]** P3-02 (partial): `.github/workflows/ci.yml` added — runs `./gradlew lint testDebugUnitTest assembleDebug` on every push/PR
 
+### Thread-safety & Compose-stability pass (2026-06-26)
+- **[COMPLETED]** P0-04: `OverlayService` slot-tracking sets (`filledEnemyBanSlots`, `filledOurBanSlots`, `filledEnemyPickSlots`, `filledOurPickSlots`) migrated from `mutableSetOf` to `ConcurrentHashMap.newKeySet()` — eliminates a live data race between the IO/Default capture loop and session-reset paths
+- **[COMPLETED]** P1-04: `@Immutable` added to all remaining Compose UI-state classes (`HomeUiState`, `InsightsState`, `HeroPoolState`, `HeroPoolEntry`, `LogScreenState`)
+
 ---
 
 ## [ACTIVE]
@@ -154,9 +158,9 @@ Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 - [ ] Honest self-status in the overlay: "capture unavailable", "meta data N days old", "accessibility service off"
 
 ### Architecture & code quality
-- [ ] **P0/M** `OverlayService` shared mutable sets (`filledEnemyBanSlots` etc.) — replace with `ConcurrentHashMap.newKeySet()` or assert Main-thread-only invariant (P0-04)
-- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. Keep the service as a thin lifecycle shell.
-- [ ] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation (P1-04)
+- [x] **P0/M** `OverlayService` shared mutable sets (`filledEnemyBanSlots` etc.) — replaced with `ConcurrentHashMap.newKeySet()` (P0-04). **[COMPLETED 2026-06-26 — confirmed live data race; capture loop runs on IO/Default, not Main.]**
+- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. Keep the service as a thin lifecycle shell. **[DEFERRED 2026-06-26 — see `misc.md` §1; not safely verifiable without an Android build/CI run.]**
+- [x] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation (P1-04). **[COMPLETED 2026-06-26 — `HomeUiState`, `InsightsState`, `HeroPoolState`, `HeroPoolEntry`, `LogScreenState` annotated.]**
 - [ ] **P2/M** Extract overlay state into dedicated `OverlayStateHolder` (narrow recomposition scope)
 - [ ] **P2/M** Introduce `:domain` and `:data` Gradle modules to enforce dependency rule at compile time. **Blocked by:** single-module structure; requires significant build rework.
 - [ ] **P3/M** Migrate Gson → `kotlinx.serialization`. **Blocked by:** requires updating all DTOs and switching `GsonConverterFactory`. See `findings.md` P3-01 for library choice.

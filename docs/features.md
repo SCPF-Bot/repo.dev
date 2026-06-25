@@ -13,7 +13,7 @@
 > **Legacy** = deprecated or superseded flows still present in source.
 
 Reconciled against `versionName 2.0.0` (versionCode 2).
-Last updated: 2026-06-23 (P0/P1/P2 refactoring pass — see `docs/temp/findings.md` delta summary).
+Last updated: 2026-06-26 (thread-safety & Compose-stability pass: P0-04 + P1-04 — see `docs/temp/findings.md` delta summary and `docs/misc.md`).
 
 ---
 

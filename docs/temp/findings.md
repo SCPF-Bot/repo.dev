@@ -1,6 +1,14 @@
 # Audit Findings — MLBB Draft Assistant
-> Generated: 2026-06-23 · Source reconciled against `versionName 2.0.0` (versionCode 2)
+> Generated: 2026-06-23 · Last reconciled: 2026-06-26 · Source reconciled against `versionName 2.0.0` (versionCode 2)
 > Kotlin 2.1.0 · AGP 8.10.1 · Min SDK 29 · Target SDK 36
+>
+> **Delta summary (third-pass reconciliation, 2026-06-26):**
+> P0-04 (shared mutable sets) and P1-04 (missing `@Immutable`) executed in-place.
+> P0-04 was **re-classified from "currently safe" to a live data race**: the capture
+> loop in `OverlayService.launchCaptureLoop()` runs on `Dispatchers.IO` and
+> `Dispatchers.Default`, so the previous "both paths run on Main" assumption was
+> incorrect. Fixed with `ConcurrentHashMap.newKeySet()`.
+> P1-03 (OverlayService god-class split, effort L) intentionally **deferred** — see `misc.md` §1.
 >
 > **Delta summary (second-pass reconciliation, 2026-06-23):**
 > Top 5 P0/P1 issues executed in-place (see Phase 3 refactoring log).
@@ -12,14 +20,17 @@
 
 ## Summary Table
 
-| Priority | Label | Count | Resolved this pass |
+| Priority | Label | Count | Resolved (cumulative) |
 |---|---|---|---|
-| P0 | Critical (crashes / data-loss / security) | 4 | 3 (P0-01, P0-02, P0-03) |
-| P1 | Performance | 4 | 2 (P1-01, P1-02) |
+| P0 | Critical (crashes / data-loss / security) | 4 | 4 (P0-01, P0-02, P0-03, **P0-04**) |
+| P1 | Performance | 4 | 3 (P1-01, P1-02, **P1-04**) |
 | P2 | Maintainability | 6 | 3 (P2-01, P2-02, P2-03) |
 | P3 | Deprecations / outdated dependencies | 3 | 1 partial (P3-02 CI added) |
 | P4 | Gaps (missing best-practice infrastructure) | 5 | 0 |
-| **Open** | | **13** | — |
+| **Open** | | **11** | — |
+
+> Resolved this pass (2026-06-26): **P0-04, P1-04**. Open count: 13 → 11.
+> P1-03 remains open but is now formally **deferred** with rationale in `misc.md` §1.
 
 ---
 
@@ -48,12 +59,12 @@ OverlayService.startWithProjection(this, result.resultCode, data)
 
 ---
 
-### P0-04 · `mutableSetOf<Int>()` shared mutable state without synchronisation — [OPEN]
-**File:** `presentation/overlay/OverlayService.kt` (fields `filledEnemyBanSlots`, `filledOurBanSlots`, etc.)
+### P0-04 · `mutableSetOf<Int>()` shared mutable state without synchronisation — [RESOLVED]
+**File:** `presentation/overlay/OverlayService.kt` (fields `filledEnemyBanSlots`, `filledOurBanSlots`, `filledEnemyPickSlots`, `filledOurPickSlots`)
 
-Currently safe because both read and write paths run on `Dispatchers.Main`. Risk materialises if the capture loop is moved to `Dispatchers.IO` or `Dispatchers.Default`. Needs explicit `@MainThread` assertion or replacement with `ConcurrentHashMap.newKeySet()`.
+**Re-classification (2026-06-26):** The second-pass note claimed this was "currently safe because both read and write paths run on `Dispatchers.Main`." Source verification disproved that. `launchCaptureLoop()` launches `captureJob` on `Dispatchers.IO` (line ~795) and performs the slot scan inside `withContext(Dispatchers.Default)` (line ~804). The sets are read and mutated there (`i !in filledEnemyBanSlots`, `filledEnemyBanSlots.add(i)`, `.size`, `.clear()`), while session-reset paths also clear them. This is a genuine concurrent read/write across threads — a live data race, not a latent one. Severity confirmed P0.
 
-**Recommended fix:** Replace with `ConcurrentHashMap.newKeySet()` or add `check(Looper.myLooper() == Looper.getMainLooper())` assertion at the top of each mutating function.
+**Fix applied:** All four fields changed from `mutableSetOf<Int>()` to `ConcurrentHashMap.newKeySet<Int>()` (a lock-free, thread-safe `MutableSet<Int>`). All existing call sites are source-compatible (`add`/`contains`/`in`/`clear`/`size` semantics are identical). Added `import java.util.concurrent.ConcurrentHashMap` and an explanatory comment at the declaration site.
 
 ---
 
@@ -76,8 +87,17 @@ Tracked in roadmap as `P1/L`. Requires decomposition into `OverlayWindowManager`
 
 ---
 
-### P1-04 · Missing `@Immutable` on several ViewModel UI state classes — [OPEN]
-Confirmed annotated: `DraftState.kt`, `HeroListState.kt`, `SettingsState.kt`. Not confirmed: `HeroPoolViewModel`, `DraftHistoryViewModel`, `HomeViewModel`, `LogViewModel` output states. Audit required.
+### P1-04 · Missing `@Immutable` on several ViewModel UI state classes — [RESOLVED]
+Confirmed already annotated: `DraftState.kt`, `HeroListState.kt`, `SettingsState.kt`.
+
+**Audit result (2026-06-26):**
+- `HomeViewModel.kt` — `@Immutable` added to `HomeUiState` and `InsightsState`. ✅
+- `HeroPoolViewModel.kt` — `@Immutable` added to `HeroPoolState` and `HeroPoolEntry`. ✅
+- `LogViewModel.kt` — `@Immutable` added to `LogScreenState`. ✅
+- `DraftHistoryViewModel.kt` — exposes a bare `StateFlow<List<DraftHistoryItem>>`; there is no UI-state `data class` to annotate. `DraftHistoryItem` itself is a stable domain model. No change required.
+- `MetaBoardScreen.kt` — no `data class` UI-state holder exists (renders directly from injected hero data). No change required.
+
+All Compose UI state classes that exist are now annotated `@Immutable`, allowing the Compose compiler to skip recomposition when instances are referentially equal.
 
 ---
 

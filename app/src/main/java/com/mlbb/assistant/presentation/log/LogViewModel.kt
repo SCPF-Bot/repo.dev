@@ -1,6 +1,7 @@
 package com.mlbb.assistant.presentation.log
 
 import android.app.Application
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mlbb.assistant.data.local.crashlog.CrashLogStore
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@Immutable
 data class LogScreenState(
     val entries:   List<LogEntry> = emptyList(),
     val isLoading: Boolean        = true

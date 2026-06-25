@@ -298,7 +298,7 @@ app/src/main/java/com/mlbb/assistant/
 │   ├── draft/                   Manual draft screen + DraftViewModel + DraftState (@Immutable)
 │   ├── herodetail/              Hero detail screen
 │   ├── herolist/                Paged hero list + HeroListState (@Immutable)
-│   ├── heropool/                Hero pool management (SavedStateHandle filter, TD-07)
+│   ├─�� heropool/                Hero pool management (SavedStateHandle filter, TD-07)
 │   ├── history/                 Draft history + replay viewer
 │   ├── home/                    Home dashboard
 │   ├── log/                     Debug log viewer (reads CrashLogStore)
@@ -407,10 +407,10 @@ markets — alongside default English (`values`, ~75 strings).
 
 ## 11. Known limitations / sharp edges
 
-- `OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window management, and UI hosting — see `todo.md` §3. Decomposition tracked as `P1/L` in `roadmap.md`.
+- `OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window management, and UI hosting — see `todo.md` §3. Decomposition tracked as `P1/L` in `roadmap.md` (**deferred** 2026-06-26, see `docs/misc.md` §6).
 - CV detection accuracy depends on device resolution and ROM; `SlotRegions` / `draft_ui_map.json` may need recalibration per aspect ratio (validated aspect ratios: 18:9, 20:9; others require manual calibration).
 - `MetaApi` has no auth or response caching layer beyond the local DB fallback. Staleness is silent — no `lastUpdated` metadata surfaced in the UI.
 - ~~`Bitmap.getPixel()` in luminance loops is a performance bottleneck~~ — **Resolved (P1-01):** both `sampleLuminanceBaseline` and `isSlotFilled` in `FrameProcessor` now use `copyPixelsToBuffer` + byte-array iteration for bulk pixel access. See `docs/misc.md` §5 and `docs/temp/findings.md` P1-01.
 - ~~`Thread.sleep` in `RetryInterceptor` blocks OkHttp thread-pool threads~~ — **Resolved (P1-02):** `RetryInterceptor` removed; `HeroRepositoryImpl.syncHeroes()` uses coroutine `delay()` for non-blocking retry. See `docs/misc.md` §1 and `docs/temp/findings.md` P1-02.
-- `OverlayService` shared `MutableSet<Int>` slot-tracker fields are safe today (Main-thread-only) but will race if the capture loop is ever moved off Main — see `todo.md` §0 (P0-04 open).
+- ~~`OverlayService` shared `MutableSet<Int>` slot-tracker fields will race if the capture loop runs off Main~~ — **Resolved (P0-04):** the capture loop *does* run on `Dispatchers.IO`/`Dispatchers.Default`, so this was a live race, not a hypothetical one. All four sets are now `ConcurrentHashMap.newKeySet()`. See `docs/misc.md` §6 and `docs/temp/findings.md` P0-04.
 - `DraftScorer.computeScore` is a simplified linear scoring formula incompatible with production `HeroScore` values; annotated `@VisibleForTesting` — see `docs/misc.md` §2.

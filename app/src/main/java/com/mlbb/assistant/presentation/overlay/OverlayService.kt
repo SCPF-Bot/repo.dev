@@ -71,6 +71,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.math.abs
 
@@ -133,10 +134,16 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     @Volatile private var poolMap: Map<Int, Proficiency> = emptyMap()
 
     // ── Autonomous detection state ────────────────────────────────────────────
-    private val filledEnemyBanSlots  = mutableSetOf<Int>()
-    private val filledOurBanSlots    = mutableSetOf<Int>()
-    private val filledEnemyPickSlots = mutableSetOf<Int>()
-    private val filledOurPickSlots   = mutableSetOf<Int>()
+    // P0-04: These slot-tracking sets are read AND mutated from the capture loop,
+    // which runs on Dispatchers.IO / Dispatchers.Default (see launchCaptureLoop),
+    // while also being cleared from session-reset paths. A plain mutableSetOf is
+    // NOT thread-safe and produces lost updates / ConcurrentModificationException
+    // under that access pattern. ConcurrentHashMap.newKeySet() is a lock-free,
+    // thread-safe Set<Int> with identical add/contains/clear/size semantics.
+    private val filledEnemyBanSlots: MutableSet<Int>  = ConcurrentHashMap.newKeySet()
+    private val filledOurBanSlots: MutableSet<Int>    = ConcurrentHashMap.newKeySet()
+    private val filledEnemyPickSlots: MutableSet<Int> = ConcurrentHashMap.newKeySet()
+    private val filledOurPickSlots: MutableSet<Int>   = ConcurrentHashMap.newKeySet()
 
     /**
      * True once a single catch-up ban scan has run at the start of the PICK
@@ -145,7 +152,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      */
     private var banCatchUpDone = false
 
-    // ── Companion ─────────────────────────────────────────────────────────────
+    // ── Companion ────────────────────���────────────────────────────────────────
 
     companion object {
         private const val NOTIF_CHANNEL       = "overlay_channel"
@@ -651,7 +658,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         if (!isExpanded.value) expandToWidget()
     }
 
-    // ── Restart draft from mini-widget ↺ button ──────────────────────────────
+    // ── Restart draft from mini-widget ↺ button ───────────���──────────────────
 
     /**
      * Resets the draft session back to IDLE so the user can start over without

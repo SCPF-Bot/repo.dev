@@ -17,10 +17,10 @@
 - [x] **P0/S** Fix `imageReader!!.surface` in `ScreenCaptureManager.kt` — capture `imageReader` into a local `val` before use to eliminate TOCTOU NPE on mutable nullable field. **[DONE — local `val reader` introduced in `startCapture()`]**
 - [x] **P0/S** Fix `state.session!!` in `DraftReplayScreen.kt` — replace with `val s = state.session ?: return@Scaffold`. **[DONE]**
 - [x] **P0/S** Fix `result.data!!` in `MainActivity.kt` — use `val data = result.data ?: return@registerForActivityResult`. **[DONE]**
-- [ ] **P0/M** Document and enforce the `Dispatchers.Main`-only invariant for `filledEnemyBanSlots` / `filledOurBanSlots` etc. in `OverlayService`. Add an assertion or replace with `ConcurrentHashMap.newKeySet()` if capture loop is ever moved off Main. (See findings P0-04.)
+- [x] **P0/M** Document and enforce thread-safety for `filledEnemyBanSlots` / `filledOurBanSlots` etc. in `OverlayService`. **[DONE — 2026-06-26: confirmed the capture loop runs on `Dispatchers.IO`/`Dispatchers.Default` (not Main as previously assumed), making this a live data race. All four sets replaced with `ConcurrentHashMap.newKeySet<Int>()`. See findings P0-04.]**
 - [x] **P1/S** Replace `Bitmap.getPixel()` nested loops in `FrameProcessor.sampleLuminanceBaseline()` and `isSlotFilled()` with `Bitmap.copyPixelsToBuffer(ByteBuffer)` + array iteration. **[DONE — 5–20× CV hot-path speedup confirmed by implementation]**
 - [x] **P1/M** Move retry logic out of `RetryInterceptor` (which used `Thread.sleep`) into `HeroRepositoryImpl.syncHeroes()` using coroutine `delay()`. **[DONE — `RetryInterceptor` removed; `syncWithRetry` coroutine pattern added with `MAX_SYNC_RETRIES=3` and exponential back-off]**
-- [ ] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation: confirm `HeroPoolViewModel`, `DraftHistoryViewModel`, `HomeViewModel`, `LogViewModel`, `MetaBoardScreen` states are annotated if all fields are stable. (See findings P1-04.)
+- [x] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation. **[DONE — 2026-06-26: `@Immutable` added to `HomeUiState`, `InsightsState` (home), `HeroPoolState` + `HeroPoolEntry` (heropool), and `LogScreenState` (log). `DraftHistoryViewModel` exposes a bare `StateFlow<List<DraftHistoryItem>>` (no UI-state class to annotate); `MetaBoardScreen` has no `data class` UI state. `DraftState`/`HeroListState`/`SettingsState` were already annotated. See findings P1-04.]**
 - [x] **P2/S** Delete dead constant `AppConstants.OVERLAY_NOTIFICATION_CHANNEL_ID = "draft_overlay_channel"`. **[DONE]**
 - [x] **P2/S** Extract magic float thresholds in `BuildAdvisor.kt` and `CompositionAnalyzer.kt` into named constants. **[DONE — `BuildThresholds` and `CompThresholds` private objects added]**
 
@@ -65,9 +65,9 @@ The codebase uses inline `TD-xx` tags to mark debt resolved at the fix site.
 
 ## 3. Architecture & maintainability
 
-- [ ] **P0/M** Replace `OverlayService` shared `MutableSet<Int>` fields with `ConcurrentHashMap.newKeySet()` or assert Main-thread-only invariant. (P0-04 open.)
-- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into: (a) `OverlayWindowManager` (window add/remove/drag), (b) `OverlayCaptureCoordinator` (capture loop + frame routing), (c) Compose UI host. Keep the `Service` class as a thin lifecycle shell.
-- [ ] **P1/M** Audit all ViewModel UI state classes for `@Immutable` (see §0 above).
+- [x] **P0/M** Replace `OverlayService` shared `MutableSet<Int>` fields with `ConcurrentHashMap.newKeySet()`. **[DONE — 2026-06-26, P0-04.]**
+- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into: (a) `OverlayWindowManager` (window add/remove/drag), (b) `OverlayCaptureCoordinator` (capture loop + frame routing), (c) Compose UI host. Keep the `Service` class as a thin lifecycle shell. **[DEFERRED — 2026-06-26: intentionally not executed this pass; see `misc.md` §1 for rationale. The P0-04 fix is the recommended first incremental step toward this split.]**
+- [x] **P1/M** Audit all ViewModel UI state classes for `@Immutable` (see §0 above). **[DONE — 2026-06-26, P1-04.]**
 - [ ] **P2/M** Extract overlay state into a dedicated `OverlayStateHolder` / ViewModel-like object observed by all phase composables; narrows recomposition scope.
 - [ ] **P2/S** Audit that no ViewModel touches a DAO directly (enforce `SaveDraftSessionUseCase` as the only write path) — add a lint or ArchUnit test.
 - [ ] **P2/M** Introduce a `:domain` and `:data` Gradle module split to enforce the dependency rule at compile time.

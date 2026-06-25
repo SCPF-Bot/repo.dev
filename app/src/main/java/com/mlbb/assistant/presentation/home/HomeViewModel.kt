@@ -1,5 +1,6 @@
 package com.mlbb.assistant.presentation.home
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mlbb.assistant.domain.model.DraftHistoryItem
@@ -22,6 +23,7 @@ import javax.inject.Inject
  * Shown on the home screen once the user has completed ≥ 10 real (non-sim)
  * drafts with a recorded outcome.
  */
+@Immutable
 data class InsightsState(
     /** True when there are enough sessions to show insights. */
     val isAvailable: Boolean = false,
@@ -43,6 +45,7 @@ data class InsightsState(
     }
 }
 
+@Immutable
 data class HomeUiState(
     val topMetaHeroes: List<Hero> = emptyList(),
     val isLoading: Boolean = true,
