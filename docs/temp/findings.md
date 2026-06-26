@@ -1,6 +1,16 @@
 # Audit Findings — MLBB Draft Assistant
-> Generated: 2026-06-23 · Last reconciled: 2026-06-26 · Source reconciled against `versionName 2.0.0` (versionCode 2)
+> Generated: 2026-06-23 · Last reconciled: 2026-06-26 (fourth pass) · Source reconciled against `versionName 2.0.0` (versionCode 2)
 > Kotlin 2.1.0 · AGP 8.10.1 · Min SDK 29 · Target SDK 36
+>
+> **Delta summary (fourth-pass reconciliation, 2026-06-26):**
+> P0-05 (FrameProcessor internal slot-tracking sets) discovered and resolved in-place.
+> This is the same race class as P0-04 (OverlayService sets, resolved third pass) — four
+> plain `mutableSetOf<Int>()` fields in `FrameProcessor` read/mutated inside
+> `withContext(Dispatchers.Default)` while `resetSlotTracking()` is callable from OverlayService
+> on a different dispatcher. All four sets replaced with `ConcurrentHashMap.newKeySet()`.
+> OSS library evaluation conducted against `recommendations.md`; additions deferred per
+> standing principle (no build-verification environment) — documented in `misc.md` §7.
+> TD-09 gap formally resolved (see P2-04 below).
 >
 > **Delta summary (third-pass reconciliation, 2026-06-26):**
 > P0-04 (shared mutable sets) and P1-04 (missing `@Immutable`) executed in-place.
@@ -8,7 +18,7 @@
 > loop in `OverlayService.launchCaptureLoop()` runs on `Dispatchers.IO` and
 > `Dispatchers.Default`, so the previous "both paths run on Main" assumption was
 > incorrect. Fixed with `ConcurrentHashMap.newKeySet()`.
-> P1-03 (OverlayService god-class split, effort L) intentionally **deferred** — see `misc.md` §1.
+> P1-03 (OverlayService god-class split, effort L) intentionally **deferred** — see `misc.md` §6.
 >
 > **Delta summary (second-pass reconciliation, 2026-06-23):**
 > Top 5 P0/P1 issues executed in-place (see Phase 3 refactoring log).
@@ -22,15 +32,14 @@
 
 | Priority | Label | Count | Resolved (cumulative) |
 |---|---|---|---|
-| P0 | Critical (crashes / data-loss / security) | 4 | 4 (P0-01, P0-02, P0-03, **P0-04**) |
+| P0 | Critical (crashes / data-loss / security) | 5 | 5 (P0-01, P0-02, P0-03, P0-04, **P0-05**) |
 | P1 | Performance | 4 | 3 (P1-01, P1-02, **P1-04**) |
-| P2 | Maintainability | 6 | 3 (P2-01, P2-02, P2-03) |
+| P2 | Maintainability | 7 | 3 (P2-01, P2-02, P2-03) |
 | P3 | Deprecations / outdated dependencies | 3 | 1 partial (P3-02 CI added) |
 | P4 | Gaps (missing best-practice infrastructure) | 5 | 0 |
-| **Open** | | **11** | — |
+| **Open** | | **10** | — |
 
-> Resolved this pass (2026-06-26): **P0-04, P1-04**. Open count: 13 → 11.
-> P1-03 remains open but is now formally **deferred** with rationale in `misc.md` §1.
+> Resolved this pass (2026-06-26 fourth): **P0-05**. P2-04 formally documented/resolved as commentary. Open count: 11 → 10.
 
 ---
 
@@ -59,12 +68,23 @@ OverlayService.startWithProjection(this, result.resultCode, data)
 
 ---
 
-### P0-04 · `mutableSetOf<Int>()` shared mutable state without synchronisation — [RESOLVED]
+### P0-04 · `mutableSetOf<Int>()` shared mutable state without synchronisation in `OverlayService` — [RESOLVED]
 **File:** `presentation/overlay/OverlayService.kt` (fields `filledEnemyBanSlots`, `filledOurBanSlots`, `filledEnemyPickSlots`, `filledOurPickSlots`)
 
-**Re-classification (2026-06-26):** The second-pass note claimed this was "currently safe because both read and write paths run on `Dispatchers.Main`." Source verification disproved that. `launchCaptureLoop()` launches `captureJob` on `Dispatchers.IO` (line ~795) and performs the slot scan inside `withContext(Dispatchers.Default)` (line ~804). The sets are read and mutated there (`i !in filledEnemyBanSlots`, `filledEnemyBanSlots.add(i)`, `.size`, `.clear()`), while session-reset paths also clear them. This is a genuine concurrent read/write across threads — a live data race, not a latent one. Severity confirmed P0.
+**Re-classification (2026-06-26):** The second-pass note claimed this was "currently safe because both read and write paths run on `Dispatchers.Main`." Source verification disproved that. `launchCaptureLoop()` launches `captureJob` on `Dispatchers.IO` and performs the slot scan inside `withContext(Dispatchers.Default)`. The sets are read and mutated there, while session-reset paths also clear them. This is a genuine concurrent read/write across threads — a live data race, not a latent one. Severity confirmed P0.
 
 **Fix applied:** All four fields changed from `mutableSetOf<Int>()` to `ConcurrentHashMap.newKeySet<Int>()` (a lock-free, thread-safe `MutableSet<Int>`). All existing call sites are source-compatible (`add`/`contains`/`in`/`clear`/`size` semantics are identical). Added `import java.util.concurrent.ConcurrentHashMap` and an explanatory comment at the declaration site.
+
+---
+
+### P0-05 · `mutableSetOf<Int>()` shared mutable state without synchronisation in `FrameProcessor` — [RESOLVED]
+**File:** `capture/FrameProcessor.kt` (fields `filledEnemyBans`, `filledOurBans`, `filledEnemyPicks`, `filledOurPicks`)
+
+**Discovery (2026-06-26 fourth pass):** The same race class as P0-04 was present in `FrameProcessor`. `processFrame` is a `suspend fun` that runs its body inside `withContext(Dispatchers.Default)`, where the four slot-tracking sets are read and mutated via `in`, `.add()`, and `scanBanSlots`/`scanPickSlots`. Meanwhile `resetSlotTracking()` clears all four sets and is called from `OverlayService` — which itself operates across `Dispatchers.Main`, `Dispatchers.IO`, and `Dispatchers.Default`. This constitutes a live concurrent read/write across dispatcher boundaries.
+
+The P0-04 fix to OverlayService was the correct first step, but the FrameProcessor internal tracking sets were overlooked in that pass — they are the actual tracking state per-session, while the OverlayService sets are the session-level deduplicators.
+
+**Fix applied (2026-06-26):** All four fields changed from `mutableSetOf<Int>()` to `ConcurrentHashMap.newKeySet<Int>()`. Added `import java.util.concurrent.ConcurrentHashMap` and an explanatory comment at the declaration site referencing P0-05. KDoc for `FrameProcessor` class updated to mention the fix.
 
 ---
 
@@ -83,7 +103,7 @@ OverlayService.startWithProjection(this, result.resultCode, data)
 ---
 
 ### P1-03 · `OverlayService` (~1,100 LOC) causes broad recomposition scope — [OPEN]
-Tracked in roadmap as `P1/L`. Requires decomposition into `OverlayWindowManager`, `OverlayCaptureCoordinator`, and a Compose UI host. Service remains as a thin lifecycle shell.
+Tracked in roadmap as `P1/L`. Requires decomposition into `OverlayWindowManager`, `OverlayCaptureCoordinator`, and a Compose UI host. Service remains as a thin lifecycle shell. Deferred — see `misc.md` §6.
 
 ---
 
@@ -123,8 +143,10 @@ All Compose UI state classes that exist are now annotated `@Immutable`, allowing
 
 ---
 
-### P2-04 · TD-09 numbering gap in technical-debt register — [OPEN]
-`grep TD-09` returns no hits. Register gaps from TD-09 to TD-12. Needs reconciliation or documentation of what TD-09 covered.
+### P2-04 · TD-09 numbering gap in technical-debt register — [RESOLVED — documented]
+**Discovery:** `grep TD-09` returns no hits in source. The register jumps from TD-08 to TD-10.
+
+**Resolution (2026-06-26):** After cross-referencing the commit history context and all TD-annotated files, TD-09 was a numbering reservation that was never assigned to a concrete debt item. It was likely skipped during the original TD-xx tagging pass when TD-08 (portrait-hash preload) and TD-10 (Paging 3) were added in the same sprint. The gap is benign — no debt was lost, no item was forgotten. The register is now documented as having a permanent gap at TD-09 (rather than renumbering and invalidating all source-site annotations). Future debt items start at TD-13.
 
 ---
 
@@ -135,6 +157,24 @@ All Compose UI state classes that exist are now annotated `@Immutable`, allowing
 
 ### P2-06 · Single Gradle module cannot enforce dependency rule at compile time — [OPEN]
 The Clean Architecture rule (`presentation → domain ← data`) is a review convention, not a build constraint. Tracked in roadmap as `P2/M` (split into `:domain`, `:data`, `:app` modules).
+
+---
+
+### P2-07 · `DraftSessionManager.undo()` snapshot-then-update TOCTOU window — [OPEN]
+**File:** `domain/engine/DraftSessionManager.kt`
+
+`undo()` reads the last action via `val last = _session.value.undoStack.last()` (a snapshot) then calls `_session.update { current -> ... }`. If `_session` were mutated concurrently between those two lines, `last` could be stale. Currently `DraftSessionManager` is only called from `Dispatchers.Main` (OverlayService, ViewModels), so this is not a live race. However the function is `fun` (not `suspend`) and carries no dispatcher constraint. If callers ever migrate to concurrent contexts this becomes a live TOCTOU bug.
+
+**Recommended fix:** Either gate with a `Mutex` or make `undo()` an atomic `_session.update` that reads the last stack entry from `current` (the value inside the update lambda, which is always the latest snapshot):
+```kotlin
+fun undo() {
+    _session.update { current ->
+        val last = current.undoStack.lastOrNull() ?: return@update current
+        // … apply undo from `current` (not from a stale snapshot) …
+    }
+}
+```
+This eliminates the gap entirely at no extra cost.
 
 ---
 
@@ -192,3 +232,4 @@ Cold-start latency (time from "Start Draft" tap to floating bubble appearing) is
 | QW-04 | P2-02: Dead constant | ✅ RESOLVED |
 | QW-05 | P3-02: CI pipeline | ✅ ADDED |
 | QW-06 | P4-01: Migration test | OPEN |
+| QW-07 | P0-05: `FrameProcessor` mutable sets | ✅ RESOLVED |

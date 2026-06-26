@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 
 data class FrameAnalysis(
     val phase: PhaseDetector.DetectedPhase,
@@ -35,6 +36,13 @@ data class FrameAnalysis(
  * one JNI call per sampled pixel; the new implementation makes a single bulk
  * copy into a [ByteBuffer] and iterates the backing byte array in pure Kotlin.
  * Expected improvement: 5–20× on mid-range devices.
+ *
+ * P0-05 fix: The four internal slot-tracking sets are read and mutated from
+ * [processFrame] running on [Dispatchers.Default], while [resetSlotTracking]
+ * can be called from [com.mlbb.assistant.presentation.overlay.OverlayService]
+ * on a different dispatcher. Plain [mutableSetOf] is NOT thread-safe under
+ * that access pattern. All four sets are now [ConcurrentHashMap.newKeySet]
+ * — lock-free, thread-safe [MutableSet] with identical semantics.
  */
 class FrameProcessor(
     private val portraitMatcher: PortraitMatcher,
@@ -47,11 +55,15 @@ class FrameProcessor(
     private var lastKnownPhase = PhaseDetector.DetectedPhase.UNKNOWN
     private var lastFrameTimeMs = 0L
 
-    // Track which slots were already filled to emit only new fills.
-    private val filledEnemyBans  = mutableSetOf<Int>()
-    private val filledOurBans    = mutableSetOf<Int>()
-    private val filledEnemyPicks = mutableSetOf<Int>()
-    private val filledOurPicks   = mutableSetOf<Int>()
+    // P0-05: These sets are mutated inside withContext(Dispatchers.Default) in
+    // processFrame, while resetSlotTracking() is called from OverlayService which
+    // may run on Main or IO. A plain mutableSetOf is NOT thread-safe across
+    // dispatcher boundaries. ConcurrentHashMap.newKeySet() provides lock-free
+    // thread-safety with the same add/contains/in/clear/size semantics.
+    private val filledEnemyBans:  MutableSet<Int> = ConcurrentHashMap.newKeySet()
+    private val filledOurBans:    MutableSet<Int> = ConcurrentHashMap.newKeySet()
+    private val filledEnemyPicks: MutableSet<Int> = ConcurrentHashMap.newKeySet()
+    private val filledOurPicks:   MutableSet<Int> = ConcurrentHashMap.newKeySet()
 
     // Normalised luminance baseline derived from a stable background region.
     // Lazily computed once per session — reset in [resetSlotTracking].

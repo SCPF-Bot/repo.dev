@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- ── Permissions ─────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -75,6 +76,31 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
+        </provider>
+
+        <!--
+            Disable WorkManager's default auto-initialisation via AndroidX Startup.
+
+            MLBBApplication implements Configuration.Provider so WorkManager is
+            initialised manually with HiltWorkerFactory. If the default
+            WorkManagerInitializer also runs, WorkManager throws
+            "WorkManager is already initialized" on second init.
+
+            Using tools:node="remove" on the meta-data entry surgically removes
+            only the WorkManager initializer while leaving all other AndroidX
+            Startup initializers (e.g. Lifecycle, ProfileInstaller) intact.
+
+            Reference: https://developer.android.com/topic/libraries/architecture/workmanager/advanced/custom-configuration
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
 
     </application>

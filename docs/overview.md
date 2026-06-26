@@ -212,6 +212,7 @@ app/src/main/java/com/mlbb/assistant/
 ├── capture/                    Computer-vision stack (Android edge; no domain imports)
 │   ├── FirstPickDetector.kt    Infers which side has first-pick from screen region
 │   ├── FrameProcessor.kt       Per-frame orchestrator: phase detect + slot scan + dedupe
+│   │                           P0-05: Internal slot sets use ConcurrentHashMap.newKeySet()
 │   ├── PerceptualHash.kt       dHash + histogram computation for portrait fingerprinting
 │   ├── PhaseDetectionConfig.kt Centralised constants for all CV thresholds (TD-03)
 │   ├── PhaseDetector.kt        Classifies draft phase from banner pixel colours
@@ -257,7 +258,7 @@ app/src/main/java/com/mlbb/assistant/
 ├── domain/                     Pure Kotlin; zero android.* imports
 │   ├── OverlayController.kt    Interface: toggleOverlay() — decouples use cases from Service
 │   ├── advisor/
-│   │   ├── BanRecommender.kt           Prioritised ban list from enemy threat + meta
+│   │   ├── BanRecommender.kt           Prioritised ban list; rank() flat + rankSplit() absolute/reactive
 │   │   ├── BuildAdvisor.kt             3 core + 3 situational items per hero/context
 │   │   ├── CompositionAnalyzer.kt      Archetype, damage profile, CC/mobility/sustain
 │   │   ├── CompositionArchetype.kt     Enum: BURST_HEAVY, POKE, TEAMFIGHT, etc.
@@ -298,7 +299,7 @@ app/src/main/java/com/mlbb/assistant/
 │   ├── draft/                   Manual draft screen + DraftViewModel + DraftState (@Immutable)
 │   ├── herodetail/              Hero detail screen
 │   ├── herolist/                Paged hero list + HeroListState (@Immutable)
-│   ├─�� heropool/                Hero pool management (SavedStateHandle filter, TD-07)
+│   ├── heropool/                Hero pool management (SavedStateHandle filter, TD-07)
 │   ├── history/                 Draft history + replay viewer
 │   ├── home/                    Home dashboard
 │   ├── log/                     Debug log viewer (reads CrashLogStore)
@@ -306,7 +307,7 @@ app/src/main/java/com/mlbb/assistant/
 │   ├── metaboard/               Meta tier list display
 │   ├── navigation/              AppNavGraph + AppRoute (sealed class routes)
 │   ├── overlay/                 FloatingBubble, MiniWidget, DraftPanel, phase panels
-│   │   └── OverlayService.kt    ~1,100 LOC foreground service (refactor target)
+│   │   └── OverlayService.kt    ~1,100 LOC foreground service (refactor target — P1-03, deferred)
 │   ├── settings/                Settings screen + SettingsState (@Immutable)
 │   ├── shell/                   AppShell + AppShellViewModel
 │   └── welcome/                 PermissionWizardScreen
@@ -383,7 +384,8 @@ exported under `/schemas/` and committed for safe future migrations.
 6. **Explicit IO dispatch (TD-06)** — repository suspend functions wrap `withContext(Dispatchers.IO)` defensively.
 7. **Config-driven CV (TD-03/04)** — all detection thresholds live in `PhaseDetectionConfig`.
 8. **Foreground-service correctness** — two-step FGS start: `SPECIAL_USE` in `onCreate`, `MEDIA_PROJECTION` added only after user grants projection token (Android 14+ compliant).
-9. **TD-xx tagging scheme** — technical debt is annotated in source at the fix site and registered in [`todo.md`](./todo.md) §1.
+9. **TD-xx tagging scheme** — technical debt is annotated in source at the fix site and registered in [`todo.md`](./todo.md) §1. Future items start at TD-13; TD-09 is a permanent gap (see `findings.md` P2-04).
+10. **ConcurrentHashMap slot sets** — All slot-tracking sets in both `OverlayService` and `FrameProcessor` use `ConcurrentHashMap.newKeySet()` because the capture loop runs on `Dispatchers.IO`/`Default` while reset paths run on different dispatchers. Never replace with plain `mutableSetOf` — see findings P0-04 and P0-05.
 
 ---
 
@@ -412,5 +414,22 @@ markets — alongside default English (`values`, ~75 strings).
 - `MetaApi` has no auth or response caching layer beyond the local DB fallback. Staleness is silent — no `lastUpdated` metadata surfaced in the UI.
 - ~~`Bitmap.getPixel()` in luminance loops is a performance bottleneck~~ — **Resolved (P1-01):** both `sampleLuminanceBaseline` and `isSlotFilled` in `FrameProcessor` now use `copyPixelsToBuffer` + byte-array iteration for bulk pixel access. See `docs/misc.md` §5 and `docs/temp/findings.md` P1-01.
 - ~~`Thread.sleep` in `RetryInterceptor` blocks OkHttp thread-pool threads~~ — **Resolved (P1-02):** `RetryInterceptor` removed; `HeroRepositoryImpl.syncHeroes()` uses coroutine `delay()` for non-blocking retry. See `docs/misc.md` §1 and `docs/temp/findings.md` P1-02.
-- ~~`OverlayService` shared `MutableSet<Int>` slot-tracker fields will race if the capture loop runs off Main~~ — **Resolved (P0-04):** the capture loop *does* run on `Dispatchers.IO`/`Dispatchers.Default`, so this was a live race, not a hypothetical one. All four sets are now `ConcurrentHashMap.newKeySet()`. See `docs/misc.md` §6 and `docs/temp/findings.md` P0-04.
+- ~~`OverlayService` shared `MutableSet<Int>` slot-tracker fields will race if the capture loop runs off Main~~ — **Resolved (P0-04):** confirmed live race; all four sets now `ConcurrentHashMap.newKeySet()`. See `docs/misc.md` §6 and `docs/temp/findings.md` P0-04.
+- ~~`FrameProcessor` internal `MutableSet<Int>` slot-tracker fields will race between `processFrame` (Dispatchers.Default) and `resetSlotTracking` (called from OverlayService)~~ — **Resolved (P0-05 2026-06-26):** all four sets now `ConcurrentHashMap.newKeySet()`. See `docs/misc.md` §7 and `docs/temp/findings.md` P0-05.
 - `DraftScorer.computeScore` is a simplified linear scoring formula incompatible with production `HeroScore` values; annotated `@VisibleForTesting` — see `docs/misc.md` §2.
+
+---
+
+## Architecture History
+
+### versionCode 1 → 2 (2026-06-23)
+Complete rewrite from a single-activity proof-of-concept to a Clean Architecture, overlay-first product. Introduced the CV pipeline, multi-factor scoring engine, DataStore preferences, Room migrations, Hilt DI, and the permission wizard.
+
+### Post-launch pass (2026-06-23)
+P0-01 through P0-03 (!! NPE risks), P1-01 (CV hot-path), P1-02 (thread-blocking retry), P2-01 through P2-03 (maintainability), CI added (P3-02 partial).
+
+### Thread-safety & Compose-stability pass (2026-06-26 third pass)
+P0-04 (OverlayService mutable sets → ConcurrentHashMap), P1-04 (missing @Immutable on UI state classes).
+
+### Thread-safety continuation pass (2026-06-26 fourth pass)
+P0-05 (FrameProcessor mutable sets → ConcurrentHashMap). P2-04 (TD-09 gap) formally resolved as documentation. OSS library adoption evaluation conducted and deferred with documented rationale.

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,10 +24,14 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,10 +51,27 @@ import com.mlbb.assistant.presentation.common.theme.TextDisabled
 import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
 import com.mlbb.assistant.presentation.common.theme.WarningAmber
+import com.valentinilk.shimmer.shimmer
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/** How many skeleton cards to show during the initial load delay. */
+private const val SHIMMER_CARD_COUNT = 5
+
+/**
+ * Shimmer loading delay (ms).
+ *
+ * The sessions StateFlow emits [emptyList] synchronously on subscription
+ * (the Room query has not yet resolved). Showing a short shimmer hides the
+ * flash of the empty-state icon that would otherwise appear before data
+ * arrives. 400 ms is deliberately short — on-device Room queries typically
+ * resolve in <100 ms, so the shimmer is invisible on fast devices and only
+ * appears on cold-start when IO is busy.
+ */
+private const val LOADING_DELAY_MS = 400L
 
 @Composable
 fun DraftHistoryScreen(
@@ -58,6 +80,13 @@ fun DraftHistoryScreen(
     viewModel: DraftHistoryViewModel = hiltViewModel()
 ) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+
+    // Show shimmer for a brief window to avoid empty-state flash.
+    var isLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(LOADING_DELAY_MS)
+        isLoading = false
+    }
 
     Column(Modifier.fillMaxSize().background(SurfaceDark)) {
         Row(
@@ -77,8 +106,10 @@ fun DraftHistoryScreen(
             Spacer(Modifier.size(48.dp))
         }
 
-        if (sessions.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        when {
+            isLoading -> HistoryLoadingSkeleton()
+
+            sessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -89,13 +120,67 @@ fun DraftHistoryScreen(
                     Text("Complete a draft to see it here", color = TextDisabled, fontSize = 12.sp)
                 }
             }
-        } else {
-            LazyColumn(
+
+            else -> LazyColumn(
                 Modifier.fillMaxSize().padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(sessions, key = { it.id }) { session ->
                     DraftHistoryCard(session = session)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Shimmer skeleton shown for [LOADING_DELAY_MS] ms before real content renders.
+ *
+ * Cards mimic the height and structure of real [DraftHistoryCard] entries so
+ * the transition is seamless.
+ */
+@Composable
+private fun HistoryLoadingSkeleton() {
+    LazyColumn(
+        modifier            = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+            .shimmer(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        items(SHIMMER_CARD_COUNT) {
+            HistorySkeletonCard()
+        }
+    }
+}
+
+@Composable
+private fun HistorySkeletonCard() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(96.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(SurfaceCard)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.size(width = 80.dp, height = 12.dp).clip(RoundedCornerShape(4.dp)).background(SurfaceMid))
+                    Box(Modifier.size(width = 60.dp, height = 9.dp).clip(RoundedCornerShape(4.dp)).background(SurfaceMid))
+                }
+                Box(Modifier.size(width = 64.dp, height = 26.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceMid))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(3) {
+                    Box(Modifier.size(width = 72.dp, height = 22.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceMid))
                 }
             }
         }

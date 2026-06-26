@@ -50,6 +50,7 @@
 - Win-condition generation (`WinConditionGenerator`)
 - Personal hero-pool proficiency weighting (TD-02)
 - Build/item advice with situational items
+- Absolute/reactive ban split (`BanRecommender.rankSplit`) — separates must-ban from context-sensitive bans
 
 ### Historical feedback loop
 - Draft history persistence (`draft_sessions`)
@@ -75,6 +76,7 @@
 - TD-06: Explicit `Dispatchers.IO` in repository suspend fns
 - TD-07: SavedStateHandle-backed search/filter in `HeroPoolViewModel`
 - TD-08: Parallel lazy portrait-hash preload + hybrid match
+- TD-09: *(gap — permanently unassigned; see `findings.md` P2-04)*
 - TD-10: Paging 3 hero grid
 - TD-11: Mutex-guarded crash-log writes
 - TD-12: Bubble position persistence
@@ -98,16 +100,17 @@
 - **[COMPLETED]** P0-04: `OverlayService` slot-tracking sets (`filledEnemyBanSlots`, `filledOurBanSlots`, `filledEnemyPickSlots`, `filledOurPickSlots`) migrated from `mutableSetOf` to `ConcurrentHashMap.newKeySet()` — eliminates a live data race between the IO/Default capture loop and session-reset paths
 - **[COMPLETED]** P1-04: `@Immutable` added to all remaining Compose UI-state classes (`HomeUiState`, `InsightsState`, `HeroPoolState`, `HeroPoolEntry`, `LogScreenState`)
 
+### Thread-safety continuation & documentation pass (2026-06-26)
+- **[COMPLETED]** P0-05: `FrameProcessor` internal slot-tracking sets (`filledEnemyBans`, `filledOurBans`, `filledEnemyPicks`, `filledOurPicks`) migrated from `mutableSetOf` to `ConcurrentHashMap.newKeySet()` — the same race class as P0-04 existed in the CV layer: `processFrame` runs inside `withContext(Dispatchers.Default)` while `resetSlotTracking()` is called from OverlayService on other dispatchers
+- **[COMPLETED]** P2-04: TD-09 numbering gap documented and formally resolved — gap is permanent and benign (unassigned reservation, not a missing item); future TD entries start at TD-13
+
 ---
 
 ## [ACTIVE]
 
-### A4 — Maintainability: ban value vs. ban urgency separation
+### A4 — Maintainability: ban value vs. ban urgency separation (structural refinement)
 **Effort:** M · **Blocked by:** nothing
-
-`BanRecommender` currently combines threat urgency and meta ban-value into a single
-recommender. Separate into `BanValueScorer` (is this hero worth banning on meta merit?)
-and `BanUrgencyScorer` (is it urgent based on enemy comp so far?).
+**Status:** Partially addressed — `BanRecommender.rankSplit()` already separates absolute from reactive bans. Full separation into dedicated `BanValueScorer` / `BanUrgencyScorer` classes with independent test coverage remains open.
 
 Files: `domain/advisor/BanRecommender.kt`
 
@@ -135,6 +138,17 @@ Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 
 ---
 
+### A7 — Correctness: DraftSessionManager.undo() atomicity (P2-07)
+**Effort:** S · **Blocked by:** nothing
+
+`undo()` reads the undo stack via a snapshot (`_session.value`) then calls `_session.update`.
+While currently safe (all callers are on Main), this pattern is fragile if callers ever move
+off Main. Fix: read `last` from the `current` value inside the `_session.update` lambda.
+
+Files: `domain/engine/DraftSessionManager.kt`
+
+---
+
 ## [BACKLOG]
 
 ### Autonomous awareness
@@ -148,7 +162,7 @@ Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 - [ ] Match timeline replay with frame thumbnails
 
 ### Frictionless deployment
-- [ ] Deep links into exact system-settings pages per OEM (Xiaomi / OPPO / Vivo / Huawei / Samsung / OnePlus)
+- [ ] Deep links into exact system-settings pages per OEM (Xiaomi / OPPO / Vivo / Huawei / Samsung / OnePlus) — `judemanutd/AutoStarter` is the recommended library (see `docs/temp/recommendations.md` §9.1)
 - [ ] Accessibility-service health watchdog with re-setup at the revoked step
 - [ ] One-tap overlay relaunch from the notification after an OS kill (partial — notification action exists; watchdog pending)
 
@@ -158,13 +172,22 @@ Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 - [ ] Honest self-status in the overlay: "capture unavailable", "meta data N days old", "accessibility service off"
 
 ### Architecture & code quality
-- [x] **P0/M** `OverlayService` shared mutable sets (`filledEnemyBanSlots` etc.) — replaced with `ConcurrentHashMap.newKeySet()` (P0-04). **[COMPLETED 2026-06-26 — confirmed live data race; capture loop runs on IO/Default, not Main.]**
-- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. Keep the service as a thin lifecycle shell. **[DEFERRED 2026-06-26 — see `misc.md` §1; not safely verifiable without an Android build/CI run.]**
-- [x] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation (P1-04). **[COMPLETED 2026-06-26 — `HomeUiState`, `InsightsState`, `HeroPoolState`, `HeroPoolEntry`, `LogScreenState` annotated.]**
+- [x] **P0/M** `OverlayService` shared mutable sets → `ConcurrentHashMap.newKeySet()` (P0-04). **[COMPLETED 2026-06-26]**
+- [x] **P0/M** `FrameProcessor` internal mutable sets → `ConcurrentHashMap.newKeySet()` (P0-05). **[COMPLETED 2026-06-26]**
+- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. Keep the service as a thin lifecycle shell. **[DEFERRED 2026-06-26 — see `misc.md` §6; not safely verifiable without an Android build/CI run.]**
+- [x] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation (P1-04). **[COMPLETED 2026-06-26]**
 - [ ] **P2/M** Extract overlay state into dedicated `OverlayStateHolder` (narrow recomposition scope)
 - [ ] **P2/M** Introduce `:domain` and `:data` Gradle modules to enforce dependency rule at compile time. **Blocked by:** single-module structure; requires significant build rework.
 - [ ] **P3/M** Migrate Gson → `kotlinx.serialization`. **Blocked by:** requires updating all DTOs and switching `GsonConverterFactory`. See `findings.md` P3-01 for library choice.
 - [ ] **P2/S** Consolidate `DraftScorer.computeScore` → unified `simplified = true` parameter on `score()` (current `@VisibleForTesting` annotation is the interim fix)
+
+### OSS library adoption (from `docs/temp/recommendations.md`)
+- [ ] **🔴/M** `ehsannarmani/ComposeCharts` — radial score breakdown in `ScoreExplanationSheet` (meta/synergy/counter pie chart)
+- [ ] **🔴/M** `skydoves/Balloon` — tooltip on hero suggestion tap; shows score breakdown without navigating away
+- [ ] **🔴/M** `valentinilk/compose-shimmer` — shimmer loading states for HeroList, MetaBoard, and History screens
+- [ ] **🟠/M** `judemanutd/AutoStarter` — OEM auto-start deep links in `PermissionWizardScreen`
+- [ ] **🔴/M** `kotlinx.serialization` — replace Gson; compile-safe + ~2× faster (tracked also as P3-01)
+- [ ] **🟠/M** WorkManager + `HeroSyncWorker` — periodic 24-hour hero data refresh (currently only on app start)
 
 ### Testing & CI
 - [ ] **P1/M** Room migration test (1→2→3) using `MigrationTestHelper`

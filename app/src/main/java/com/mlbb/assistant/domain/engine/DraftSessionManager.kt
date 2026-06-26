@@ -168,11 +168,19 @@ class DraftSessionManager {
 
     // ── Undo ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Atomically reads the undo stack and applies the reversal inside a single
+     * [MutableStateFlow.update] lambda.
+     *
+     * P2-07 fix: the previous implementation read [_session.value.undoStack] via
+     * a snapshot *before* calling [_session.update], creating a TOCTOU window where
+     * the stack could be mutated by a concurrent caller between the read and the
+     * update. Reading `last` from [current] (the value inside the lambda) eliminates
+     * this gap entirely — the lambda always operates on the latest consistent state.
+     */
     fun undo() {
-        val s = _session.value
-        if (s.undoStack.isEmpty()) return
-        val last = s.undoStack.last()
         _session.update { current ->
+            val last = current.undoStack.lastOrNull() ?: return@update current
             when (last) {
                 is DraftAction.OurBan   -> {
                     val slots = if (last.round == 1) current.ourBansR1.toMutableList()
@@ -191,14 +199,22 @@ class DraftSessionManager {
                 is DraftAction.OurPick  -> {
                     val picks = current.ourPicks.toMutableList()
                     picks[last.slot] = null
-                    current.copy(ourPicks = picks, currentPickIndex = (current.currentPickIndex - 1).coerceAtLeast(0), undoStack = current.undoStack.dropLast(1))
+                    current.copy(
+                        ourPicks         = picks,
+                        currentPickIndex = (current.currentPickIndex - 1).coerceAtLeast(0),
+                        undoStack        = current.undoStack.dropLast(1)
+                    )
                 }
                 is DraftAction.EnemyPick -> {
                     val picks = current.enemyPicks.toMutableList()
                     picks[last.slot] = null
-                    current.copy(enemyPicks = picks, currentPickIndex = (current.currentPickIndex - 1).coerceAtLeast(0), undoStack = current.undoStack.dropLast(1))
+                    current.copy(
+                        enemyPicks       = picks,
+                        currentPickIndex = (current.currentPickIndex - 1).coerceAtLeast(0),
+                        undoStack        = current.undoStack.dropLast(1)
+                    )
                 }
-                is DraftAction.HeroSwap  -> current.copy(undoStack = current.undoStack.dropLast(1))
+                is DraftAction.HeroSwap -> current.copy(undoStack = current.undoStack.dropLast(1))
             }
         }
     }

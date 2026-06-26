@@ -19,6 +19,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,12 +44,21 @@ import com.mlbb.assistant.presentation.common.theme.SurfaceElevated
 import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
 import com.mlbb.assistant.presentation.common.theme.WarningAmber
+import ir.ehsannarmani.compose_charts.PieChart
+import ir.ehsannarmani.compose_charts.models.Pie
 
 /**
  * Modal bottom sheet showing the detailed score breakdown for a hero recommendation.
  *
  * Accessibility: each score bar carries a contentDescription that reads
  * "<label> score <value> out of 100" for TalkBack users (Section 6.5).
+ *
+ * Score visualisation (recommendations.md §8.3):
+ *   - A [PieChart] at the top of the breakdown section gives an immediate
+ *     proportional view of the four score components (meta, synergy, counter, role).
+ *   - Horizontal [ScoreBar]s below provide the exact numeric values.
+ *   - Both representations are intentionally kept: the chart helps users grasp
+ *     relative weights at a glance; the bars give screenreader-accessible numbers.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,7 +124,7 @@ fun ScoreExplanationSheet(
                 fontSize = 13.sp
             )
 
-            // ── Score bars ────────────────────────────────────────────────────
+            // ── Score breakdown header ────────────────────────────────────────
             Text(
                 stringResource(R.string.score_breakdown),
                 color      = TextPrimary,
@@ -119,6 +132,12 @@ fun ScoreExplanationSheet(
                 fontSize   = 14.sp
             )
 
+            // ── Score pie chart (recommendations.md §8.3) ────────────────────
+            // Clamp scores to 0.01 minimum so every segment is always rendered;
+            // a zero-value slice would be invisible and confuse the chart layout.
+            ScoreBreakdownPieChart(heroScore = heroScore)
+
+            // ── Score bars ────────────────────────────────────────────────────
             ScoreBar(
                 label = stringResource(R.string.score_meta),
                 value = heroScore.metaScore,
@@ -167,6 +186,102 @@ fun ScoreExplanationSheet(
 
             Spacer(Modifier.height(8.dp))
         }
+    }
+}
+
+// ── Score pie chart ───────────────────────────────────────────────────────────
+
+/**
+ * Animated pie chart showing the relative proportions of [heroScore]'s four
+ * score components.
+ *
+ * Uses [PieChart] from `io.github.ehsannarmani:compose-charts`. Each [Pie]
+ * segment is tappable — tapping expands the slice with a spring animation
+ * (handled by the library's built-in `selectedScale`/`selectedPaddingAngle`).
+ *
+ * Each segment's `data` value is pre-clamped to 0.01 so no segment is
+ * invisible when a score dimension is zero.
+ *
+ * Accessibility note: the pie chart is marked as `mergeDescendants = false` so
+ * TalkBack ignores it — the numeric [ScoreBar]s below convey the same
+ * information with full screen-reader support.
+ */
+@Composable
+private fun ScoreBreakdownPieChart(heroScore: HeroScore) {
+    val minSlice = 0.01
+
+    // Mutable state is required by the ComposeCharts PieChart API — it
+    // manages tap-to-select state by updating the Pie.selected property.
+    var pieData by remember(heroScore) {
+        mutableStateOf(
+            listOf(
+                Pie(
+                    label        = "Meta",
+                    data         = maxOf(heroScore.metaScore.toDouble(), minSlice),
+                    color        = MLBBGold,
+                    selectedColor = MLBBGold.copy(alpha = 0.75f)
+                ),
+                Pie(
+                    label        = "Synergy",
+                    data         = maxOf(heroScore.synergyScore.toDouble(), minSlice),
+                    color        = SuccessGreen,
+                    selectedColor = SuccessGreen.copy(alpha = 0.75f)
+                ),
+                Pie(
+                    label        = "Counter",
+                    data         = maxOf(heroScore.counterScore.toDouble(), minSlice),
+                    color        = MLBBTeal,
+                    selectedColor = MLBBTeal.copy(alpha = 0.75f)
+                ),
+                Pie(
+                    label        = "Role",
+                    data         = maxOf(heroScore.roleScore.toDouble(), minSlice),
+                    color        = WarningAmber,
+                    selectedColor = WarningAmber.copy(alpha = 0.75f)
+                ),
+            )
+        )
+    }
+
+    Row(
+        modifier              = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment     = Alignment.CenterVertically
+    ) {
+        PieChart(
+            modifier             = Modifier.size(120.dp),
+            data                 = pieData,
+            onPieClick           = { clicked ->
+                // Toggle the selected state; the library animates the expansion.
+                pieData = pieData.map { it.copy(selected = it == clicked && !it.selected) }
+            },
+            selectedScale        = 1.08f,
+            selectedPaddingAngle = 4f,
+        )
+
+        // Legend
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            PieLegendItem(label = "Meta",    color = MLBBGold,    value = heroScore.metaScore)
+            PieLegendItem(label = "Synergy", color = SuccessGreen, value = heroScore.synergyScore)
+            PieLegendItem(label = "Counter", color = MLBBTeal,     value = heroScore.counterScore)
+            PieLegendItem(label = "Role",    color = WarningAmber, value = heroScore.roleScore)
+        }
+    }
+}
+
+@Composable
+private fun PieLegendItem(label: String, color: Color, value: Float) {
+    Row(
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            Modifier
+                .size(10.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(color)
+        )
+        Text("$label: ${(value * 100).toInt()}", color = TextSecondary, fontSize = 11.sp)
     }
 }
 

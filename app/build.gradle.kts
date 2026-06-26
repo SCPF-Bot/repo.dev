@@ -100,13 +100,20 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
+    // Hilt WorkManager integration
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+
+    // WorkManager — periodic background hero-data sync (TD-13)
+    implementation(libs.work.runtime)
+
     // Network
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
 
-    // Coil 3
+    // Coil 3 — image loading
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
 
@@ -121,6 +128,19 @@ dependencies {
 
     // Logging
     implementation(libs.timber)
+
+    // ── UI Enhancement Libraries ──────────────────────────────────────────────
+    // compose-shimmer: loading skeleton for HeroList, MetaBoard, History screens
+    implementation(libs.compose.shimmer)
+
+    // ComposeCharts: animated pie chart for ScoreExplanationSheet score breakdown
+    implementation(libs.compose.charts)
+
+    // ML Kit Text Recognition: on-device OCR for PhaseOcrDetector (replaces reflection stub)
+    implementation(libs.mlkit.text.recognition)
+
+    // Lottie: rich Lottie animation support for phase-transition sequences
+    implementation(libs.lottie.compose)
 
     // Unit tests
     testImplementation(libs.junit)

@@ -9,6 +9,7 @@ composeBom          = "2025.05.01"
 room                = "2.7.1"
 hilt                = "2.55"
 hiltNavCompose      = "1.2.0"
+hiltWork            = "1.2.0"
 retrofit            = "2.11.0"
 okhttp              = "4.12.0"
 gson                = "2.11.0"
@@ -18,6 +19,11 @@ coroutines          = "1.10.1"
 navigationCompose   = "2.9.0"
 savedstate          = "1.2.1"
 paging              = "3.3.6"
+workRuntime         = "2.10.1"
+shimmer             = "1.3.0"
+composeCharts       = "0.1.3"
+mlkitTextRec        = "16.0.1"
+lottie              = "6.6.6"
 robolectric         = "4.14.1"
 timber              = "5.0.1"
 junit               = "4.13.2"
@@ -49,6 +55,8 @@ room-compiler                      = { group = "androidx.room",              nam
 hilt-android                       = { group = "com.google.dagger",          name = "hilt-android",                   version.ref = "hilt" }
 hilt-compiler                      = { group = "com.google.dagger",          name = "hilt-android-compiler",          version.ref = "hilt" }
 hilt-navigation-compose            = { group = "androidx.hilt",              name = "hilt-navigation-compose",        version.ref = "hiltNavCompose" }
+hilt-work                          = { group = "androidx.hilt",              name = "hilt-work",                      version.ref = "hiltWork" }
+hilt-work-compiler                 = { group = "androidx.hilt",              name = "hilt-compiler",                  version.ref = "hiltWork" }
 retrofit-core                      = { group = "com.squareup.retrofit2",     name = "retrofit",                       version.ref = "retrofit" }
 retrofit-gson                      = { group = "com.squareup.retrofit2",     name = "converter-gson",                 version.ref = "retrofit" }
 okhttp-logging                     = { group = "com.squareup.okhttp3",       name = "logging-interceptor",            version.ref = "okhttp" }
@@ -60,6 +68,11 @@ savedstate                         = { group = "androidx.savedstate",        nam
 paging-runtime                     = { group = "androidx.paging",            name = "paging-runtime",                 version.ref = "paging" }
 paging-compose                     = { group = "androidx.paging",            name = "paging-compose",                 version.ref = "paging" }
 room-paging                        = { group = "androidx.room",              name = "room-paging",                    version.ref = "room" }
+work-runtime                       = { group = "androidx.work",              name = "work-runtime-ktx",               version.ref = "workRuntime" }
+compose-shimmer                    = { group = "com.valentinilk.shimmer",    name = "shimmer",                        version.ref = "shimmer" }
+compose-charts                     = { group = "io.github.ehsannarmani",     name = "compose-charts",                 version.ref = "composeCharts" }
+mlkit-text-recognition             = { group = "com.google.mlkit",           name = "text-recognition",               version.ref = "mlkitTextRec" }
+lottie-compose                     = { group = "com.airbnb.android",         name = "lottie-compose",                 version.ref = "lottie" }
 robolectric                        = { group = "org.robolectric",            name = "robolectric",                    version.ref = "robolectric" }
 kotlinx-coroutines-android         = { group = "org.jetbrains.kotlinx",      name = "kotlinx-coroutines-android",     version.ref = "coroutines" }
 kotlinx-coroutines-test            = { group = "org.jetbrains.kotlinx",      name = "kotlinx-coroutines-test",        version.ref = "coroutines" }
@@ -71,8 +84,8 @@ mockk                              = { group = "io.mockk",                   nam
 turbine                            = { group = "app.cash.turbine",           name = "turbine",                        version.ref = "turbine" }
 
 [plugins]
-android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android      = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-compose      = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-ksp                 = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-hilt                = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+android-application = { id = "com.android.application",              version.ref = "agp" }
+kotlin-android      = { id = "org.jetbrains.kotlin.android",         version.ref = "kotlin" }
+kotlin-compose      = { id = "org.jetbrains.kotlin.plugin.compose",  version.ref = "kotlin" }
+ksp                 = { id = "com.google.devtools.ksp",              version.ref = "ksp" }
+hilt                = { id = "com.google.dagger.hilt.android",       version.ref = "hilt" }

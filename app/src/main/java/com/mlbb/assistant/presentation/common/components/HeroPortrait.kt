@@ -24,10 +24,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Tier
 import com.mlbb.assistant.presentation.common.theme.*
+import com.valentinilk.shimmer.shimmer
 
 /**
  * HeroPortrait wraps itself in a Column so [showName] is self-contained and does
@@ -37,6 +38,13 @@ import com.mlbb.assistant.presentation.common.theme.*
  * - Parent Column carries a merged contentDescription covering both portrait + name
  * - Tier badge increased from 8sp → 10sp minimum for readability
  * - Empty/missed slots use Material Icons instead of emoji text ("✕" / "?")
+ *
+ * Image loading (recommendations.md §8.1):
+ * - Uses [SubcomposeAsyncImage] from Coil 3 to gain access to the loading state.
+ * - A [shimmer] modifier animates a gradient sweep over a [SurfaceMid] placeholder
+ *   Box while the hero portrait loads from the network.
+ * - Error state falls back to the [QuestionMark] icon rather than a broken-image
+ *   indicator, matching the visual language of empty portrait slots.
  */
 @Composable
 fun HeroPortrait(
@@ -102,11 +110,30 @@ fun HeroPortrait(
                 }
                 else -> {
                     if (hero.imageUrl.isNotBlank()) {
-                        AsyncImage(
+                        SubcomposeAsyncImage(
                             model              = hero.imageUrl,
                             contentDescription = null,   // parent semantics covers hero name + tier
                             contentScale       = ContentScale.Crop,
-                            modifier           = Modifier.fillMaxSize()
+                            modifier           = Modifier.fillMaxSize(),
+                            loading = {
+                                // Shimmer placeholder while network image loads.
+                                // Uses the parent Box clip so no additional clipping needed.
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .shimmer()
+                                        .background(SurfaceMid)
+                                )
+                            },
+                            error = {
+                                // Graceful fallback on load failure — mirrors the empty slot icon.
+                                Icon(
+                                    imageVector        = Icons.Rounded.QuestionMark,
+                                    contentDescription = null,
+                                    tint               = TextDisabled,
+                                    modifier           = Modifier.size(size * 0.45f)
+                                )
+                            }
                         )
                     } else {
                         Icon(

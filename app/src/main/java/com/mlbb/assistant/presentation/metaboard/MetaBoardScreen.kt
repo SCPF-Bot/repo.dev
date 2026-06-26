@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,14 +22,29 @@ import com.mlbb.assistant.domain.model.Tier
 import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
 import com.mlbb.assistant.presentation.common.theme.*
+import com.valentinilk.shimmer.shimmer
 
 enum class MetaTab { TIER_LIST, TRENDING, BY_ROLE }
+
+/**
+ * Number of shimmer placeholder rows shown below each tier label
+ * while the hero list loads.
+ */
+private const val SHIMMER_ROW_COUNT    = 5
+private const val SHIMMER_HERO_PER_ROW = 5
+private const val SHIMMER_PORTRAIT_DP  = 48
 
 @Composable
 fun MetaBoardScreen(
     heroes: List<Hero>,
     onHeroClick: (Hero) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /**
+     * When true, the tab content is replaced by a shimmer skeleton.
+     * Defaults to false so existing call sites without loading state
+     * continue to behave as before.
+     */
+    isLoading: Boolean = false
 ) {
     var activeTab by remember { mutableStateOf(MetaTab.TIER_LIST) }
 
@@ -72,10 +88,61 @@ fun MetaBoardScreen(
             }
         }
 
-        when (activeTab) {
-            MetaTab.TIER_LIST -> TierListView(heroes = heroes, onHeroClick = onHeroClick)
-            MetaTab.TRENDING  -> TrendingView(heroes = heroes, onHeroClick = onHeroClick)
-            MetaTab.BY_ROLE   -> ByRoleView(heroes = heroes, onHeroClick = onHeroClick)
+        if (isLoading) {
+            MetaBoardLoadingSkeleton()
+        } else {
+            when (activeTab) {
+                MetaTab.TIER_LIST -> TierListView(heroes = heroes, onHeroClick = onHeroClick)
+                MetaTab.TRENDING  -> TrendingView(heroes = heroes, onHeroClick = onHeroClick)
+                MetaTab.BY_ROLE   -> ByRoleView(heroes = heroes, onHeroClick = onHeroClick)
+            }
+        }
+    }
+}
+
+/**
+ * Shimmer skeleton that mimics the tier-list layout while heroes are loading.
+ *
+ * Renders [SHIMMER_ROW_COUNT] synthetic tier rows, each containing
+ * [SHIMMER_HERO_PER_ROW] portrait-sized shimmer boxes. All shimmer boxes
+ * share a single [com.valentinilk.shimmer.ShimmerInstance] applied to
+ * the parent column so they pulse synchronously.
+ */
+@Composable
+private fun MetaBoardLoadingSkeleton() {
+    LazyColumn(
+        modifier            = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+            .shimmer(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(SHIMMER_ROW_COUNT) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment     = Alignment.Top
+            ) {
+                // Tier label placeholder
+                Box(
+                    Modifier
+                        .width(32.dp)
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(SurfaceMid)
+                )
+                // Hero portrait placeholders
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    repeat(SHIMMER_HERO_PER_ROW) {
+                        Box(
+                            Modifier
+                                .size(SHIMMER_PORTRAIT_DP.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SurfaceMid)
+                        )
+                    }
+                }
+            }
         }
     }
 }

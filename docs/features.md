@@ -13,7 +13,7 @@
 > **Legacy** = deprecated or superseded flows still present in source.
 
 Reconciled against `versionName 2.0.0` (versionCode 2).
-Last updated: 2026-06-26 (thread-safety & Compose-stability pass: P0-04 + P1-04 — see `docs/temp/findings.md` delta summary and `docs/misc.md`).
+Last updated: 2026-06-26 (P0-05 FrameProcessor thread-safety fix — fourth audit pass; see `docs/temp/findings.md` delta summary and `docs/misc.md`).
 
 ---
 
@@ -56,12 +56,13 @@ Last updated: 2026-06-26 (thread-safety & Compose-stability pass: P0-04 + P1-04 
 | 2.5 | Hero portrait identification (perceptual hash) | 🧪 | `capture/PortraitMatcher.kt`, `PerceptualHash.kt` |
 | 2.6 | Hybrid dHash + histogram matching | ✅ | `capture/PortraitMatcher.kt` |
 | 2.7 | Parallel lazy preload of portrait hashes (TD-08) | ✅ | `capture/PortraitMatcher.kt` |
-| 2.8 | Slot-fill detection via normalised luminance threshold (TD-04, P1-01) | ✅ | `capture/FrameProcessor.kt` (`isSlotFilled` — `copyPixelsToBuffer` bulk read) |
+| 2.8 | Slot-fill detection via normalised luminance threshold (TD-04, P1-01) | ✅ | `capture/FrameProcessor.kt` (`copyPixelsToBuffer` bulk read) |
 | 2.9 | Normalised slot region map (resolution-independent) | ⚠️ | `capture/SlotRegions.kt`, `assets/draft_ui_map.json` |
 | 2.10 | Rank detection from emblem region | ✅ | `capture/RankDetector.kt` |
 | 2.11 | First-pick side detection | ✅ | `capture/FirstPickDetector.kt` |
 | 2.12 | Ban-button visibility detection ("is it our turn?") | ✅ | `capture/FrameProcessor.kt` |
 | 2.13 | Emit only newly filled slots (dedupe across frames) | ✅ | `capture/FrameProcessor.kt` |
+| 2.14 | Thread-safe slot deduplication in FrameProcessor (P0-05) | ✅ | `capture/FrameProcessor.kt` (`ConcurrentHashMap.newKeySet`) |
 
 ---
 
@@ -95,7 +96,7 @@ Last updated: 2026-06-26 (thread-safety & Compose-stability pass: P0-04 + P1-04 
 | 4.4 | Lane-coverage gap detection (missing lanes) | ✅ | `advisor/CompositionAnalyzer.kt` |
 | 4.5 | Composition strengths & weaknesses generation | ✅ | `advisor/CompositionAnalyzer.kt` |
 | 4.6 | Live counter-pick warnings for our picks | ✅ | `advisor/CompositionAnalyzer.kt` |
-| 4.7 | Ban recommendations | 🧪 | `advisor/BanRecommender.kt` |
+| 4.7 | Ban recommendations (flat rank + absolute/reactive split) | 🧪 | `advisor/BanRecommender.kt` (`rank` + `rankSplit`) |
 | 4.8 | Build / item advice (3 core + 3 situational) (TD-02) | ✅ | `advisor/BuildAdvisor.kt` |
 | 4.9 | Enemy intent inference | ✅ | `advisor/EnemyIntentAnalyzer.kt` |
 | 4.10 | Win-condition generation | ✅ | `advisor/WinConditionGenerator.kt` |
@@ -237,3 +238,8 @@ Prior to TD-05, `DraftScorer` used hardcoded constants (`winRate ≥ 0.48`,
 `banRate ≥ 0.40`, `pickRate ≥ 0.30`) derived from a single patch snapshot.
 These were replaced by `computeBounds()` — dataset-derived medians, half-IQR
 scales, and 90th-percentile caps — in `versionCode 2`.
+
+### L4. Removed: RetryInterceptor (OkHttp interceptor with Thread.sleep)
+The `RetryInterceptor` OkHttp interceptor that blocked a thread-pool thread
+during back-off was removed (P1-02). Retry logic moved to `HeroRepositoryImpl`
+using coroutine `delay()`.
