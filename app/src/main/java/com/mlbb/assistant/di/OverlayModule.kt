@@ -2,6 +2,7 @@ package com.mlbb.assistant.di
 
 import android.content.Context
 import android.provider.Settings
+import coil3.ImageLoader
 import com.mlbb.assistant.domain.OverlayController
 import com.mlbb.assistant.presentation.overlay.OverlayService
 import dagger.Module
@@ -15,6 +16,11 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object OverlayModule {
 
+    /**
+     * Provides the domain-layer [OverlayController] implementation backed by
+     * [OverlayService]. Permission check is performed here so callers don't
+     * need to know about [Settings.canDrawOverlays].
+     */
     @Provides
     @Singleton
     fun provideOverlayController(
@@ -23,11 +29,22 @@ object OverlayModule {
         override fun start() {
             if (Settings.canDrawOverlays(context)) OverlayService.start(context)
         }
-        // Pass 3: OverlayService.stop() wraps Context.stopService() which returns Boolean.
-        // Expression body would infer Boolean, conflicting with interface's Unit return type.
-        // Block body discards the Boolean and satisfies fun stop(): Unit.
         override fun stop() {
             OverlayService.stop(context)
         }
     }
+
+    /**
+     * Provides a singleton [ImageLoader] for portrait hash preloading in
+     * [com.mlbb.assistant.presentation.overlay.OverlayCaptureCoordinator].
+     *
+     * Coil's default [ImageLoader] is fine here — it is disk-cached and
+     * lifecycle-aware. Injected rather than constructed inline in the service
+     * so tests can substitute a no-op loader.
+     */
+    @Provides
+    @Singleton
+    fun provideImageLoader(
+        @ApplicationContext context: Context
+    ): ImageLoader = ImageLoader.Builder(context).build()
 }

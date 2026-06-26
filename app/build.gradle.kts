@@ -2,8 +2,13 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // kotlinx.serialization plugin — P3-01 / RA-07; enables @Serializable on DTOs
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    // detekt static analysis — P3-03; config at config/detekt/detekt.yml
+    // Run: ./gradlew detekt   Generate baseline: ./gradlew detektBaseline
+    id("io.gitlab.arturbosch.detekt")
 }
 
 android {
@@ -70,6 +75,14 @@ configurations.all {
     exclude(group = "org.jspecify", module = "jspecify")
 }
 
+// detekt configuration — point at the shared config file
+detekt {
+    config.setFrom("$rootDir/config/detekt/detekt.yml")
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+    buildUponDefaultConfig = true
+    allRules = false
+}
+
 dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
@@ -113,6 +126,10 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
 
+    // kotlinx.serialization runtime — P3-01 / RA-07
+    // Full Gson → kotlinx.serialization migration tracked in todo.md §5.5
+    implementation(libs.kotlinx.serialization.json)
+
     // Coil 3 — image loading
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
@@ -141,6 +158,33 @@ dependencies {
 
     // Lottie: rich Lottie animation support for phase-transition sequences
     implementation(libs.lottie.compose)
+
+    // Balloon (skydoves): tooltip overlay for hero suggestion long-press
+    // Integration target: SuggestionCard.kt + PickPhaseContent.kt — tracked in todo.md §5.7
+    // JitPack dependency — requires maven("https://jitpack.io") in settings.gradle.kts
+    implementation(libs.balloon)
+
+    // ── ML / CV Libraries ─────────────────────────────────────────────────────
+    // ML Kit Object Detection (custom TFLite model): future hero-detector pipeline
+    // Model training via Roboflow required before integration — tracked in todo.md §5.9
+    implementation(libs.mlkit.object.detection)
+
+    // KilianB/JImageHash: WaveletHash + ColorDifferenceHash for PortraitMatcher
+    // Integration target: PortraitMatcher.kt — tracked in todo.md §5.8
+    // JitPack dependency — requires maven("https://jitpack.io") in settings.gradle.kts
+    implementation(libs.jimageshash)
+
+    // ── Platform / OEM Utilities ─────────────────────────────────────────────
+    // AutoStarter: OEM auto-start settings deep-link in PermissionWizardScreen
+    // Integration target: PermissionWizardScreen.kt — tracked in todo.md §5.10
+    // JitPack dependency — requires maven("https://jitpack.io") in settings.gradle.kts
+    implementation(libs.autostarter)
+
+    // JetOverlay: Compose-first floating overlay SDK (rec. §1.1, Critical)
+    // Replaces all WindowManager / LifecycleOwner / touch-handler boilerplate in OverlayService.
+    // Reduces OverlayService from ~1,100 LOC to ~200 LOC (P1-03 resolved via library adoption).
+    // JitPack dependency — requires maven("https://jitpack.io") in settings.gradle.kts
+    implementation(libs.jet.overlay)
 
     // Unit tests
     testImplementation(libs.junit)

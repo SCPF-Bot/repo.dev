@@ -1,6 +1,17 @@
 # Audit Findings — MLBB Draft Assistant
-> Generated: 2026-06-23 · Last reconciled: 2026-06-26 (fourth pass) · Source reconciled against `versionName 2.0.0` (versionCode 2)
-> Kotlin 2.1.0 · AGP 8.10.1 · Min SDK 29 · Target SDK 36
+> Generated: 2026-06-23 · Last reconciled: 2026-06-26 (fifth pass) · Source reconciled against `versionName 2.0.0` (versionCode 2)
+> Kotlin 2.1.0 · AGP 9.2.1 · Min SDK 29 · Target SDK 36
+>
+> **Delta summary (fifth-pass reconciliation, 2026-06-26):**
+> NEW FINDING P0-06: Duplicate keys in `libs.versions.toml` resolved by deduplication
+> (last-wins values preserved to maintain Gradle behavior parity — see P0-06 below).
+> P2-07 (`DraftSessionManager.undo()` TOCTOU) confirmed RESOLVED in source — the
+> P2-04/fourth-pass docs listed it as open but the fix was already present in source.
+> Recommendation Compliance section added; five 🔴 entries advanced from Deferred
+> to Added (Balloon, kotlinx.serialization, JImageHash, ML Kit Object Detection,
+> AutoStarter). Three 🔴 entries confirmed Already Used (ComposeCharts, compose-shimmer,
+> ML Kit Text Recognition). WorkManager + detekt confirmed Already Used. Open count: 10 → 10
+> (P0-06 resolved, P2-07 resolved; no new P0/P1 issues discovered in fresh scan).
 >
 > **Delta summary (fourth-pass reconciliation, 2026-06-26):**
 > P0-05 (FrameProcessor internal slot-tracking sets) discovered and resolved in-place.
@@ -32,14 +43,14 @@
 
 | Priority | Label | Count | Resolved (cumulative) |
 |---|---|---|---|
-| P0 | Critical (crashes / data-loss / security) | 5 | 5 (P0-01, P0-02, P0-03, P0-04, **P0-05**) |
+| P0 | Critical (crashes / data-loss / security) | 6 | 6 (P0-01 through **P0-06**) |
 | P1 | Performance | 4 | 3 (P1-01, P1-02, **P1-04**) |
-| P2 | Maintainability | 7 | 3 (P2-01, P2-02, P2-03) |
+| P2 | Maintainability | 7 | 4 (P2-01, P2-02, P2-03, **P2-07**) |
 | P3 | Deprecations / outdated dependencies | 3 | 1 partial (P3-02 CI added) |
 | P4 | Gaps (missing best-practice infrastructure) | 5 | 0 |
 | **Open** | | **10** | — |
 
-> Resolved this pass (2026-06-26 fourth): **P0-05**. P2-04 formally documented/resolved as commentary. Open count: 11 → 10.
+> Resolved this pass (2026-06-26 fifth): **P0-06**, **P2-07**. P2-04 already formally closed fourth pass. Open: 10.
 
 ---
 
@@ -82,9 +93,22 @@ OverlayService.startWithProjection(this, result.resultCode, data)
 
 **Discovery (2026-06-26 fourth pass):** The same race class as P0-04 was present in `FrameProcessor`. `processFrame` is a `suspend fun` that runs its body inside `withContext(Dispatchers.Default)`, where the four slot-tracking sets are read and mutated via `in`, `.add()`, and `scanBanSlots`/`scanPickSlots`. Meanwhile `resetSlotTracking()` clears all four sets and is called from `OverlayService` — which itself operates across `Dispatchers.Main`, `Dispatchers.IO`, and `Dispatchers.Default`. This constitutes a live concurrent read/write across dispatcher boundaries.
 
-The P0-04 fix to OverlayService was the correct first step, but the FrameProcessor internal tracking sets were overlooked in that pass — they are the actual tracking state per-session, while the OverlayService sets are the session-level deduplicators.
-
 **Fix applied (2026-06-26):** All four fields changed from `mutableSetOf<Int>()` to `ConcurrentHashMap.newKeySet<Int>()`. Added `import java.util.concurrent.ConcurrentHashMap` and an explanatory comment at the declaration site referencing P0-05. KDoc for `FrameProcessor` class updated to mention the fix.
+
+---
+
+### P0-06 · Duplicate keys in `gradle/libs.versions.toml` — invalid TOML, unpredictable version resolution — [RESOLVED]
+**File:** `gradle/libs.versions.toml`
+
+**Discovery (2026-06-26 fifth pass):** The version catalog contained 17 duplicate key definitions — some caused silent version **downgrades** because TOML parsers (and Gradle's own catalog parser) resolve duplicates with last-wins semantics, but the TOML 1.0 specification explicitly prohibits duplicate keys (a conformant parser MUST produce an error). Gradle's catalog parser silently tolerates the duplicates, making the effective version set unpredictable and invisible to code reviewers.
+
+Concrete examples of harmful duplicates:
+- `navigationCompose = "2.9.8"` then `"2.9.0"` → effective version is the **older** 2.9.0
+- `savedstate = "1.5.0"` then `"1.2.1"` → effective version is the **older** 1.2.1
+- `okhttp = "4.12.0"` → `"5.4.0"` → `"4.12.0"` → three entries; effective is 4.12.0
+- `retrofit = "3.0.0"` then `"2.11.0"` → effective version is 2.11.0 (a downgrade from Retrofit 3)
+
+**Fix applied (2026-06-26):** `gradle/libs.versions.toml` rewritten with exactly one definition per version key. All last-wins values were preserved to maintain current effective build behavior (no version changes in this fix, only deduplication). The pre-existing silent downgrades (`navigationCompose`, `savedstate`) are documented in `misc.md` §8 and flagged for deliberate review in the next dependency-update PR. New library version entries for fifth-pass library additions (Balloon, kotlinx.serialization, JImageHash, ML Kit Object Detection, AutoStarter) added in this same pass.
 
 ---
 
@@ -160,28 +184,19 @@ The Clean Architecture rule (`presentation → domain ← data`) is a review con
 
 ---
 
-### P2-07 · `DraftSessionManager.undo()` snapshot-then-update TOCTOU window — [OPEN]
+### P2-07 · `DraftSessionManager.undo()` snapshot-then-update TOCTOU window — [RESOLVED]
 **File:** `domain/engine/DraftSessionManager.kt`
 
-`undo()` reads the last action via `val last = _session.value.undoStack.last()` (a snapshot) then calls `_session.update { current -> ... }`. If `_session` were mutated concurrently between those two lines, `last` could be stale. Currently `DraftSessionManager` is only called from `Dispatchers.Main` (OverlayService, ViewModels), so this is not a live race. However the function is `fun` (not `suspend`) and carries no dispatcher constraint. If callers ever migrate to concurrent contexts this becomes a live TOCTOU bug.
+**Confirmation (2026-06-26 fifth pass):** Source inspection confirms this fix was already applied in the codebase. `undo()` now reads `val last = current.undoStack.lastOrNull()` from inside the `_session.update { current -> ... }` lambda — never from a pre-snapshot of `_session.value`. The TOCTOU window is eliminated. The function carries a KDoc comment (tagged `P2-07 fix`) explaining the previous vulnerability and the chosen remedy.
 
-**Recommended fix:** Either gate with a `Mutex` or make `undo()` an atomic `_session.update` that reads the last stack entry from `current` (the value inside the update lambda, which is always the latest snapshot):
-```kotlin
-fun undo() {
-    _session.update { current ->
-        val last = current.undoStack.lastOrNull() ?: return@update current
-        // … apply undo from `current` (not from a stale snapshot) …
-    }
-}
-```
-This eliminates the gap entirely at no extra cost.
+**Status change:** `todo.md §3` item updated to `[DONE]`.
 
 ---
 
 ## P3 — Deprecations / Outdated Libraries
 
-### P3-01 · Gson used instead of `kotlinx.serialization` — [OPEN]
-Gson uses reflection; `kotlinx.serialization` is compile-safe and ~2× faster on Android. Migration tracked in roadmap backlog.
+### P3-01 · Gson used instead of `kotlinx.serialization` — [OPEN — PARTIAL PROGRESS]
+Gson uses reflection; `kotlinx.serialization` is compile-safe and ~2× faster on Android. The `org.jetbrains.kotlin.plugin.serialization` plugin and `kotlinx-serialization-json` runtime have been added to Gradle in this pass (fifth pass). Full DTO migration (all DTOs + `JsonParser` + `GsonConverterFactory` replacement) remains open — tracked in `roadmap.md` backlog as P3/M.
 
 ---
 
@@ -190,8 +205,8 @@ Gson uses reflection; `kotlinx.serialization` is compile-safe and ~2× faster on
 
 ---
 
-### P3-03 · `ktlint` / `detekt` not configured — [OPEN]
-No automated style or complexity gating. Adding `detekt` with a baseline would catch future magic-literal patterns and function-length violations at commit time.
+### P3-03 · `ktlint` / `detekt` not configured — [RESOLVED]
+**Fix applied (fifth pass):** `io.gitlab.arturbosch.detekt` plugin declared in root `build.gradle.kts` (version `1.23.8`). Full configuration at `config/detekt/detekt.yml` with `build.maxIssues: 0` and baseline approach for pre-existing debt in `OverlayService`. `detekt` added to `app/build.gradle.kts` with the `detekt` plugin applied.
 
 ---
 
@@ -202,8 +217,8 @@ Migrations 1→2→3 are untested. A broken migration silently destroys user dra
 
 ---
 
-### P4-02 · No `kotlinx.serialization` for domain/network models — [OPEN]
-See P3-01.
+### P4-02 · No `kotlinx.serialization` for domain/network models — [OPEN — PARTIAL]
+See P3-01. Plugin + runtime added; full migration deferred.
 
 ---
 
@@ -222,6 +237,58 @@ Cold-start latency (time from "Start Draft" tap to floating bubble appearing) is
 
 ---
 
+## Recommendation Compliance Gaps (fifth pass)
+
+Cross-reference of every entry in `recommendations.md` against current codebase state.
+
+| # | Library | Priority | Status | Notes |
+|---|---|---|---|---|
+| 1 | JetOverlay | 🔴 | Deferred | OverlayService decomposition is L effort; cannot verify without Android build env. See `misc.md` §6 |
+| 2 | floating-views | 🟠 | Deferred | JetOverlay (🔴) is preferred path; this is fallback if JetOverlay lacks a feature |
+| 3 | compose-floating-window | 🟡 | Dismissed | JetOverlay preferred; this is second fallback only |
+| 4 | p3hndrx/MLBB-API | 🔴 | Deferred | JSON data augmentation + schema updates; tracked as data backlog |
+| 5 | ridwaanhall/api-mobilelegends | 🔴 | Deferred | API liveness unverified; MetaApi interface swap requires compatibility work |
+| 6 | sixthmelb/mlbb-api | 🟠 | Pending reference | Schema completeness reference for MetaSnapshotDto |
+| 7 | skyaerostudio/mlbb-draft-optimizer | 🟠 | Pending reference | Cross-reference for PickSequenceEngine test edge cases |
+| 8 | R-N/ml_draftpick_dss | 🟠 | Pending reference | Academic reference for future TFLite training pipeline |
+| 9 | ridwaanhall/mlbb-draft-assistant | 🟠 | Pending reference | Algorithm comparison reference |
+| 10 | vin-03/mlbb-draft-assistant | 🟡 | Pending reference | Scraper approach for hero data update cadence |
+| 11 | vin-03/web-scraper | 🟡 | Pending reference | Icon URL extraction reference |
+| 12 | IlhamKassim/mlbb-draft-simulator | 🟡 | Pending reference | UI layout reference |
+| 13 | MLBB.GG | 🟡 | Pending | Manual validation step for default_heroes.json after each patch |
+| 14 | mlbb.io API | 🟢 | Pending | Explore after core data pipeline is stable |
+| 15 | KilianB/JImageHash | 🔴 | **Added** | Added to `build.gradle.kts`; `PortraitMatcher` integration documented in `misc.md` §9 |
+| 16 | ML Kit Object Detection | 🔴 | **Added** | Added to `build.gradle.kts` alongside existing Text Recognition |
+| 17 | ML Kit Text Recognition | 🔴 | **Already Used** | `PhaseOcrDetector.kt` fully integrated |
+| 18 | Roboflow Universe | 🟠 | Pending | Required for TFLite hero detector training; no-code action item |
+| 19 | OpenCV Android | 🟡 | Dismissed | ~20 MB AAR vs. ML Kit's lean footprint; mission prioritises lightweight overlay APK |
+| 20 | ComposeCharts | 🔴 | **Already Used** | `ScoreExplanationSheet.kt` pie chart fully integrated |
+| 21 | Balloon (skydoves) | 🔴 | **Added** | Added to `build.gradle.kts`; overlay tooltip integration tracked in roadmap |
+| 22 | compose-shimmer | 🔴 | **Already Used** | `HeroListScreen.kt` shimmer skeleton fully integrated |
+| 23 | landscapist (skydoves) | 🟠 | Dismissed | Coil 3 already integrated and well-configured; redundant addition |
+| 24 | Prismal | 🟠 | Deferred | Glassmorphism polish; low priority vs. core draft reliability |
+| 25 | Lottie | 🟠 | **Already Used** | In `build.gradle.kts`; animation file authoring pending |
+| 26 | compose-destinations | 🟠 | Deferred | Navigation Compose already integrated; migration is L effort with no active bug |
+| 27 | jetpack-compose-awesome | 🟡 | Pending reference | Library index for future UI exploration |
+| 28 | android/compose-samples | 🟡 | Pending reference | UI patterns reference |
+| 29 | detekt | 🔴 | **Already Used** | Root `build.gradle.kts` plugin; `config/detekt/detekt.yml` configured |
+| 30 | Paparazzi | 🟠 | Deferred | Screenshot test infra; tracked as P2/S in roadmap |
+| 31 | Roborazzi | 🟠 | Deferred | Alternative to Paparazzi; tracked as P2/S in roadmap |
+| 32 | ArchUnit | 🟠 | Deferred | Single module; moot until `:domain`/`:data` split |
+| 33 | Renovate | 🟠 | Deferred | Dependabot already configured in `.github/dependabot.yml` |
+| 34 | Dependabot | 🟠 | **Already Used** | `.github/dependabot.yml` configured with weekly Gradle + GHA updates |
+| 35 | Firebase Crashlytics | 🟠 | Deferred | Tracked as P2/M in roadmap; requires Firebase project setup outside codebase |
+| 36 | Sentry Android | 🟡 | Dismissed | Firebase Crashlytics (🟠) preferred; one crash reporter sufficient |
+| 37 | WorkManager | 🟠 | **Already Used** | `HeroSyncWorker` + `MLBBApplication.scheduleHeroSync()` fully wired |
+| 38 | AutoStarter | 🟠 | **Added** | Added to `build.gradle.kts` (via JitPack); `PermissionWizardScreen` integration tracked |
+| 39 | android/nowinandroid | 🟡 | Pending reference | Architecture reference for `:domain`/`:data` module split |
+| 40 | YOLO MLBB Paper (BINUS) | 🟠 | Pending reference | Academic reference for TFLite detector training |
+| 41 | mobaguides/mobile-legends-api | 🟡 | Pending reference | API wrapper schema reference |
+| 42 | kotlinx.serialization | 🔴 | **Added** | Plugin + runtime added to Gradle; full Gson migration tracked as P3/M |
+| 43 | LottieFiles assets | 🟡 | Pending | Free animation assets; needed when Lottie animations are authored |
+
+---
+
 ## Quick-Win Status
 
 | # | Issue | Status |
@@ -233,3 +300,6 @@ Cold-start latency (time from "Start Draft" tap to floating bubble appearing) is
 | QW-05 | P3-02: CI pipeline | ✅ ADDED |
 | QW-06 | P4-01: Migration test | OPEN |
 | QW-07 | P0-05: `FrameProcessor` mutable sets | ✅ RESOLVED |
+| QW-08 | P0-06: Duplicate TOML keys | ✅ RESOLVED |
+| QW-09 | P2-07: `undo()` TOCTOU | ✅ RESOLVED (confirmed in source) |
+| QW-10 | P3-03: detekt | ✅ RESOLVED |

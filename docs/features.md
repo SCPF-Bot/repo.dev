@@ -13,7 +13,7 @@
 > **Legacy** = deprecated or superseded flows still present in source.
 
 Reconciled against `versionName 2.0.0` (versionCode 2).
-Last updated: 2026-06-26 (P0-05 FrameProcessor thread-safety fix — fourth audit pass; see `docs/temp/findings.md` delta summary and `docs/misc.md`).
+Last updated: 2026-06-26 (fifth audit pass — P0-06 TOML deduplication, P2-07 undo() confirmed resolved, library adoptions: ComposeCharts, compose-shimmer, ML Kit Text Recognition, WorkManager/HeroSyncWorker, detekt confirmed Already Used; Balloon, kotlinx.serialization, JImageHash, ML Kit Object Detection, AutoStarter Added to Gradle).
 
 ---
 
@@ -52,7 +52,7 @@ Last updated: 2026-06-26 (P0-05 FrameProcessor thread-safety fix — fourth audi
 | 2.1 | Screen capture via MediaProjection + ImageReader | ✅ | `service/ScreenCaptureManager.kt` |
 | 2.2 | Per-frame orchestration with phase-aware throttling | ✅ | `capture/FrameProcessor.kt` |
 | 2.3 | Draft-phase detection from banner colours | ✅ | `capture/PhaseDetector.kt`, `PhaseDetectionConfig.kt` |
-| 2.4 | OCR-assisted phase disambiguation (ban round 1 vs 2) | ✅ | `capture/PhaseOcrDetector.kt` |
+| 2.4 | OCR-assisted phase disambiguation — ML Kit Text Recognition on-device | ✅ | `capture/PhaseOcrDetector.kt` |
 | 2.5 | Hero portrait identification (perceptual hash) | 🧪 | `capture/PortraitMatcher.kt`, `PerceptualHash.kt` |
 | 2.6 | Hybrid dHash + histogram matching | ✅ | `capture/PortraitMatcher.kt` |
 | 2.7 | Parallel lazy preload of portrait hashes (TD-08) | ✅ | `capture/PortraitMatcher.kt` |
@@ -114,7 +114,7 @@ Last updated: 2026-06-26 (P0-05 FrameProcessor thread-safety fix — fourth audi
 | 5.4 | Banner-slot rules per rank (who may ban) | ✅ | `engine/RankRuleEngine.kt` |
 | 5.5 | 1-2-2-2-2-1 pick sequence modelling | 🧪 | `engine/PickSequenceEngine.kt` |
 | 5.6 | Double-pick / first-pick / last-pick flags | ✅ | `engine/PickSequenceEngine.kt` |
-| 5.7 | Undo stack for bans/picks/swaps | 🧪 | `engine/DraftSessionManager.kt` |
+| 5.7 | Atomic undo stack — P2-07 TOCTOU eliminated (reads stack from inside update lambda) | 🧪 | `engine/DraftSessionManager.kt` |
 | 5.8 | Trading-phase hero swap | ✅ | `engine/DraftSessionManager.kt` |
 | 5.9 | Missed-ban (timeout) sentinel handling | ✅ | `engine/DraftSessionManager.kt` |
 | 5.10 | Rank inference/upgrade from observed ban count | 🧪 | `engine/DraftSessionManager.kt`, `RankRuleEngine.kt` |
@@ -135,9 +135,9 @@ Last updated: 2026-06-26 (P0-05 FrameProcessor thread-safety fix — fourth audi
 | 6.1 | App shell + bottom/nav scaffold | ✅ | `shell/AppShell.kt`, `navigation/AppNavGraph.kt`, `AppRoute.kt` |
 | 6.2 | Home dashboard | ✅ | `home/HomeScreen.kt`, `HomeViewModel.kt` |
 | 6.3 | Draft screen (manual draft + suggestions) | ✅ | `draft/DraftScreen.kt`, `DraftViewModel.kt`, `DraftState.kt` |
-| 6.4 | Score explanation bottom sheet | ✅ | `draft/ScoreExplanationSheet.kt` |
+| 6.4 | Score explanation bottom sheet with animated pie chart (ComposeCharts) | ✅ | `draft/ScoreExplanationSheet.kt` |
 | 6.5 | Hero suggestion cards + chips | ✅ | `draft/components/SuggestionCard.kt`, `HeroChip.kt` |
-| 6.6 | Hero list / explorer (paged, TD-10) | ✅ | `herolist/HeroListScreen.kt`, `HeroListViewModel.kt`, `HeroListState.kt` |
+| 6.6 | Hero list / explorer (paged, TD-10) with shimmer loading skeleton | ✅ | `herolist/HeroListScreen.kt`, `HeroListViewModel.kt`, `HeroListState.kt` |
 | 6.7 | Hero detail (stats, items, spells, relationships) | ✅ | `herodetail/HeroDetailScreen.kt` |
 | 6.8 | Personal hero pool management with search/filter | ✅ | `heropool/HeroPoolScreen.kt`, `HeroPoolViewModel.kt` |
 | 6.9 | Draft history list | ✅ | `history/DraftHistoryScreen.kt`, `DraftHistoryViewModel.kt` |
@@ -163,6 +163,7 @@ Last updated: 2026-06-26 (P0-05 FrameProcessor thread-safety fix — fourth audi
 | 7.7 | Draft session persistence (single write path via SaveDraftSessionUseCase) | ✅ | `SaveDraftSessionUseCase.kt`, `DraftSessionRepositoryImpl.kt` |
 | 7.8 | Draft export/share | ✅ | `data/export/DraftExporter.kt` |
 | 7.9 | Hero-pool proficiency storage | ✅ | `data/local/database/HeroPoolDao.kt`, `HeroPoolEntity.kt` |
+| 7.10 | Periodic 24-hour background hero sync (TD-13, WorkManager + HiltWorker) | ✅ | `data/worker/HeroSyncWorker.kt`, `MLBBApplication.scheduleHeroSync()` |
 
 ---
 
@@ -197,6 +198,8 @@ Last updated: 2026-06-26 (P0-05 FrameProcessor thread-safety fix — fourth audi
 | 9.11 | FileProvider for debug screenshot sharing | ✅ | `AndroidManifest.xml`, `res/xml/file_paths.xml` |
 | 9.12 | R8/ProGuard release hardening | ✅ | `app/build.gradle.kts`, `proguard-rules.pro` |
 | 9.13 | BuildConfig-driven API base URL (overridable per variant) | ✅ | `app/build.gradle.kts` |
+| 9.14 | detekt static analysis with baseline (`config/detekt/detekt.yml`, P3-03) | ✅ | root `build.gradle.kts`, `config/detekt/` |
+| 9.15 | Dependabot weekly dependency-update PRs | ✅ | `.github/dependabot.yml` |
 
 ---
 

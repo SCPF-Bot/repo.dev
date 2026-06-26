@@ -11,6 +11,8 @@ import androidx.work.WorkManager
 import com.mlbb.assistant.data.local.crashlog.AppLogTree
 import com.mlbb.assistant.data.local.crashlog.installCrashHandler
 import com.mlbb.assistant.data.worker.HeroSyncWorker
+import com.mlbb.assistant.presentation.overlay.DraftOverlayContent
+import com.yazanaesmael.jetoverlay.JetOverlay
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -19,83 +21,88 @@ import javax.inject.Inject
 /**
  * Root application class.
  *
- * Implements [Configuration.Provider] so WorkManager uses [HiltWorkerFactory]
- * for dependency injection into workers annotated with [@HiltWorker][HiltWorker].
- * This replaces the default WorkManager initialization — **do not** declare
- * `<provider androidx.startup.InitializationProvider>` with the WorkManager
- * initializer in AndroidManifest.xml, as Hilt's manual configuration takes
- * precedence and the two initialisation paths conflict.
+ * Responsibilities added in the JetOverlay integration pass:
+ * - Calls [initJetOverlay] to register [DraftOverlayContent] as the overlay
+ *   composable. JetOverlay initialises its internal state here so that
+ *   [com.mlbb.assistant.presentation.overlay.OverlayService] only needs to
+ *   call [JetOverlay.show] / [JetOverlay.hide] to control visibility.
  *
- * Scheduled work:
- * - [HeroSyncWorker] runs every 24 hours when the device is connected to a network.
- *   Policy is [ExistingPeriodicWorkPolicy.KEEP] — an existing scheduled request is
- *   never replaced on subsequent app launches.
+ * Note: The overlayContent lambda is registered here but EXECUTED only when
+ * [JetOverlay.show] is called from [OverlayService.onCreate], at which point
+ * [com.mlbb.assistant.presentation.overlay.OverlayContentBridge] is already
+ * populated with the Hilt-injected dependencies.
+ *
+ * Implements [Configuration.Provider] so WorkManager uses [HiltWorkerFactory]
+ * for dependency injection into [@HiltWorker][androidx.hilt.work.HiltWorker]-
+ * annotated workers.  Do not declare the WorkManager startup initializer in
+ * AndroidManifest.xml alongside this provider — the two paths conflict.
  */
 @HiltAndroidApp
 class MLBBApplication : Application(), Configuration.Provider {
 
-    /**
-     * Injected by Hilt. Must be `lateinit` because Hilt injection runs after
-     * [Application] construction but before [onCreate].
-     */
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     override fun onCreate() {
         super.onCreate()
 
-        // Install the global crash-to-file handler first so even crashes during
-        // startup are captured before the process dies.
         installCrashHandler(applicationContext)
 
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
-
-        // Always plant the persistent log tree so WARN/ERROR entries are saved
-        // regardless of build type. The tree writes synchronously to avoid
-        // losing entries when the process is terminated immediately after a crash.
         Timber.plant(AppLogTree(applicationContext))
 
+        initJetOverlay()
         scheduleHeroSync()
     }
 
-    // ── WorkManager configuration (Hilt integration) ──────────────────────────
+    // ── JetOverlay initialisation ─────────────────────────────────────────────
 
     /**
-     * Provides the WorkManager configuration that uses [HiltWorkerFactory]
-     * so worker classes annotated with [@HiltWorker][HiltWorker] receive
-     * injected dependencies correctly.
+     * Registers [DraftOverlayContent] as the composable rendered inside
+     * JetOverlay's floating window.
      *
-     * Note: WorkManager's automatic initialisation via [androidx.startup] must
-     * be disabled (or removed from the manifest) when this provider is present.
+     * Configuration:
+     * - [overlayContent]: the Compose UI (bubble or widget depending on
+     *   [com.mlbb.assistant.presentation.overlay.OverlayStateHolder.isExpanded]).
+     * - Drag-to-dismiss: enabled so users can drag the bubble to the bottom of
+     *   the screen to close the overlay (calls [JetOverlay.hide] internally,
+     *   then the service watchdog detects the closed state and stops itself).
+     * - The notification channel is managed by [OverlayService] (it needs to
+     *   co-exist with the foreground service notification), so JetOverlay's
+     *   notificationConfig is left minimal here.
      */
+    private fun initJetOverlay() {
+        JetOverlay.initialize(this) {
+            overlayContent {
+                DraftOverlayContent()
+            }
+        }
+    }
+
+    // ── WorkManager configuration ─────────────────────────────────────────────
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.WARN)
+            .setMinimumLoggingLevel(
+                if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.WARN
+            )
             .build()
 
-    // ── Periodic background sync scheduling ───────────────────────────────────
+    // ── Periodic hero data sync ───────────────────────────────────────────────
 
     /**
-     * Schedules [HeroSyncWorker] to run every 24 hours when the device is
-     * connected to a network.
-     *
-     * [ExistingPeriodicWorkPolicy.KEEP] ensures subsequent app launches do not
-     * restart the 24-hour countdown — the existing scheduled request is preserved.
-     *
-     * Addresses: recommendations.md §7.1 (WorkManager periodic hero data sync);
-     * `todo.md §10` (OSS library adoption queue — WorkManager + HeroSyncWorker).
+     * Schedules [HeroSyncWorker] to run every 24 hours on a network connection.
+     * [ExistingPeriodicWorkPolicy.KEEP] preserves existing scheduled requests
+     * so repeated app launches do not reset the countdown.
      */
     private fun scheduleHeroSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val request = PeriodicWorkRequestBuilder<HeroSyncWorker>(
-            repeatInterval = 24,
-            repeatIntervalTimeUnit = TimeUnit.HOURS
-        )
+        val request = PeriodicWorkRequestBuilder<HeroSyncWorker>(24, TimeUnit.HOURS)
             .setConstraints(constraints)
             .build()
 

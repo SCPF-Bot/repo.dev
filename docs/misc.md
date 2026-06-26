@@ -141,15 +141,15 @@ unverified breakage is unacceptable:
    Tracked: `roadmap.md` → Architecture & code quality (P1/L), `todo.md` §3.
 
 2. **OSS-library injection / Gson → `kotlinx.serialization` migration (P3-01).**
-   *Deviation rationale:* Swapping the JSON engine touches every DTO, `JsonParser`, and
-   the Retrofit converter factory, and interacts with R8 keep-rules. Without a build to
-   prove ProGuard rules still cover the (now reflection-free) models, this is a
-   regression risk on release builds. *Reconciliation path:* execute as its own change
-   with a minified-build smoke test. Tracked: `roadmap.md` backlog (P3/M), `todo.md` §3.
-
-3. **No new third-party dependencies were added.** The mission frames the app as a
-   lightweight overlay; the open findings are addressable with the existing stack, so
-   adding libraries would have been net-negative weight for no mission benefit.
+   *Deviation rationale (third pass):* Swapping the JSON engine touches every DTO,
+   `JsonParser`, and the Retrofit converter factory, and interacts with R8 keep-rules.
+   Without a build to prove ProGuard rules still cover the (now reflection-free) models,
+   this is a regression risk on release builds.
+   *Reconciliation path (fifth pass, 2026-06-26):* The `kotlinx.serialization` plugin
+   and runtime dependency have been added to Gradle in the fifth pass. The standing
+   deferral on the full migration (source-code changes to DTOs + `JsonParser` +
+   `NetworkModule`) remains — execute as its own change with a minified-build smoke test.
+   Tracked: `roadmap.md` backlog (P3/M), `todo.md` §5.5.
 
 ### Standing principle for future autonomous passes
 Prefer *small, verifiable, source-compatible* fixes (like P0-04 and P1-04) over large
@@ -191,24 +191,98 @@ the standing principle from §6:
 
 | Library | Priority | Decision | Rationale |
 |---|---|---|---|
-| `ehsannarmani/ComposeCharts` | 🔴 | **Deferred** | Adds a Compose charting dependency. The ScoreExplanationSheet change is safe but cannot be build-verified without a Gradle/AGP environment. Low regression risk but adds binary weight. Tracked in `todo.md §10`. |
-| `skydoves/Balloon` | 🔴 | **Deferred** | Tooltip integration in overlay composables requires careful WindowManager interaction testing. Cannot verify no z-order conflict with the overlay window. Tracked in `todo.md §10`. |
-| `valentinilk/compose-shimmer` | 🔴 | **Deferred** | Zero-risk shimmer addition to list screens is safe but cannot be build-verified. Mission-neutral (shimmer is a UX polish, not a core overlay feature). Tracked in `todo.md §10`. |
-| `kotlinx.serialization` | 🔴 | **Deferred** | Gson replacement requires all DTOs + `JsonParser` + Retrofit converter factory changes + R8 keep-rule validation. High regression risk on release builds without a minified smoke test. Tracked as P3-01. |
-| WorkManager `HeroSyncWorker` | 🟠 | **Deferred** | Adds two new dependencies (`work-runtime-ktx`, `hilt-work`) and a new component. Worth doing but not a P0/P1 issue. Tracked in `todo.md §10`. |
-| `judemanutd/AutoStarter` | 🟠 | **Deferred** | OEM-specific intent handling; cannot validate without physical device testing on Xiaomi/OPPO/Vivo. Tracked in `todo.md §10`. |
-| `KilianB/JImageHash` | 🔴 | **Deferred** | JVM-compatible but not Android-verified. `WaveletHash` / `ColorDifferenceHash` improve portrait matching but require integration with `PortraitMatcher` and regression testing against the existing hash corpus. |
-| `detekt` | 🔴 | **Deferred** | Build tool config change. Low risk but should be done as its own PR with baseline generation. Tracked in `todo.md §5`. |
+| `ehsannarmani/ComposeCharts` | 🔴 | **Already used** | Confirmed in `ScoreExplanationSheet.kt` |
+| `skydoves/Balloon` | 🔴 | **Deferred (promoted 5th pass)** | Added to Gradle in fifth pass |
+| `valentinilk/compose-shimmer` | 🔴 | **Already used** | Confirmed in `HeroListScreen.kt` |
+| `kotlinx.serialization` | 🔴 | **Deferred (promoted 5th pass)** | Plugin + runtime added in fifth pass |
+| WorkManager `HeroSyncWorker` | 🟠 | **Already used** | Confirmed in `MLBBApplication.kt` |
+| `judemanutd/AutoStarter` | 🟠 | **Deferred (promoted 5th pass)** | Added to Gradle in fifth pass |
+| `KilianB/JImageHash` | 🔴 | **Deferred (promoted 5th pass)** | Added to Gradle in fifth pass |
+| `detekt` | 🔴 | **Deferred (promoted 5th pass)** | Applied in `app/build.gradle.kts` fifth pass |
 
-**Deviation from instructions.txt §3 clause "evaluate & inject OSS libraries":**
-The instruction asks for library injection to be executed, not just evaluated. All
-🔴 Critical adoptions are deferred here because: (a) the mission explicitly states
-the overlay is the primary product — adding un-verified binary weight to the APK
-risks the app's performance footprint without proof of benefit; (b) without an
-Android/Gradle build environment, `build.gradle.kts` + `libs.versions.toml` edits
-cannot be compile-verified, and bad Gradle syntax silently breaks CI.
+---
 
-*Reconciliation path:* Each deferred library is queued in `todo.md §10` with its
-exact Gradle coordinate. Adoption should proceed one library per PR behind the CI
-workflow added in P3-02, starting with `compose-shimmer` (lowest risk, highest UX
-impact per line of code added).
+## 8. `libs.versions.toml` duplicate key cleanup (2026-06-26, P0-06)
+
+**Problem:** `gradle/libs.versions.toml` had 17 duplicate key entries. The TOML 1.0
+spec prohibits duplicate keys; Gradle's catalog parser silently tolerates them with
+last-wins semantics, making the effective version set unpredictable and invisible.
+
+**Cleaning approach:** The file was rewritten with exactly one entry per key, preserving
+the last-defined value for each duplicate to maintain exact current build behavior.
+
+**Suspicious downgrades discovered during cleanup** (last-wins value was an OLDER version
+than the first entry — not corrected in this pass; flagged for deliberate review):
+
+| Key | First entry | Last entry (effective) | Notes |
+|---|---|---|---|
+| `coreKtx` | `1.19.0` | `1.16.0` | Unclear why 1.16.0 was added after 1.19.0 |
+| `navigationCompose` | `2.9.8` | `2.9.0` | Downgrade; 2.9.0 was a stable release |
+| `savedstate` | `1.5.0` | `1.2.1` | Significant downgrade; review in next dependency PR |
+| `retrofit` | `3.0.0` | `2.11.0` | 3.0.0 is a major version with breaking changes; deliberate downgrade |
+| `okhttp` | `4.12.0` → `5.4.0` | `4.12.0` | Three entries; effectively unchanged at 4.12.0 |
+
+**Action:** The above downgrades should be reviewed in the next dependency-update PR.
+Check each in context of the app's minimum-SDK support (29) and Retrofit breaking
+changes (3.x) before upgrading. Do **not** blindly bump all to the first-defined
+(higher) version — the last-defined values are what the CI has been building against.
+
+---
+
+## 9. JImageHash integration pattern for PortraitMatcher (2026-06-26, RA-04)
+
+`KilianB/JImageHash` (`com.github.KilianB:JImageHash:3.0.0`) has been added to
+`build.gradle.kts`. When integrating into `PortraitMatcher.kt`:
+
+**Recommended algorithm pairing:**
+- **Primary:** `WaveletHash` — perceptually robust to colour variation and compression
+  artifacts; best for MLBB portrait crops where saturation differs by skin tier.
+- **Secondary/verification:** `ColorDifferenceHash` — adds colour discrimination
+  that dHash misses, helping separate heroes with similar silhouettes (e.g. all
+  Fighter-archetype heroes with golden frames).
+- **Fallback:** Keep `PerceptualHash.dHash()` as a lightweight offline fallback for
+  scenarios where the JVM JImageHash library is not available or causes startup delay.
+
+**Integration guard:** JImageHash JARs are JVM-only; ensure all calls to JImageHash
+APIs are wrapped in a `runCatching {}` block with a fallback to the existing dHash
+path. This prevents a missing/incompatible class from crashing the CV pipeline.
+
+**Benchmark before merging:** Run `PerceptualHashTest` portrait suite through both
+the old and new paths; the JImageHash path must show a false-positive rate ≤ 2%
+before the dHash path is removed.
+
+---
+
+## 10. kotlinx.serialization migration guidance (2026-06-26, RA-07)
+
+The `org.jetbrains.kotlin.plugin.serialization` plugin (version `2.1.0`, matching
+Kotlin) and `org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3` runtime have
+been added to Gradle in the fifth pass.
+
+**Migration path (tracked in `todo.md` §5.5):**
+
+1. **DTOs first:** Add `@Serializable` to `MetaSnapshotDto` and `HeroApiDto`. Replace
+   `@SerializedName("field_name")` with `@SerialName("field_name")`. Verify field names
+   match the JSON keys exactly (kotlinx.serialization is strict; Gson is lenient).
+
+2. **JsonParser:** Replace `Gson().fromJson<List<HeroApiDto>>(json, ...)` with
+   `Json.decodeFromString<List<HeroApiDto>>(json)`. The `Json` instance should be
+   configured as `Json { ignoreUnknownKeys = true; coerceInputValues = true }` to
+   match Gson's default leniency toward unknown/null JSON fields.
+
+3. **Retrofit:** Swap `GsonConverterFactory.create(gson)` in `NetworkModule` for
+   `Json.asConverterFactory("application/json".toMediaType())` from
+   `com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter`. Add this
+   converter artifact to `libs.versions.toml` when executing this step.
+
+4. **R8 verification:** Run `./gradlew assembleRelease` with a minified build to
+   confirm no ProGuard errors. `kotlinx.serialization` generates `Serializer` companion
+   classes via the plugin — these are not reflection-based but the generated class names
+   may need explicit keep rules if the serializers are referenced through `KClass`.
+
+5. **Remove Gson** once all three entry points above have been migrated and the release
+   build is confirmed passing.
+
+**Do NOT** annotate `@Serializable` on Room `@Entity` classes — Room entities are
+handled by the Room KSP processor, not by kotlinx.serialization. Mixing the two
+annotation processors on the same class causes KSP conflicts.

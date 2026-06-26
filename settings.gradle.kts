@@ -10,6 +10,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // JitPack — required for:
+        //   • skydoves/Balloon           (com.github.skydoves:balloon:1.6.12)        — rec. §8.4 / RA-06
+        //   • KilianB/JImageHash         (com.github.KilianB:JImageHash:3.0.0)       — rec. §3.1 / RA-04
+        //   • judemanutd/AutoStarter     (com.github.judemanutd:autostarter:1.1.0)   — rec. §2.4 / RA roadmap
+        maven(url = "https://jitpack.io")
     }
 }
 rootProject.name = "MLBB Assistant 2.0"

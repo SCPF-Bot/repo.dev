@@ -25,7 +25,7 @@
 - Room v3 with exported schema + migrations 1→2→3
 - Single DataStore delegate (no duplicate-delegate crash)
 - Retrofit + OkHttp meta sync with local JSON seed fallback
-- Version catalog (`libs.versions.toml`) as dependency source of truth
+- Version catalog (`libs.versions.toml`) as dependency source of truth — deduplicated (P0-06)
 - Timber + file-backed `CrashLogStore` (mutex-guarded writes, TD-11)
 - Localization scaffold (EN/FIL/ID/MS/TH/VI)
 - Unit-test suite for domain (scoring, engine, advisor, hashing)
@@ -38,7 +38,7 @@
 - Normalised luminance slot-fill detection (TD-04)
 - Config-driven CV thresholds (TD-03, `PhaseDetectionConfig`)
 - Rank detection (`RankDetector`) and first-pick detection (`FirstPickDetector`)
-- OCR-assisted ban round 1/2 disambiguation (`PhaseOcrDetector`)
+- **OCR-assisted ban round 1/2 disambiguation via ML Kit Text Recognition** — `PhaseOcrDetector` fully wired; no reflection, direct imports, lazy recognizer init
 - Per-aspect-ratio slot-region calibration (functional; needs broader device validation)
 
 ### Deeper intelligence
@@ -67,6 +67,9 @@
 - Session phase/rank/first-pick serialised to DataStore (survive OS kills)
 - "Relaunch Overlay" notification action
 
+### Background sync
+- **WorkManager TD-13**: `HeroSyncWorker` runs every 24 h on network; `HiltWorkerFactory` wired through `MLBBApplication`; `ExistingPeriodicWorkPolicy.KEEP` prevents duplicate scheduling
+
 ### TD-xx remediation pass
 - TD-01: `hasCCUlt` field replaces hardcoded CC name list
 - TD-02: Personal hero-pool proficiency multiplier + 6-item builds
@@ -80,29 +83,89 @@
 - TD-10: Paging 3 hero grid
 - TD-11: Mutex-guarded crash-log writes
 - TD-12: Bubble position persistence
+- TD-13: WorkManager periodic hero-data sync (`HeroSyncWorker`)
 
 ### P0/P1 crash-safety & performance remediation pass (2026-06-23)
-- **A1 [COMPLETED]** — P0-01: `imageReader!!.surface` → local `val reader` in `ScreenCaptureManager` — eliminates TOCTOU NPE on the capture pipeline
-- **A1 [COMPLETED]** — P0-02: `state.session!!` → `?: return@Scaffold` in `DraftReplayScreen` — eliminates smart-cast crash on mutable StateFlow property
-- **A1 [COMPLETED]** — P0-03: `result.data!!` → `?: return@registerForActivityResult` in `MainActivity` — eliminates crash on nullable activity-result intent
-- **A2 [COMPLETED]** — P1-01: `Bitmap.getPixel()` loops → `copyPixelsToBuffer` + byte-array iteration in `FrameProcessor` — 5–20× CV hot-path speedup
-- **A3 [COMPLETED]** — P1-02: `RetryInterceptor` (Thread.sleep) removed from `NetworkModule`; coroutine `delay`-based retry added to `HeroRepositoryImpl.syncHeroes()` — eliminates OkHttp thread-pool starvation under concurrent requests
+- **A1 [COMPLETED]** — P0-01: `imageReader!!.surface` → local `val reader` in `ScreenCaptureManager`
+- **A1 [COMPLETED]** — P0-02: `state.session!!` → `?: return@Scaffold` in `DraftReplayScreen`
+- **A1 [COMPLETED]** — P0-03: `result.data!!` → `?: return@registerForActivityResult` in `MainActivity`
+- **A2 [COMPLETED]** — P1-01: `Bitmap.getPixel()` loops → `copyPixelsToBuffer` + byte-array iteration in `FrameProcessor`
+- **A3 [COMPLETED]** — P1-02: `RetryInterceptor` (Thread.sleep) removed; coroutine `delay`-based retry in `HeroRepositoryImpl`
 
 ### P2 maintainability pass (2026-06-23)
-- **[COMPLETED]** P2-01: Magic float thresholds extracted into `BuildThresholds` (BuildAdvisor) and `CompThresholds` (CompositionAnalyzer)
+- **[COMPLETED]** P2-01: Magic float thresholds extracted into `BuildThresholds` and `CompThresholds`
 - **[COMPLETED]** P2-02: Dead constant `AppConstants.OVERLAY_NOTIFICATION_CHANNEL_ID` deleted
-- **[COMPLETED]** P2-03: `DraftScorer.computeScore` annotated `@VisibleForTesting` with KDoc warning against production use
+- **[COMPLETED]** P2-03: `DraftScorer.computeScore` annotated `@VisibleForTesting`
 
 ### CI (2026-06-23)
-- **[COMPLETED]** P3-02 (partial): `.github/workflows/ci.yml` added — runs `./gradlew lint testDebugUnitTest assembleDebug` on every push/PR
+- **[COMPLETED]** P3-02 (partial): `.github/workflows/ci.yml` added
+- **[COMPLETED]** Dependabot: `.github/dependabot.yml` added with weekly Gradle + GHA update schedule
 
 ### Thread-safety & Compose-stability pass (2026-06-26)
-- **[COMPLETED]** P0-04: `OverlayService` slot-tracking sets (`filledEnemyBanSlots`, `filledOurBanSlots`, `filledEnemyPickSlots`, `filledOurPickSlots`) migrated from `mutableSetOf` to `ConcurrentHashMap.newKeySet()` — eliminates a live data race between the IO/Default capture loop and session-reset paths
-- **[COMPLETED]** P1-04: `@Immutable` added to all remaining Compose UI-state classes (`HomeUiState`, `InsightsState`, `HeroPoolState`, `HeroPoolEntry`, `LogScreenState`)
+- **[COMPLETED]** P0-04: `OverlayService` slot sets → `ConcurrentHashMap.newKeySet()`
+- **[COMPLETED]** P1-04: `@Immutable` added to all remaining Compose UI-state classes
 
 ### Thread-safety continuation & documentation pass (2026-06-26)
-- **[COMPLETED]** P0-05: `FrameProcessor` internal slot-tracking sets (`filledEnemyBans`, `filledOurBans`, `filledEnemyPicks`, `filledOurPicks`) migrated from `mutableSetOf` to `ConcurrentHashMap.newKeySet()` — the same race class as P0-04 existed in the CV layer: `processFrame` runs inside `withContext(Dispatchers.Default)` while `resetSlotTracking()` is called from OverlayService on other dispatchers
-- **[COMPLETED]** P2-04: TD-09 numbering gap documented and formally resolved — gap is permanent and benign (unassigned reservation, not a missing item); future TD entries start at TD-13
+- **[COMPLETED]** P0-05: `FrameProcessor` internal slot sets → `ConcurrentHashMap.newKeySet()`
+- **[COMPLETED]** P2-04: TD-09 numbering gap documented and formally resolved
+
+### Build hygiene & static analysis pass (2026-06-26, fifth pass)
+- **[COMPLETED]** P0-06: Duplicate keys in `libs.versions.toml` deduped; last-wins values preserved; new library entries added
+- **[COMPLETED]** P2-07: `DraftSessionManager.undo()` TOCTOU confirmed resolved in source (reads stack from inside `_session.update` lambda)
+- **[COMPLETED]** P3-03: `detekt` plugin added to root `build.gradle.kts`; `config/detekt/detekt.yml` fully configured
+
+### OSS library adoption — first wave (2026-06-26, fifth pass)
+- **[COMPLETED]** ComposeCharts — `ScoreExplanationSheet` pie chart confirmed in source
+- **[COMPLETED]** compose-shimmer — `HeroListScreen` shimmer skeleton confirmed in source
+- **[COMPLETED]** ML Kit Text Recognition — `PhaseOcrDetector` confirmed in source
+- **[COMPLETED]** WorkManager + Hilt Work — confirmed in `build.gradle.kts` + `MLBBApplication`
+- **[COMPLETED]** Lottie — confirmed in `build.gradle.kts` (animation assets pending)
+- **[COMPLETED]** Balloon (skydoves) — added to `libs.versions.toml` + `build.gradle.kts`
+- **[COMPLETED]** kotlinx.serialization — plugin + runtime added to Gradle; full migration deferred
+- **[COMPLETED]** KilianB/JImageHash — added to `libs.versions.toml` + `build.gradle.kts`
+- **[COMPLETED]** ML Kit Object Detection (custom) — added to `libs.versions.toml` + `build.gradle.kts`
+- **[COMPLETED]** AutoStarter (judemanutd) — added to `libs.versions.toml` + `build.gradle.kts`
+
+---
+
+## [RECOMMENDATION ADOPTION]
+
+> All 🔴 Critical entries from `docs/temp/recommendations.md` tracked here as active work items.
+
+### RA-01 — JetOverlay integration (🔴 Critical)
+**Effort:** L · **Blocked by:** Android build environment for runtime verification
+**Status:** Deferred. See `misc.md` §6. Will be tracked here until OverlayService decomposition (P1-03) begins.
+Files: `presentation/overlay/OverlayService.kt`
+
+### RA-02 — p3hndrx/MLBB-API hero/item data (🔴 Critical)
+**Effort:** M · **Blocked by:** backend API stability verification
+**Status:** Deferred. Augments `default_heroes.json` with base-stat data for `BuildAdvisor`.
+Files: `data/remote/api/`, `res/raw/default_heroes.json`
+
+### RA-03 — ridwaanhall/api-mobilelegends (🔴 Critical)
+**Effort:** M · **Blocked by:** API liveness confirmation, `META_API_BASE_URL` resolution (P4-04)
+**Status:** Deferred. Best candidate to replace/supplement `MetaApi.GET /v1/meta/snapshot`.
+Files: `data/remote/api/MetaApi.kt`, `data/remote/dto/MetaSnapshotDto.kt`
+
+### RA-04 — KilianB/JImageHash multi-algorithm hashing (🔴 Critical)
+**Effort:** M · **Blocked by:** nothing (dependency added)
+**Status:** Added to Gradle. Integration into `PortraitMatcher.kt` pending — replace custom dHash with `WaveletHash` + `ColorDifferenceHash` for false-positive reduction.
+Files: `capture/PortraitMatcher.kt`, `capture/PerceptualHash.kt`
+
+### RA-05 — ML Kit Object Detection + TFLite hero detector (🔴 Critical)
+**Effort:** L · **Blocked by:** training dataset (Roboflow), model export
+**Status:** Dependency added to Gradle. Model training + integration into `PortraitMatcher` is a multi-step L-effort pipeline tracked in BACKLOG.
+Files: `capture/PortraitMatcher.kt`, `app/src/main/assets/`
+
+### RA-06 — Balloon tooltip for hero suggestions (🔴 Critical)
+**Effort:** M · **Blocked by:** nothing (dependency added)
+**Status:** Added to Gradle. Integration in `PickPhaseContent.kt` and `SuggestionCard.kt` pending.
+Files: `presentation/draft/components/SuggestionCard.kt`, `presentation/overlay/PickPhaseContent.kt`
+
+### RA-07 — kotlinx.serialization full migration (🔴 Critical)
+**Effort:** M · **Blocked by:** minified build smoke test
+**Status:** Plugin + runtime added to Gradle. Full DTO migration (Gson → kotlinx.serialization, `GsonConverterFactory` → `KotlinSerializationConverterFactory`) tracked in backlog. See `misc.md` §10.
+Files: `di/NetworkModule.kt`, `data/remote/dto/MetaSnapshotDto.kt`, `utils/JsonParser.kt`
 
 ---
 
@@ -110,49 +173,35 @@
 
 ### A4 — Maintainability: ban value vs. ban urgency separation (structural refinement)
 **Effort:** M · **Blocked by:** nothing
-**Status:** Partially addressed — `BanRecommender.rankSplit()` already separates absolute from reactive bans. Full separation into dedicated `BanValueScorer` / `BanUrgencyScorer` classes with independent test coverage remains open.
-
+**Status:** Partially addressed — `BanRecommender.rankSplit()` already separates absolute from reactive bans. Full separation into dedicated `BanValueScorer` / `BanUrgencyScorer` classes remains open.
 Files: `domain/advisor/BanRecommender.kt`
 
 ---
 
 ### A5 — Correctness: commit Room schema JSON files
 **Effort:** S · **Blocked by:** nothing
-
-Schema export is configured but it is unconfirmed whether the generated `/schemas/*.json`
-files are committed. Committed schema files are required to author safe future migrations.
-Run `./gradlew :app:kspDebugKotlin` and commit the output.
-
+Schema export is configured but it is unconfirmed whether the generated `/schemas/*.json` files are committed. Run `./gradlew :app:kspDebugKotlin` and commit the output.
 Files: `app/schemas/`
 
 ---
 
 ### A6 — Correctness: personal meta calibration UI
 **Effort:** M · **Blocked by:** `WeightCalibrator` (done); needs larger sample set
-
-`WeightCalibrator` exists but has no UI surface and no minimum-sample gate. Add a
-"Calibrate weights" action in Settings that runs calibration only when ≥ 20 real
-(non-simulation) draft history entries exist, then shows a diff of the old vs proposed weights.
-
+`WeightCalibrator` exists but has no UI surface and no minimum-sample gate.
 Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 
 ---
 
-### A7 — Correctness: DraftSessionManager.undo() atomicity (P2-07)
-**Effort:** S · **Blocked by:** nothing
-
-`undo()` reads the undo stack via a snapshot (`_session.value`) then calls `_session.update`.
-While currently safe (all callers are on Main), this pattern is fragile if callers ever move
-off Main. Fix: read `last` from the `current` value inside the `_session.update` lambda.
-
-Files: `domain/engine/DraftSessionManager.kt`
+### A7 — Correctness: DraftSessionManager.undo() atomicity — **[COMPLETED 2026-06-26]**
+Fixed in source — `undo()` reads from inside `_session.update` lambda. Marked complete.
 
 ---
 
 ## [BACKLOG]
 
 ### Autonomous awareness
-- [ ] Higher-confidence portrait matching via TFLite hybrid model
+- [ ] Higher-confidence portrait matching via TFLite hybrid model (RA-05 pipeline)
+- [ ] JImageHash `WaveletHash` + `ColorDifferenceHash` integration into `PortraitMatcher` (RA-04)
 - [ ] Auto-recalibration of `SlotRegions` from a one-time guided capture
 - [ ] Patch-delta weighting from historical snapshots
 - [ ] Draft-phase-aware "power spike timing" advice
@@ -162,9 +211,10 @@ Files: `domain/engine/DraftSessionManager.kt`
 - [ ] Match timeline replay with frame thumbnails
 
 ### Frictionless deployment
-- [ ] Deep links into exact system-settings pages per OEM (Xiaomi / OPPO / Vivo / Huawei / Samsung / OnePlus) — `judemanutd/AutoStarter` is the recommended library (see `docs/temp/recommendations.md` §9.1)
+- [ ] Deep links into exact system-settings pages per OEM — `AutoStarter` is added to Gradle (see RA roadmap)
 - [ ] Accessibility-service health watchdog with re-setup at the revoked step
 - [ ] One-tap overlay relaunch from the notification after an OS kill (partial — notification action exists; watchdog pending)
+- [ ] Balloon tooltip on hero suggestion long-press in overlay — `skydoves/Balloon` added to Gradle (RA-06)
 
 ### Platform resilience
 - [ ] Verified no-capture mode at full feature parity with autonomous mode
@@ -172,22 +222,15 @@ Files: `domain/engine/DraftSessionManager.kt`
 - [ ] Honest self-status in the overlay: "capture unavailable", "meta data N days old", "accessibility service off"
 
 ### Architecture & code quality
-- [x] **P0/M** `OverlayService` shared mutable sets → `ConcurrentHashMap.newKeySet()` (P0-04). **[COMPLETED 2026-06-26]**
-- [x] **P0/M** `FrameProcessor` internal mutable sets → `ConcurrentHashMap.newKeySet()` (P0-05). **[COMPLETED 2026-06-26]**
-- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. Keep the service as a thin lifecycle shell. **[DEFERRED 2026-06-26 — see `misc.md` §6; not safely verifiable without an Android build/CI run.]**
-- [x] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation (P1-04). **[COMPLETED 2026-06-26]**
+- [x] **P0/M** `OverlayService` shared mutable sets → `ConcurrentHashMap.newKeySet()` (P0-04). **[COMPLETED]**
+- [x] **P0/M** `FrameProcessor` internal mutable sets → `ConcurrentHashMap.newKeySet()` (P0-05). **[COMPLETED]**
+- [x] **P0/M** `libs.versions.toml` duplicate key deduplication (P0-06). **[COMPLETED]**
+- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. **[DEFERRED — see `misc.md` §6]**
+- [x] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation (P1-04). **[COMPLETED]**
 - [ ] **P2/M** Extract overlay state into dedicated `OverlayStateHolder` (narrow recomposition scope)
-- [ ] **P2/M** Introduce `:domain` and `:data` Gradle modules to enforce dependency rule at compile time. **Blocked by:** single-module structure; requires significant build rework.
-- [ ] **P3/M** Migrate Gson → `kotlinx.serialization`. **Blocked by:** requires updating all DTOs and switching `GsonConverterFactory`. See `findings.md` P3-01 for library choice.
-- [ ] **P2/S** Consolidate `DraftScorer.computeScore` → unified `simplified = true` parameter on `score()` (current `@VisibleForTesting` annotation is the interim fix)
-
-### OSS library adoption (from `docs/temp/recommendations.md`)
-- [ ] **🔴/M** `ehsannarmani/ComposeCharts` — radial score breakdown in `ScoreExplanationSheet` (meta/synergy/counter pie chart)
-- [ ] **🔴/M** `skydoves/Balloon` — tooltip on hero suggestion tap; shows score breakdown without navigating away
-- [ ] **🔴/M** `valentinilk/compose-shimmer` — shimmer loading states for HeroList, MetaBoard, and History screens
-- [ ] **🟠/M** `judemanutd/AutoStarter` — OEM auto-start deep links in `PermissionWizardScreen`
-- [ ] **🔴/M** `kotlinx.serialization` — replace Gson; compile-safe + ~2× faster (tracked also as P3-01)
-- [ ] **🟠/M** WorkManager + `HeroSyncWorker` — periodic 24-hour hero data refresh (currently only on app start)
+- [ ] **P2/M** Introduce `:domain` and `:data` Gradle modules to enforce dependency rule at compile time.
+- [ ] **P3/M** Full Gson → `kotlinx.serialization` migration (RA-07). Plugin + runtime added (P3-01 partial).
+- [ ] **P2/S** Consolidate `DraftScorer.computeScore` → unified `simplified = true` parameter
 
 ### Testing & CI
 - [ ] **P1/M** Room migration test (1→2→3) using `MigrationTestHelper`
@@ -196,16 +239,16 @@ Files: `domain/engine/DraftSessionManager.kt`
 - [ ] **P2/M** Unit tests for `WeightCalibrator`, `DraftPatternAnalyzer`, `EnemyIntentAnalyzer`, `WinConditionGenerator`, `BuildAdvisor`, `DraftScoreCalculator`
 - [ ] **P2/M** `FrameProcessor` slot-dedupe and throttle tests with synthetic bitmaps (Robolectric)
 - [ ] **P2/S** `DraftExporter` round-trip serialisation test
-- [ ] **P2/S** Add `detekt` with a baseline (catches magic literals, function-length violations)
+- [ ] **P2/S** Add `detekt` baseline (run `./gradlew detektBaseline` to generate)
 - [ ] **P3/S** Baseline profile for startup performance
 
 ### Observability
-- [ ] **P2/M** Remote crash reporting (Firebase Crashlytics or Sentry) gated behind settings toggle
+- [ ] **P2/M** Remote crash reporting (Firebase Crashlytics) gated behind settings toggle
 - [ ] **P2/S** "Share logs" action from `LogScreen` via existing FileProvider
-- [ ] **P3/S** Structured detection-accuracy event logging (phase-detect confidence, match confidence)
+- [ ] **P3/S** Structured detection-accuracy event logging
 
 ### Data & content
-- [ ] **P1/M** Confirm `META_API_BASE_URL` is live or document bundled-seed-only mode with staleness indicator
+- [ ] **P1/M** Confirm `META_API_BASE_URL` is live or document bundled-seed-only mode with staleness indicator (P4-04)
 - [ ] **P2/M** `lastUpdated`/patch-version metadata in meta snapshot + displayed in MetaBoard
 - [ ] **P2/M** Update cadence/source for `default_heroes.json` (counters/synergies/tiers drift each patch)
 - [ ] **P3/M** Community-sourced counter/synergy data with confidence weighting

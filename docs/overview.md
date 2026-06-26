@@ -3,6 +3,10 @@
 > **Status:** Living document. Update whenever a module boundary, dependency, or
 > data-flow contract changes. Last reconciled against source at `versionName 2.0.0`
 > (`versionCode 2`). For audit findings see [`docs/temp/findings.md`](./temp/findings.md).
+>
+> Updated: 2026-06-26 (fifth audit pass — P0-06 TOML deduplication; AGP/BOM/Hilt/Coroutines
+> version table corrected to effective build values; five new library entries added to
+> §9; P2-07 `undo()` TOCTOU confirmed resolved; Architecture History updated.)
 
 ---
 
@@ -21,8 +25,8 @@ meta strength, synergy, and counter value.
 | Min SDK | 29 (Android 10) |
 | Target / Compile SDK | 36 |
 | Language | Kotlin 2.1.0 |
-| Build | AGP 8.10.1, Gradle KTS, version catalog |
-| UI | Jetpack Compose + Material 3 (BOM 2025.05.01) |
+| Build | AGP 9.2.1, Gradle KTS, version catalog (P0-06: deduplicated 2026-06-26) |
+| UI | Jetpack Compose + Material 3 (BOM 2026.06.00) |
 | Module layout | Single Gradle module `:app` (root project `MLBB Assistant 2.0`) |
 
 ---
@@ -62,6 +66,7 @@ presentation layer. The dependency rule is: `presentation → domain ← data`.
 │  remote/dto/       MetaSnapshotDto                                     │
 │  repository/       HeroRepositoryImpl, DraftSessionRepositoryImpl      │
 │  export/           DraftExporter                                       │
+│  worker/           HeroSyncWorker (WorkManager + HiltWorker, TD-13)   │
 └───────────────────────────────┬──────────────────────────────────────┘
                                  │ feeds
 ┌───────────────────────────────▼──────────────────────────────────────┐
@@ -123,22 +128,24 @@ sequenceDiagram
     DraftScreen->>User: Renders SuggestionCard list
 ```
 
-### 3.3 Hero data sync (startup)
+### 3.3 Hero data sync (startup + periodic background)
 
 ```mermaid
 sequenceDiagram
-    participant VM   as AppShellViewModel / SyncHeroesUseCase
+    participant WM   as WorkManager (HeroSyncWorker, TD-13)
+    participant UC   as SyncHeroesUseCase
     participant Repo as HeroRepositoryImpl
     participant API  as MetaApi (Retrofit)
     participant DAO  as HeroDao (Room)
     participant JSON as default_heroes.json (bundled)
 
-    VM->>Repo: syncHeroes()
+    WM->>UC: doWork() — every 24 h on network
+    UC->>Repo: syncHeroes()
     Repo->>API: GET /v1/meta/snapshot
     alt success
         API-->>Repo: MetaSnapshotDto
         Repo->>DAO: replaceAll(entities)
-    else network failure
+    else network failure (≤3 retries with coroutine delay)
         API-->>Repo: IOException
         Repo->>DAO: getTopMetaHeroes(1)
         alt DB is empty
@@ -206,7 +213,8 @@ erDiagram
 ```
 app/src/main/java/com/mlbb/assistant/
 │
-├── MLBBApplication.kt          Root Hilt application class; plants Timber tree + AppLogTree
+├── MLBBApplication.kt          Root Hilt application class; plants Timber tree + AppLogTree;
+│                               configures HiltWorkerFactory; schedules HeroSyncWorker (TD-13)
 ├── AppDataStore.kt             Convenience accessor for the singleton DataStore delegate
 │
 ├── capture/                    Computer-vision stack (Android edge; no domain imports)
@@ -216,7 +224,7 @@ app/src/main/java/com/mlbb/assistant/
 │   ├── PerceptualHash.kt       dHash + histogram computation for portrait fingerprinting
 │   ├── PhaseDetectionConfig.kt Centralised constants for all CV thresholds (TD-03)
 │   ├── PhaseDetector.kt        Classifies draft phase from banner pixel colours
-│   ├── PhaseOcrDetector.kt     OCR disambiguation for ban round 1 vs 2
+│   ├── PhaseOcrDetector.kt     OCR disambiguation for ban round 1 vs 2 (ML Kit Text Rec.)
 │   ├── PortraitMatcher.kt      Hybrid dHash+histogram match against preloaded hashes (TD-08)
 │   ├── RankDetector.kt         Infers rank tier from emblem region
 │   └── SlotRegions.kt          Normalised (0–1) rectangles for all ban/pick/action slots
@@ -244,9 +252,11 @@ app/src/main/java/com/mlbb/assistant/
 │   ├── remote/
 │   │   ├── api/MetaApi.kt      Retrofit interface: GET /v1/meta/snapshot
 │   │   └── dto/MetaSnapshotDto.kt  Wire model + toEntity() mapping
-│   └── repository/
-│       ├── DraftSessionRepositoryImpl.kt  Insert + query; enforces single-write-path rule
-│       └── HeroRepositoryImpl.kt  Network-with-seed-fallback; Paging3 source (TD-10)
+│   ├── repository/
+│   │   ├── DraftSessionRepositoryImpl.kt  Insert + query; enforces single-write-path rule
+│   │   └── HeroRepositoryImpl.kt  Network-with-seed-fallback; Paging3 source (TD-10)
+│   └── worker/
+│       └── HeroSyncWorker.kt   24-h periodic hero sync; @HiltWorker; 3-retry + network constraint
 │
 ├── di/                         Hilt DI modules (all SingletonComponent)
 │   ├── AppModule.kt            DataStore singleton, DraftSessionManager, VoiceAlertService
@@ -268,6 +278,7 @@ app/src/main/java/com/mlbb/assistant/
 │   ├── engine/
 │   │   ├── DraftPatternAnalyzer.kt     Historical tendency analysis (over-ban, under-roam)
 │   │   ├── DraftSessionManager.kt      StateFlow<DraftSession>; ban/pick/undo/swap/outcome
+│   │   │                               P2-07: undo() reads stack inside _session.update lambda (TOCTOU fix)
 │   │   ├── PickSequenceEngine.kt       1-2-2-2-2-1 turn model; first/last-pick flags
 │   │   ├── RankRuleEngine.kt           Ban count structures per rank; rank string parser
 │   │   └── WeightCalibrator.kt         Adjusts ScoreWeights from win/loss history
@@ -297,8 +308,10 @@ app/src/main/java/com/mlbb/assistant/
 │   │   ├── components/          Shared: MLBBButton, HeroGrid, HeroPortrait, ConnectivityBanner…
 │   │   └── theme/               Color.kt, Theme.kt, Type.kt (Material 3)
 │   ├── draft/                   Manual draft screen + DraftViewModel + DraftState (@Immutable)
+│   │   └── ScoreExplanationSheet.kt  ComposeCharts PieChart score breakdown
 │   ├── herodetail/              Hero detail screen
 │   ├── herolist/                Paged hero list + HeroListState (@Immutable)
+│   │   └── HeroListScreen.kt    compose-shimmer loading skeleton
 │   ├── heropool/                Hero pool management (SavedStateHandle filter, TD-07)
 │   ├── history/                 Draft history + replay viewer
 │   ├── home/                    Home dashboard
@@ -310,7 +323,7 @@ app/src/main/java/com/mlbb/assistant/
 │   │   └── OverlayService.kt    ~1,100 LOC foreground service (refactor target — P1-03, deferred)
 │   ├── settings/                Settings screen + SettingsState (@Immutable)
 │   ├── shell/                   AppShell + AppShellViewModel
-│   └── welcome/                 PermissionWizardScreen
+│   └── welcome/                 PermissionWizardScreen (AutoStarter integration pending)
 │
 ├── service/
 │   ├── MLBBAccessibilityService.kt  Detects MLBB foreground context
@@ -321,7 +334,7 @@ app/src/main/java/com/mlbb/assistant/
     ├── AppConstants.kt         Notification channel ID + notification ID constants
     ├── DateFormatter.kt        java.time only (DateTimeFormatter, thread-safe)
     ├── Extensions.kt           Kotlin extension helpers
-    ├── JsonParser.kt           Bundles default_heroes.json parser (Gson)
+    ├── JsonParser.kt           Bundles default_heroes.json parser (Gson; migration to kotlinx.serialization tracked)
     ├── NetworkMonitor.kt       ConnectivityManager flow for offline banner
     └── NetworkResult.kt        Sealed class: Loading / Success<T> / Error + fold helpers
 ```
@@ -344,6 +357,9 @@ clamped to `[0, 1]`, then multiplied by the personal-pool proficiency multiplier
   and 90th-percentile ban/pick caps from the live pool.
 - **Positional modifiers:** first-pick favours flexibility; last-pick favours safety.
 - **Explainability:** every score carries a `badgeLabel` and a human `reason` string.
+- **Visualisation:** `ScoreExplanationSheet` renders a `PieChart` (ComposeCharts) showing
+  relative proportions of the four score components alongside numeric `ScoreBar` rows
+  (accessible via TalkBack).
 
 ---
 
@@ -354,6 +370,9 @@ clamped to `[0, 1]`, then multiplied by the personal-pool proficiency multiplier
 - `RankRuleEngine` encodes ban structures: Epic & below = 6 bans; Legend = 8; Mythic+ = 10.
 - `PickSequenceEngine` models the **1-2-2-2-2-1** turn order.
 - `DraftSessionManager` is the single mutator: bans/picks, undo stack, swaps, outcome.
+  **P2-07 (RESOLVED):** `undo()` reads `val last` from inside `_session.update { current -> }`,
+  eliminating the TOCTOU window where a concurrent caller could mutate the stack between a
+  pre-snapshot read and the update.
 
 ---
 
@@ -372,6 +391,10 @@ exported under `/schemas/` and committed for safe future migrations.
 - `res/raw/default_heroes.json` (~73 KB) — bundled hero roster used when network sync fails and DB is empty.
 - `assets/draft_ui_map.json` (~7 KB) — screen-region coordinate map for the CV pipeline.
 
+**Background sync:** `HeroSyncWorker` (WorkManager + `@HiltWorker`, TD-13) runs every
+24 hours when the device is connected to a network. Scheduled with
+`ExistingPeriodicWorkPolicy.KEEP` — existing requests are never replaced on app restart.
+
 ---
 
 ## 8. Cross-cutting decisions (the "why")
@@ -384,18 +407,32 @@ exported under `/schemas/` and committed for safe future migrations.
 6. **Explicit IO dispatch (TD-06)** — repository suspend functions wrap `withContext(Dispatchers.IO)` defensively.
 7. **Config-driven CV (TD-03/04)** — all detection thresholds live in `PhaseDetectionConfig`.
 8. **Foreground-service correctness** — two-step FGS start: `SPECIAL_USE` in `onCreate`, `MEDIA_PROJECTION` added only after user grants projection token (Android 14+ compliant).
-9. **TD-xx tagging scheme** — technical debt is annotated in source at the fix site and registered in [`todo.md`](./todo.md) §1. Future items start at TD-13; TD-09 is a permanent gap (see `findings.md` P2-04).
+9. **TD-xx tagging scheme** — technical debt is annotated in source at the fix site and registered in [`todo.md`](./todo.md) §1. Future items start at TD-14; TD-09 is a permanent gap (see `findings.md` P2-04).
 10. **ConcurrentHashMap slot sets** — All slot-tracking sets in both `OverlayService` and `FrameProcessor` use `ConcurrentHashMap.newKeySet()` because the capture loop runs on `Dispatchers.IO`/`Default` while reset paths run on different dispatchers. Never replace with plain `mutableSetOf` — see findings P0-04 and P0-05.
+11. **Version catalog as sole dependency truth** — `gradle/libs.versions.toml` is the single source for all versions. Do not hardcode versions in `build.gradle.kts` files (except the `detekt` plugin which pre-dates catalog adoption). Duplicate keys in the catalog are invalid TOML — see P0-06 and `misc.md` §8.
 
 ---
 
 ## 9. Build, tooling & dependencies
 
-- **Version catalog:** `gradle/libs.versions.toml` — single source of truth.
-- **Key libraries:** Hilt 2.55, Room 2.7.1, Retrofit 2.11 + OkHttp 4.12, Coil 3.1, Paging 3.3.6, DataStore 1.1.4, Coroutines 1.10.1, Timber 5.0.1, Navigation Compose 2.9.0.
+- **Version catalog:** `gradle/libs.versions.toml` — single source of truth (deduplicated, P0-06, 2026-06-26).
+- **Key libraries (effective versions):**
+  Hilt 2.60, Room 2.7.1, Retrofit 2.11 + OkHttp 4.12, Coil 3.1, Paging 3.5.0, DataStore 1.2.1, Coroutines 1.11.0, Timber 5.0.1, Navigation Compose 2.9.0, WorkManager 2.11.2.
+- **UI enhancement libraries:**
+  ComposeCharts 0.2.5 (score pie chart), compose-shimmer 1.3.0 (loading skeletons), Lottie 6.7.1 (animations — wiring pending), Balloon 1.6.12 (overlay tooltips — integration pending).
+- **ML / CV libraries:**
+  ML Kit Text Recognition 16.0.1 (PhaseOcrDetector — fully wired), ML Kit Object Detection Custom 17.0.2 (TFLite pipeline — pending model training), KilianB/JImageHash 3.0.0 (PortraitMatcher upgrade — integration pending).
+- **OEM/platform utilities:**
+  AutoStarter 1.1.0 (PermissionWizardScreen — integration pending).
+- **Serialization:**
+  Gson 2.14.0 (current); `kotlinx-serialization-json` 1.7.3 added (P3-01 migration pending — see `misc.md` §10).
+- **Static analysis:** detekt 1.23.8 (`config/detekt/detekt.yml`; baseline pending `./gradlew detektBaseline`).
 - **Test stack:** JUnit4, MockK, Turbine, coroutines-test, Robolectric; Espresso + Compose UI test for instrumentation.
 - **Release build:** R8 minify + resource shrink + ProGuard rules. Full-mode R8 enabled.
 - **API base URL:** `BuildConfig.META_API_BASE_URL`, overridable per variant.
+- **CI:** `.github/workflows/ci.yml` runs lint + unit tests + debug assemble on every push/PR.
+- **Dependency updates:** `.github/dependabot.yml` — weekly Gradle + GHA updates.
+- **JitPack repository** added to `settings.gradle.kts` for Balloon, JImageHash, AutoStarter (all three require it; `FAIL_ON_PROJECT_REPOS` mode respected).
 
 ---
 
@@ -411,12 +448,15 @@ markets — alongside default English (`values`, ~75 strings).
 
 - `OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window management, and UI hosting — see `todo.md` §3. Decomposition tracked as `P1/L` in `roadmap.md` (**deferred** 2026-06-26, see `docs/misc.md` §6).
 - CV detection accuracy depends on device resolution and ROM; `SlotRegions` / `draft_ui_map.json` may need recalibration per aspect ratio (validated aspect ratios: 18:9, 20:9; others require manual calibration).
-- `MetaApi` has no auth or response caching layer beyond the local DB fallback. Staleness is silent — no `lastUpdated` metadata surfaced in the UI.
-- ~~`Bitmap.getPixel()` in luminance loops is a performance bottleneck~~ — **Resolved (P1-01):** both `sampleLuminanceBaseline` and `isSlotFilled` in `FrameProcessor` now use `copyPixelsToBuffer` + byte-array iteration for bulk pixel access. See `docs/misc.md` §5 and `docs/temp/findings.md` P1-01.
-- ~~`Thread.sleep` in `RetryInterceptor` blocks OkHttp thread-pool threads~~ — **Resolved (P1-02):** `RetryInterceptor` removed; `HeroRepositoryImpl.syncHeroes()` uses coroutine `delay()` for non-blocking retry. See `docs/misc.md` §1 and `docs/temp/findings.md` P1-02.
-- ~~`OverlayService` shared `MutableSet<Int>` slot-tracker fields will race if the capture loop runs off Main~~ — **Resolved (P0-04):** confirmed live race; all four sets now `ConcurrentHashMap.newKeySet()`. See `docs/misc.md` §6 and `docs/temp/findings.md` P0-04.
-- ~~`FrameProcessor` internal `MutableSet<Int>` slot-tracker fields will race between `processFrame` (Dispatchers.Default) and `resetSlotTracking` (called from OverlayService)~~ — **Resolved (P0-05 2026-06-26):** all four sets now `ConcurrentHashMap.newKeySet()`. See `docs/misc.md` §7 and `docs/temp/findings.md` P0-05.
+- `MetaApi` has no auth or response caching layer beyond the local DB fallback. Staleness is silent — no `lastUpdated` metadata surfaced in the UI (P4-04).
+- ~~`Bitmap.getPixel()` in luminance loops is a performance bottleneck~~ — **Resolved (P1-01):** both `sampleLuminanceBaseline` and `isSlotFilled` in `FrameProcessor` now use `copyPixelsToBuffer` + byte-array iteration. See `docs/misc.md` §5 and `docs/temp/findings.md` P1-01.
+- ~~`Thread.sleep` in `RetryInterceptor` blocks OkHttp thread-pool threads~~ — **Resolved (P1-02):** `RetryInterceptor` removed; `HeroRepositoryImpl.syncHeroes()` uses coroutine `delay()`. See `docs/misc.md` §1 and `docs/temp/findings.md` P1-02.
+- ~~`OverlayService` shared `MutableSet<Int>` slot-tracker fields will race if the capture loop runs off Main~~ — **Resolved (P0-04):** confirmed live race; all four sets now `ConcurrentHashMap.newKeySet()`. See `docs/misc.md` §6.
+- ~~`FrameProcessor` internal `MutableSet<Int>` slot-tracker fields race between `processFrame` (Dispatchers.Default) and `resetSlotTracking`~~ — **Resolved (P0-05, 2026-06-26):** all four sets now `ConcurrentHashMap.newKeySet()`. See `docs/misc.md` §7.
+- ~~`DraftSessionManager.undo()` reads `undoStack` from a pre-snapshot that could be mutated by a concurrent caller~~ — **Resolved (P2-07, 2026-06-26, confirmed):** `undo()` reads `val last` from inside the `_session.update { current ->}` lambda.
+- ~~`gradle/libs.versions.toml` contains 17 duplicate keys causing silent version downgrades~~ — **Resolved (P0-06, 2026-06-26):** file rewritten with exactly one entry per key; see `misc.md` §8 for downgrade inventory.
 - `DraftScorer.computeScore` is a simplified linear scoring formula incompatible with production `HeroScore` values; annotated `@VisibleForTesting` — see `docs/misc.md` §2.
+- Gson is still used for `MetaSnapshotDto` and `JsonParser`; `kotlinx.serialization` plugin + runtime added; full migration deferred to next dedicated change (P3-01 / RA-07, `misc.md` §10).
 
 ---
 
@@ -432,4 +472,14 @@ P0-01 through P0-03 (!! NPE risks), P1-01 (CV hot-path), P1-02 (thread-blocking 
 P0-04 (OverlayService mutable sets → ConcurrentHashMap), P1-04 (missing @Immutable on UI state classes).
 
 ### Thread-safety continuation pass (2026-06-26 fourth pass)
-P0-05 (FrameProcessor mutable sets → ConcurrentHashMap). P2-04 (TD-09 gap) formally resolved as documentation. OSS library adoption evaluation conducted and deferred with documented rationale.
+P0-05 (FrameProcessor mutable sets → ConcurrentHashMap). P2-04 (TD-09 gap documented).
+
+### Build hygiene, library adoption, and documentation pass (2026-06-26 fifth pass)
+- P0-06: `libs.versions.toml` 17 duplicate keys deduped; suspicious downgrades documented in `misc.md` §8.
+- P2-07: `DraftSessionManager.undo()` TOCTOU confirmed resolved in source.
+- P3-03: `detekt` plugin applied in `app/build.gradle.kts`; configuration in `config/detekt/detekt.yml`.
+- **Library additions to Gradle:** Balloon (skydoves), kotlinx.serialization (plugin + runtime), KilianB/JImageHash, ML Kit Object Detection Custom, AutoStarter (judemanutd).
+- **JitPack** added to `settings.gradle.kts` `dependencyResolutionManagement.repositories`.
+- **kotlinx.serialization** plugin added to root `build.gradle.kts` and `app/build.gradle.kts`.
+- All five docs updated (features.md, overview.md, roadmap.md, todo.md, misc.md).
+- Recommendation Adoption Matrix produced in `docs/temp/findings.md`.
