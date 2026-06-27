@@ -63,8 +63,21 @@ Your review must be structured around the **exact file naming and conventions** 
    - Preserve the exact **Generated** and **Last reconciled** dates, and the **Delta summary** structure (e.g., `NEW FINDING P0-06: ... resolved`).
    - Parse all open findings (e.g., `🔴` or `P0-xx`) and map them to the current source to see if they are truly still open.
 
+7. **`temp/recommendations.md`** – Curated external recommendations.
+   - **Generated** and **Method** / **Scope** headers must be preserved.
+   - Parse **every single recommendation** (library, API, template, dataset, documentation resource).
+   - For each recommendation, **cross‑check against the current codebase**:
+     - Scan `build.gradle.kts` / `libs.versions.toml` for the exact dependency.
+     - Scan imports and source code to see if the library is actually used.
+     - Classify each entry into one of three buckets:
+       - **✅ Already Implemented** – present in build + actively imported/used.
+       - **⚠️ Partial / Ambiguous** – present in build but unused, or used only in comments.
+       - **❌ Not Implemented** – completely absent; still a candidate for overhaul.
+   - Produce a classification table as part of your Step 1 output.
+
 **Output**: Create a structured table for each file showing:
 - `Filename | Status (Living/Stale) | Missing sections | Outdated entries | Format violations (if any)`
+- For `temp/recommendations.md`, add an extra column: `Implemented / Partial / Not Implemented` count.
 
 ---
 
@@ -106,6 +119,14 @@ For **every non‑`mission.md` file**, rewrite its content to reflect the latest
 - If you fix an open finding (e.g., `P0-06`), move it to **RESOLVED** in the Delta summary and update the open count.
 - Maintain the `🔴` (open) / `🟢` (resolved) visual indicators for recommendations.
 
+#### For `temp/recommendations.md` (CRITICAL UPDATE RULE):
+- **Preserve** the exact header: `Generated: YYYY-MM-DD`, `Method: ...`, `Scope: ...`. Update the `Generated` date to today.
+- **Remove** every recommendation that you classified as **✅ Already Implemented** — they are no longer recommendations.
+- **Keep** every recommendation classified as **❌ Not Implemented** — these are your prime candidates for the UI/UX overhaul (Step 3.1).
+- For items classified as **⚠️ Partial / Ambiguous**, decide: if they are genuinely unused, remove them; if they are partially used but upgradeable (e.g., an older version), **keep them** but add a note: `(upgrade candidate from vX to vY)`.
+- Optionally, add a **Summary** section at the top of the file stating: `Total recommendations kept: X | Removed (already implemented): Y`.
+- **Do not** add new recommendations to this file unless they were already present. New discoveries go into your overhaul plan, not into this historical audit file.
+
 **Golden rule**: If the file has a "Status: Living" line, update the date and ensure every section aligns perfectly with the post‑overhaul codebase.
 
 ---
@@ -145,6 +166,7 @@ Mandate that you evaluate and **fully implement** the best-in-class libraries th
 - **Why** it's better than writing from scratch.
 - **Exact implementation steps** (add dependency, wrap Composables, configure).
 - **Link to official docs** for reference.
+- **Crucially**: consult the **kept recommendations** from `temp/recommendations.md` (after Step 2 pruning). If any top-tier UI library was already suggested there, prioritise it for implementation.
 
 **Mandatory libraries to evaluate & implement (if aligned with mission)**:
 
@@ -242,8 +264,8 @@ Produce a **final verification report** with a green light or a list of remainin
 Your final response must be a **single, structured document** containing:
 
 1. **Executive Summary** – high‑level overview of the overhaul, highlighting UI transformation.
-2. **Step 1 Report** – findings from the initial /docs review.
-3. **Step 2 Report** – list of all updated doc files with summary of changes.
+2. **Step 1 Report** – findings from the initial /docs review, **including the classification table for `temp/recommendations.md`** (Implemented vs. Partial vs. Not Implemented).
+3. **Step 2 Report** – list of all updated doc files with summary of changes, **explicitly stating how many recommendations were removed from `recommendations.md`**.
 4. **Step 3 Plan** – the full overhaul plan, with the **UI Overhaul Blueprint** (3.3) prominently featured, followed by architectural, dependency, testing, and documentation tasks. Each task must have a priority (High/Medium/Low) and estimated effort.
 5. **Step 3.4 Pre‑Plan Issues Report** – the static verification findings before the overhaul.
 6. **Step 4 Execution Log** – detailed log of every file change (edit, add, remove, split, merge) with references to the plan.
