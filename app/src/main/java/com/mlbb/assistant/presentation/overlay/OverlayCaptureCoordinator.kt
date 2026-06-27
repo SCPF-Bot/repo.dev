@@ -3,9 +3,12 @@ package com.mlbb.assistant.presentation.overlay
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import coil3.ImageLoader
 import com.mlbb.assistant.capture.FirstPickDetector
+import com.mlbb.assistant.capture.PhaseDetectionConfig
 import com.mlbb.assistant.capture.PhaseDetector
+import com.mlbb.assistant.capture.PhaseOcrDetector
 import com.mlbb.assistant.capture.PortraitMatcher
 import com.mlbb.assistant.capture.SlotRegionF
 import com.mlbb.assistant.capture.SlotRegions
@@ -21,6 +24,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,6 +36,30 @@ import javax.inject.Singleton
  * This class has zero UI concerns — it only reads frames, classifies them,
  * and writes back to [OverlayStateHolder] (for isBanTurn / phase transitions)
  * and [DraftSessionManager] (for recording bans / picks).
+ *
+ * ### Improvements in this revision
+ *
+ * **Polling rate:** Reduced from 500 ms → 250 ms during active phases
+ * (sourced from [PhaseDetectionConfig.CAPTURE_THROTTLE_ACTIVE_MS]).
+ * A 30-second pick clock now gets ~120 sample frames instead of ~60.
+ *
+ * **OCR phase confirmation:** [PhaseOcrDetector] runs every
+ * [PhaseDetectionConfig.OCR_FRAME_STRIDE] frames (~1 s). When its confidence
+ * meets [PhaseDetectionConfig.OCR_OVERRIDE_CONFIDENCE], the OCR result
+ * overrides the colour-based phase classification. This eliminates the
+ * edge-case where the action-button colour briefly resembles a wrong phase
+ * during animation transitions.
+ *
+ * **Multi-frame confirmation for picks/bans:** [scanAndRecordBans] and
+ * [scanAndRecordPicks] pass a [slotKey] to [PortraitMatcher.match], which
+ * requires [PhaseDetectionConfig.CONFIRMATION_FRAMES_REQUIRED] consecutive
+ * frames to agree on the same hero before promoting it to a confirmed record.
+ * Prevents one-frame false positives from hero-reveal fly-in animations.
+ *
+ * **Saturation-aware slot fill:** [isSlotFilled] now uses a dual criterion:
+ * mean luminance > threshold (existing) AND colour saturation variance >
+ * [PhaseDetectionConfig.SLOT_SATURATION_FILLED_MIN]. Empty MLBB slots render
+ * a near-grey circle; hero portraits always have meaningful colour saturation.
  *
  * Lifecycle:
  * - [init]: called from [OverlayService.onCreate] to construct capture
@@ -54,6 +83,13 @@ class OverlayCaptureCoordinator @Inject constructor(
     private lateinit var portraitMatcher: PortraitMatcher
     private var captureJob: Job? = null
 
+    // Frame counter for OCR stride — reset on session start.
+    private val frameCounter = AtomicInteger(0)
+
+    // Latest OCR phase result — written from Main thread callback, read on Default.
+    private val lastOcrPhase = AtomicReference(PhaseDetector.DetectedPhase.UNKNOWN)
+    private val lastOcrConfidence = AtomicReference(0f)
+
     // ── Initialise capture dependencies (called by OverlayService.onCreate) ───
 
     fun init(imageLoader: ImageLoader) {
@@ -73,6 +109,9 @@ class OverlayCaptureCoordinator @Inject constructor(
 
     fun startCapture(resultCode: Int, projData: Intent, scope: CoroutineScope) {
         screenCaptureManager.startCapture(resultCode, projData)
+        frameCounter.set(0)
+        PhaseDetector.resetHistory()
+        if (::portraitMatcher.isInitialized) portraitMatcher.resetConfirmation()
         launchCaptureLoop(scope)
     }
 
@@ -93,8 +132,12 @@ class OverlayCaptureCoordinator @Inject constructor(
 
             while (isActive) {
                 val phase   = stateHolder.sessionValue().phase
-                val delayMs = if (phase == DraftPhase.IDLE || phase == DraftPhase.COMPLETE) 2_000L else 500L
-                val frame   = screenCaptureManager.captureFrame()
+                val delayMs = if (phase == DraftPhase.IDLE || phase == DraftPhase.COMPLETE)
+                    PhaseDetectionConfig.CAPTURE_THROTTLE_IDLE_MS
+                else
+                    PhaseDetectionConfig.CAPTURE_THROTTLE_ACTIVE_MS
+
+                val frame = screenCaptureManager.captureFrame()
 
                 if (frame != null) {
                     withContext(Dispatchers.Default) {
@@ -110,32 +153,71 @@ class OverlayCaptureCoordinator @Inject constructor(
     // ── Frame analysis ────────────────────────────────────────────────────────
 
     private suspend fun analyzeFrame(frame: Bitmap, currentPhase: DraftPhase) {
+        val count = frameCounter.incrementAndGet()
+
+        // ── OCR phase detection (every OCR_FRAME_STRIDE frames, async) ────────
+        if (count % PhaseDetectionConfig.OCR_FRAME_STRIDE == 0) {
+            // Copy a small crop for OCR — avoid holding full frame across async gap
+            val ocrCrop = runCatching {
+                SlotRegions.cropSlot(frame, SlotRegions.phaseBanner)
+            }.getOrNull()
+
+            if (ocrCrop != null) {
+                val ocrBitmap = ocrCrop.copy(ocrCrop.config ?: android.graphics.Bitmap.Config.ARGB_8888, false)
+                ocrCrop.recycle()
+                // PhaseOcrDetector is callback-based (ML Kit); callback fires on Main.
+                withContext(Dispatchers.Main) {
+                    PhaseOcrDetector.detect(ocrBitmap) { result ->
+                        lastOcrPhase.set(result.phase)
+                        lastOcrConfidence.set(result.confidence)
+                        ocrBitmap.recycle()
+                    }
+                }
+            }
+        }
+
+        // ── Colour-based phase detection ──────────────────────────────────────
         val actionCrop = runCatching {
             SlotRegions.cropSlot(frame, SlotRegions.actionButton)
         }.getOrNull()
 
-        val phaseResult = if (actionCrop != null) {
+        val colourPhaseResult = if (actionCrop != null) {
             try { PhaseDetector.detect(actionCrop) } finally { actionCrop.recycle() }
         } else {
             PhaseDetector.detect(frame)
         }
 
+        // ── Merge colour + OCR phase results ─────────────────────────────────
+        val effectivePhase: PhaseDetector.DetectedPhase = run {
+            val ocrPhase = lastOcrPhase.get()
+            val ocrConf  = lastOcrConfidence.get()
+            if (ocrPhase != PhaseDetector.DetectedPhase.UNKNOWN &&
+                ocrConf >= PhaseDetectionConfig.OCR_OVERRIDE_CONFIDENCE) {
+                ocrPhase
+            } else {
+                // Use history-smoothed phase (majority vote over last N frames)
+                val smoothed = PhaseDetector.smoothedPhase()
+                if (smoothed != PhaseDetector.DetectedPhase.UNKNOWN) smoothed else colourPhaseResult.phase
+            }
+        }
+
         val banButtonVisible = isBanButtonVisible(frame)
         withContext(Dispatchers.Main) { stateHolder.isBanTurn.value = banButtonVisible }
 
-        if (phaseResult.phase != PhaseDetector.DetectedPhase.UNKNOWN) {
+        if (effectivePhase != PhaseDetector.DetectedPhase.UNKNOWN) {
             val firstPickResult = if (
-                phaseResult.phase == PhaseDetector.DetectedPhase.BAN &&
+                effectivePhase == PhaseDetector.DetectedPhase.BAN &&
                 currentPhase == DraftPhase.IDLE
             ) {
                 FirstPickDetector.detect(frame)
             } else null
 
             withContext(Dispatchers.Main) {
-                stateHolder.autoTransitionPhase(phaseResult.phase, currentPhase, firstPickResult)
+                stateHolder.autoTransitionPhase(effectivePhase, currentPhase, firstPickResult)
             }
         }
 
+        // ── Slot scanning ─────────────────────────────────────────────────────
         val session = stateHolder.sessionValue()
         when (session.phase) {
             DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
@@ -143,9 +225,6 @@ class OverlayCaptureCoordinator @Inject constructor(
                 scanAndRecordBans(frame, round)
             }
             DraftPhase.PICK -> {
-                // One-shot catch-up: ban portraits remain visible at the top of
-                // the pick screen. Scan them once at pick-phase entry if any were
-                // missed during the ban phase (banCatchUpDone gate).
                 if (!stateHolder.banCatchUpDone) {
                     stateHolder.banCatchUpDone = true
                     val anyBanMissed =
@@ -161,28 +240,26 @@ class OverlayCaptureCoordinator @Inject constructor(
 
     // ── Slot scanning ─────────────────────────────────────────────────────────
 
-    /**
-     * Ban slots are small (~52×52 px) circular crops. The dark corners from
-     * the circular mask depress the histogram component of the hybrid score,
-     * so we use a lower confidence floor (0.45f vs 0.55f for picks) to avoid
-     * discarding correct matches.
-     */
     private suspend fun scanAndRecordBans(frame: Bitmap, round: Int) {
         SlotRegions.enemyBanSlots.forEachIndexed { i, region ->
             if (i !in stateHolder.filledEnemyBanSlots && isSlotFilled(frame, region)) {
-                stateHolder.filledEnemyBanSlots.add(i)
-                val hero = matchPortrait(frame, region, 0.45f)
-                withContext(Dispatchers.Main) {
-                    draftSessionManager.recordEnemyBan(hero, round, i)
+                val hero = matchPortrait(frame, region, 0.45f, "enemyBan$i")
+                if (hero != null) {
+                    stateHolder.filledEnemyBanSlots.add(i)
+                    withContext(Dispatchers.Main) {
+                        draftSessionManager.recordEnemyBan(hero, round, i)
+                    }
                 }
             }
         }
         SlotRegions.ourBanSlots.forEachIndexed { i, region ->
             if (i !in stateHolder.filledOurBanSlots && isSlotFilled(frame, region)) {
-                stateHolder.filledOurBanSlots.add(i)
-                val hero = matchPortrait(frame, region, 0.45f)
-                withContext(Dispatchers.Main) {
-                    draftSessionManager.recordOurBan(hero, round, i)
+                val hero = matchPortrait(frame, region, 0.45f, "ourBan$i")
+                if (hero != null) {
+                    stateHolder.filledOurBanSlots.add(i)
+                    withContext(Dispatchers.Main) {
+                        draftSessionManager.recordOurBan(hero, round, i)
+                    }
                 }
             }
         }
@@ -191,8 +268,8 @@ class OverlayCaptureCoordinator @Inject constructor(
     private suspend fun scanAndRecordPicks(frame: Bitmap) {
         SlotRegions.enemyPickSlots.forEachIndexed { i, region ->
             if (i !in stateHolder.filledEnemyPickSlots && isSlotFilled(frame, region)) {
+                val hero = matchPortrait(frame, region, 0.55f, "enemyPick$i") ?: return@forEachIndexed
                 stateHolder.filledEnemyPickSlots.add(i)
-                val hero = matchPortrait(frame, region, 0.55f) ?: return@forEachIndexed
                 withContext(Dispatchers.Main) {
                     draftSessionManager.recordEnemyPick(hero, i)
                 }
@@ -200,8 +277,8 @@ class OverlayCaptureCoordinator @Inject constructor(
         }
         SlotRegions.ourPickSlots.forEachIndexed { i, region ->
             if (i !in stateHolder.filledOurPickSlots && isSlotFilled(frame, region)) {
+                val hero = matchPortrait(frame, region, 0.55f, "ourPick$i") ?: return@forEachIndexed
                 stateHolder.filledOurPickSlots.add(i)
-                val hero = matchPortrait(frame, region, 0.55f) ?: return@forEachIndexed
                 val topId = stateHolder.recommendations.firstOrNull()?.hero?.id
                 withContext(Dispatchers.Main) {
                     draftSessionManager.recordOurPick(hero, i, followedRecommendation = hero.id == topId)
@@ -212,29 +289,63 @@ class OverlayCaptureCoordinator @Inject constructor(
 
     // ── Frame utilities ───────────────────────────────────────────────────────
 
-    private fun matchPortrait(frame: Bitmap, region: SlotRegionF, minConf: Float): Hero? {
+    private fun matchPortrait(
+        frame: Bitmap,
+        region: SlotRegionF,
+        minConf: Float,
+        slotKey: String = ""
+    ): Hero? {
         val crop = runCatching { SlotRegions.cropSlot(frame, region) }.getOrNull() ?: return null
         return try {
-            val r = portraitMatcher.match(crop, stateHolder.allHeroes.toList())
-            if (r.confidence >= minConf) r.hero else null
+            val r = portraitMatcher.match(crop, stateHolder.allHeroes.toList(), slotKey)
+            if (r.confidence >= minConf && !r.requiresConfirmation) r.hero else null
         } finally { crop.recycle() }
     }
 
+    /**
+     * Dual-criterion slot fill detection:
+     *
+     * 1. **Luminance**: mean pixel luminance must exceed the normalised threshold
+     *    (same as before — adaptive to baseline brightness).
+     *
+     * 2. **Colour saturation**: average HSV saturation across sampled pixels must
+     *    exceed [PhaseDetectionConfig.SLOT_SATURATION_FILLED_MIN]. Empty MLBB
+     *    ban/pick slots render a near-grey circular frame; hero portraits always
+     *    have meaningful colour saturation even for heroes with muted palettes.
+     *
+     * Both criteria must be true for the slot to be considered filled. This
+     * eliminates false positives from bright but desaturated UI decorations
+     * (score bars, timer rings) that previously triggered slot detection.
+     */
     private fun isSlotFilled(frame: Bitmap, region: SlotRegionF): Boolean {
         val crop = runCatching { SlotRegions.cropSlot(frame, region) }.getOrNull() ?: return false
         return try {
-            var total = 0f; var count = 0
-            val step = 4
+            var lumTotal  = 0f
+            var satTotal  = 0f
+            var count     = 0
+            val step      = 4
+            val hsv       = FloatArray(3)
+
             for (x in 0 until crop.width step step) {
                 for (y in 0 until crop.height step step) {
                     val px = crop.getPixel(x, y)
-                    total += 0.299f * android.graphics.Color.red(px) +
-                             0.587f * android.graphics.Color.green(px) +
-                             0.114f * android.graphics.Color.blue(px)
+                    val r  = Color.red(px)
+                    val g  = Color.green(px)
+                    val b  = Color.blue(px)
+                    lumTotal += 0.299f * r + 0.587f * g + 0.114f * b
+
+                    Color.colorToHSV(px, hsv)
+                    satTotal += hsv[1]
                     count++
                 }
             }
-            count > 0 && (total / count) > 40f
+
+            if (count == 0) return false
+
+            val meanLum = lumTotal / count
+            val meanSat = satTotal / count
+
+            meanLum > 40f && meanSat > PhaseDetectionConfig.SLOT_SATURATION_FILLED_MIN
         } finally { crop.recycle() }
     }
 

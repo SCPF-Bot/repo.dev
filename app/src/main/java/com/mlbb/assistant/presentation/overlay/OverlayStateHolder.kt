@@ -254,6 +254,41 @@ class OverlayStateHolder @Inject constructor(
 
     fun undo() = draftSessionManager.undo()
 
+    /**
+     * Manually advance to the next draft phase, regardless of CV detection.
+     * Intended as a user-triggered recovery when auto-detection misses a transition
+     * (e.g. the ban phase ended but the app still shows BAN_ROUND_1).
+     *
+     * Valid transitions:
+     *  BAN_ROUND_1 → BAN_ROUND_2 (if the ban structure has a round 2)
+     *  BAN_ROUND_1 → PICK (if no round 2)
+     *  BAN_ROUND_2 → PICK
+     *  PICK        → TRADING
+     *  TRADING     → COMPLETE
+     */
+    fun handleManualPhaseAdvance() {
+        val session = draftSessionManager.session.value
+        when (session.phase) {
+            DraftPhase.BAN_ROUND_1 -> {
+                if (session.banStructure.hasRound2) {
+                    draftSessionManager.startBanRound2()
+                } else {
+                    filledEnemyPickSlots.clear()
+                    filledOurPickSlots.clear()
+                    draftSessionManager.startPickPhase()
+                }
+            }
+            DraftPhase.BAN_ROUND_2 -> {
+                filledEnemyPickSlots.clear()
+                filledOurPickSlots.clear()
+                draftSessionManager.startPickPhase()
+            }
+            DraftPhase.PICK    -> draftSessionManager.startTradingPhase()
+            DraftPhase.TRADING -> draftSessionManager.completeDraft()
+            else               -> {}
+        }
+    }
+
     // ── Session snapshot persistence ──────────────────────────────────────────
 
     private suspend fun saveSessionSnapshotSuspend(session: DraftSession) {

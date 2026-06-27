@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import coil3.ImageLoader
 import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.engine.DraftSessionManager
+import com.yazanaesmael.jetoverlay.JetOverlay
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -111,7 +112,12 @@ class OverlayService : Service() {
         createNotificationChannel()
         startFg()
 
-        // 5. Overlay permission watchdog.
+        // 5. Show the floating overlay window via JetOverlay.
+        //    DraftOverlayContent was registered in MLBBApplication.onCreate();
+        //    show() inflates it inside JetOverlay's WindowManager window.
+        JetOverlay.show()
+
+        // 6. Overlay permission watchdog.
         startPermissionWatchdog()
     }
 
@@ -125,6 +131,7 @@ class OverlayService : Service() {
         // Handle "Relaunch Overlay" notification tap.
         if (intent?.action == ACTION_RELAUNCH_OVERLAY) {
             if (!stateHolder.isExpanded.value) stateHolder.isExpanded.value = true
+            JetOverlay.show()
             return START_STICKY
         }
 
@@ -147,6 +154,9 @@ class OverlayService : Service() {
         captureCoordinator.stop()
         stateHolder.stop()
         serviceScope.cancel()
+
+        // Hide the overlay window before the service is torn down.
+        JetOverlay.hide()
 
         // Clear bridge references to avoid leaking service context.
         OverlayContentBridge.holder              = null

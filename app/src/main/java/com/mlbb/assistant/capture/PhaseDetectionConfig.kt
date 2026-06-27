@@ -26,6 +26,32 @@ object PhaseDetectionConfig {
     /** Minimum blue-channel mean for a banner to be classified as a PICK phase. */
     const val PICK_BANNER_BLUE_MIN: Int = 160
 
+    // ── HSV phase detection thresholds ────────────────────────────────────────
+
+    /**
+     * HSV hue range for the MLBB ban-phase red accent (both ends of the hue circle).
+     * Android [android.graphics.Color.colorToHSV] returns hue in [0, 360).
+     * Red occupies 0–20° and 340–360°.
+     */
+    const val BAN_HUE_LOW:  Float = 20f
+    const val BAN_HUE_HIGH: Float = 340f   // red wraps: hue < LOW or hue > HIGH
+
+    /**
+     * HSV hue range for the MLBB pick-phase blue/teal accent.
+     * Teal/cyan sits around 180–220°.
+     */
+    const val PICK_HUE_LOW:  Float = 170f
+    const val PICK_HUE_HIGH: Float = 240f
+
+    /** Minimum HSV saturation for a pixel to count as a phase-colour sample. */
+    const val HSV_SATURATION_MIN: Float = 0.40f
+
+    /** Minimum HSV value (brightness) for a pixel to count as a phase-colour sample. */
+    const val HSV_VALUE_MIN: Float = 0.35f
+
+    /** Fraction of sampled pixels that must satisfy HSV criteria to declare a phase. */
+    const val HSV_PHASE_RATIO_THRESHOLD: Float = 0.08f
+
     // ── Frame brightness / luminance (TD-04) ──────────────────────────────────
 
     /**
@@ -46,26 +72,80 @@ object PhaseDetectionConfig {
      */
     const val LUMINANCE_NORMALISED_RATIO: Float = 0.35f
 
+    // ── Slot-fill saturation check ────────────────────────────────────────────
+
+    /**
+     * Minimum average HSV saturation for a slot crop to be considered "filled".
+     * Empty MLBB ban/pick slots are drawn with a near-grey circular border —
+     * saturation is < 0.15. A hero portrait has saturation > 0.20 on average.
+     */
+    const val SLOT_SATURATION_FILLED_MIN: Float = 0.18f
+
+    /**
+     * Minimum colour variance (per-pixel squared deviation from mean luminance)
+     * for a slot crop to count as filled. Pure-grey empty slots have variance ≈ 0.
+     */
+    const val SLOT_VARIANCE_FILLED_MIN: Float = 200f
+
     // ── Capture throttle ──────────────────────────────────────────────────────
 
-    /** Minimum interval between frame-capture invocations during active drafting. */
-    const val CAPTURE_THROTTLE_ACTIVE_MS: Long = 500L
+    /**
+     * Minimum interval between frame-capture invocations during active drafting.
+     * Reduced from 500ms to 250ms — a 30-second pick clock has frames at 4 Hz,
+     * giving enough temporal resolution to catch fast hero-lock animations.
+     */
+    const val CAPTURE_THROTTLE_ACTIVE_MS: Long = 250L
 
     /** Minimum interval between frame-capture invocations when idle / paused. */
     const val CAPTURE_THROTTLE_IDLE_MS: Long = 2_000L
 
     // ── Portrait matching ─────────────────────────────────────────────────────
 
-    /** dHash similarity threshold below which two images are NOT the same hero. */
-    const val DHASH_SIMILARITY_THRESHOLD: Float = 0.85f
+    /**
+     * dHash similarity threshold below which two images are NOT the same hero.
+     * Used as a fast pre-filter before the more expensive pHash + histogram.
+     */
+    const val DHASH_SIMILARITY_THRESHOLD: Float = 0.72f
+
+    /**
+     * pHash similarity threshold for the primary matching score.
+     * pHash (DCT-based) is more accurate than dHash under brightness/compression variation.
+     */
+    const val PHASH_SIMILARITY_THRESHOLD: Float = 0.82f
 
     /**
      * Weight applied to the colour-histogram similarity component when
-     * combining dHash + histogram scores (TD-08 hybrid).
-     *
-     * Final score = dHash * (1 - HISTOGRAM_WEIGHT) + histogram * HISTOGRAM_WEIGHT
+     * combining pHash + histogram scores.
      */
     const val HISTOGRAM_WEIGHT: Float = 0.30f
+
+    /**
+     * Number of consecutive frames that must agree on the same hero before it is
+     * recorded as a confirmed pick or ban. Prevents one-frame false positives from
+     * animation frames (hero reveal fly-in, hover glow effects, etc.).
+     */
+    const val CONFIRMATION_FRAMES_REQUIRED: Int = 2
+
+    /**
+     * Number of frames between OCR phase detection runs. OCR costs ~30ms so
+     * running every frame would add latency on slow devices.
+     * At 250ms polling, every 4th frame = ~1 s between OCR checks.
+     */
+    const val OCR_FRAME_STRIDE: Int = 4
+
+    /**
+     * Minimum OCR confidence for the OCR result to override the colour-based
+     * phase result. [PhaseOcrDetector] returns 0.90 for explicit keyword matches.
+     */
+    const val OCR_OVERRIDE_CONFIDENCE: Float = 0.70f
+
+    // ── Phase history smoothing ───────────────────────────────────────────────
+
+    /**
+     * Number of recent phase-detection results used to smooth phase transitions.
+     * A phase is only acted on when it appears in the majority of the history window.
+     */
+    const val PHASE_HISTORY_SIZE: Int = 3
 
     // ── Accessibility watchdog ────────────────────────────────────────────────
 

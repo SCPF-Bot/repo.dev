@@ -11,6 +11,8 @@ import androidx.work.WorkManager
 import com.mlbb.assistant.data.local.crashlog.AppLogTree
 import com.mlbb.assistant.data.local.crashlog.installCrashHandler
 import com.mlbb.assistant.data.worker.HeroSyncWorker
+import com.mlbb.assistant.presentation.overlay.DraftOverlayContent
+import com.yazanaesmael.jetoverlay.JetOverlay
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -19,14 +21,13 @@ import javax.inject.Inject
 /**
  * Root application class.
  *
- * Responsibilities added in the JetOverlay integration pass:
- * - Calls [initJetOverlay] to register [DraftOverlayContent] as the overlay
- *   composable. JetOverlay initialises its internal state here so that
- *   [com.mlbb.assistant.presentation.overlay.OverlayService] only needs to
- *   call [JetOverlay.show] / [JetOverlay.hide] to control visibility.
+ * Calls [JetOverlay.initialize] to register [DraftOverlayContent] as the overlay
+ * composable. JetOverlay initialises its internal WindowManager state here so that
+ * [com.mlbb.assistant.presentation.overlay.OverlayService] only needs to call
+ * [JetOverlay.show] / [JetOverlay.hide] to control visibility.
  *
  * Note: The overlayContent lambda is registered here but EXECUTED only when
- * [JetOverlay.show] is called from [OverlayService.onCreate], at which point
+ * [JetOverlay.show] runs from [OverlayService.onCreate], at which point
  * [com.mlbb.assistant.presentation.overlay.OverlayContentBridge] is already
  * populated with the Hilt-injected dependencies.
  *
@@ -49,6 +50,13 @@ class MLBBApplication : Application(), Configuration.Provider {
             Timber.plant(Timber.DebugTree())
         }
         Timber.plant(AppLogTree(applicationContext))
+
+        // Register DraftOverlayContent with JetOverlay BEFORE OverlayService starts.
+        // OverlayService.onCreate() calls JetOverlay.show() which executes this lambda.
+        // OverlayContentBridge will be populated by that point so state reads are safe.
+        JetOverlay.initialize(this) {
+            overlayContent { DraftOverlayContent() }
+        }
 
         scheduleHeroSync()
     }
