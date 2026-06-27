@@ -28,10 +28,9 @@ import com.mlbb.assistant.presentation.common.components.HeroPortrait
 import com.mlbb.assistant.presentation.common.components.RoleDashboard
 import com.mlbb.assistant.presentation.common.theme.*
 import kotlinx.coroutines.delay
-import com.skydoves.balloon.BalloonAnimation
-import com.skydoves.balloon.BalloonSizeSpec
-import com.skydoves.balloon.compose.Balloon
-import com.skydoves.balloon.compose.rememberBalloonBuilder
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 
 enum class SuggestionTab { META, SYNERGY, COUNTER }
 
@@ -221,24 +220,9 @@ private fun PickSlotRows(session: DraftSession) {
  */
 @Composable
 private fun RecommendationCard(score: HeroScore, onTap: (Hero) -> Unit, onLong: (Hero) -> Unit) {
-    val balloonBuilder = rememberBalloonBuilder {
-        setArrowSize(10)
-        setWidth(BalloonSizeSpec.WRAP)
-        setHeight(BalloonSizeSpec.WRAP)
-        setArrowPosition(0.5f)
-        setCornerRadius(10f)
-        setPaddingHorizontal(12)
-        setPaddingVertical(8)
-        setBalloonAnimation(BalloonAnimation.ELASTIC)
-        setBackgroundColor(android.graphics.Color.parseColor("#1A1C2E"))
-    }
+    var showTooltip by remember { mutableStateOf(false) }
 
-    Balloon(
-        builder        = balloonBuilder,
-        balloonContent = {
-            RecommendationTooltipContent(score = score)
-        }
-    ) { balloonWindow ->
+    Box {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -247,8 +231,8 @@ private fun RecommendationCard(score: HeroScore, onTap: (Hero) -> Unit, onLong: 
                 .padding(6.dp)
                 .width(80.dp)
                 .combinedClickable(
-                    onClick      = { onTap(score.hero) },
-                    onLongClick  = { balloonWindow.showAlignBottom() },
+                    onClick          = { onTap(score.hero) },
+                    onLongClick      = { showTooltip = true },
                     onLongClickLabel = "View ${score.hero.name} score breakdown"
                 )
         ) {
@@ -268,6 +252,21 @@ private fun RecommendationCard(score: HeroScore, onTap: (Hero) -> Unit, onLong: 
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        if (showTooltip) {
+            Popup(
+                onDismissRequest = { showTooltip = false },
+                properties       = PopupProperties(focusable = true)
+            ) {
+                Box(
+                    Modifier
+                        .background(Color(0xFF1A1C2E), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    RecommendationTooltipContent(score = score)
+                }
+            }
         }
     }
 }
@@ -298,7 +297,7 @@ private fun RecommendationTooltipContent(score: HeroScore) {
 }
 
 @Composable
-private fun TooltipRow(label: String, value: Double) {
+private fun TooltipRow(label: String, value: Float) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment     = Alignment.CenterVertically

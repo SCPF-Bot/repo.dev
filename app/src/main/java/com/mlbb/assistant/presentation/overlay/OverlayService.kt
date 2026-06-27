@@ -14,7 +14,6 @@ import androidx.core.app.NotificationCompat
 import coil3.ImageLoader
 import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.engine.DraftSessionManager
-import com.yazanaesmael.jetoverlay.JetOverlay
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -112,12 +111,7 @@ class OverlayService : Service() {
         createNotificationChannel()
         startFg()
 
-        // 5. Show the JetOverlay floating window.
-        //    JetOverlay calls the overlayContent lambda registered in
-        //    MLBBApplication.initJetOverlay() to render DraftOverlayContent().
-        JetOverlay.show()
-
-        // 6. Overlay permission watchdog.
+        // 5. Overlay permission watchdog.
         startPermissionWatchdog()
     }
 
@@ -153,9 +147,6 @@ class OverlayService : Service() {
         captureCoordinator.stop()
         stateHolder.stop()
         serviceScope.cancel()
-
-        // Dismiss the JetOverlay window.
-        JetOverlay.hide()
 
         // Clear bridge references to avoid leaking service context.
         OverlayContentBridge.holder              = null

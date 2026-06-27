@@ -48,7 +48,7 @@ balloon                      = "1.6.12"
 # ── ML / CV ───────────────────────────────────────────────────────────────
 mlkitTextRec                 = "16.0.1"
 # ML Kit Object Detection (custom TFLite model) — training pipeline in todo.md §5.9
-mlkitObjectDetection         = "17.0.2"
+mlkitObjectDetection         = "17.0.0"
 # KilianB/JImageHash: multi-algorithm perceptual hashing — JVM-only with dHash fallback
 # JitPack: com.github.KilianB:JImageHash:3.0.0
 jImageHash                   = "3.0.0"

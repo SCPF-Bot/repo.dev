@@ -256,7 +256,6 @@ private fun ScoreBreakdownPieChart(heroScore: HeroScore) {
                 pieData = pieData.map { it.copy(selected = it == clicked && !it.selected) }
             },
             selectedScale        = 1.08f,
-            selectedPaddingAngle = 4f,
         )
 
         // Legend

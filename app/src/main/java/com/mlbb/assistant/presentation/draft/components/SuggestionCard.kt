@@ -30,10 +30,13 @@ import com.mlbb.assistant.presentation.common.theme.TextDisabled
 import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
 import com.mlbb.assistant.presentation.common.theme.WarningAmber
-import com.skydoves.balloon.BalloonAnimation
-import com.skydoves.balloon.BalloonSizeSpec
-import com.skydoves.balloon.compose.Balloon
-import com.skydoves.balloon.compose.rememberBalloonBuilder
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 
 /**
  * Suggestion card shown during the draft pick phase.
@@ -66,32 +69,17 @@ fun SuggestionCard(
     val semanticLabel = "${hero.name}, ${hero.role}, score ${scorePercent}%, " +
         "win rate ${"%.0f".format(hero.winRate * 100)} percent"
 
-    val balloonBuilder = rememberBalloonBuilder {
-        setArrowSize(10)
-        setWidth(BalloonSizeSpec.WRAP)
-        setHeight(BalloonSizeSpec.WRAP)
-        setArrowPosition(0.5f)
-        setCornerRadius(10f)
-        setPaddingHorizontal(14)
-        setPaddingVertical(10)
-        setBalloonAnimation(BalloonAnimation.ELASTIC)
-        setBackgroundColor(android.graphics.Color.parseColor("#1A1C2E"))
-    }
+    var showTooltip by remember { mutableStateOf(false) }
 
-    Balloon(
-        builder        = balloonBuilder,
-        balloonContent = {
-            SuggestionTooltipContent(hero = hero, scorePercent = scorePercent)
-        }
-    ) { balloonWindow ->
+    Box {
         Row(
             modifier = modifier
                 .fillMaxWidth()
                 .background(SurfaceCard, RoundedCornerShape(8.dp))
                 .border(1.dp, SurfaceElevated, RoundedCornerShape(8.dp))
                 .combinedClickable(
-                    onClick      = {},
-                    onLongClick  = { balloonWindow.showAlignBottom() },
+                    onClick          = {},
+                    onLongClick      = { showTooltip = true },
                     onLongClickLabel = "View ${hero.name} details"
                 )
                 .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -131,6 +119,21 @@ fun SuggestionCard(
                     style      = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+
+        if (showTooltip) {
+            Popup(
+                onDismissRequest = { showTooltip = false },
+                properties       = PopupProperties(focusable = true)
+            ) {
+                Box(
+                    Modifier
+                        .background(Color(0xFF1A1C2E), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    SuggestionTooltipContent(hero = hero, scorePercent = scorePercent)
+                }
             }
         }
     }

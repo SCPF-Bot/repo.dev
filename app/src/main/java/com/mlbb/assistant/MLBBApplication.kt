@@ -11,8 +11,6 @@ import androidx.work.WorkManager
 import com.mlbb.assistant.data.local.crashlog.AppLogTree
 import com.mlbb.assistant.data.local.crashlog.installCrashHandler
 import com.mlbb.assistant.data.worker.HeroSyncWorker
-import com.mlbb.assistant.presentation.overlay.DraftOverlayContent
-import com.yazanaesmael.jetoverlay.JetOverlay
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -52,32 +50,7 @@ class MLBBApplication : Application(), Configuration.Provider {
         }
         Timber.plant(AppLogTree(applicationContext))
 
-        initJetOverlay()
         scheduleHeroSync()
-    }
-
-    // ── JetOverlay initialisation ─────────────────────────────────────────────
-
-    /**
-     * Registers [DraftOverlayContent] as the composable rendered inside
-     * JetOverlay's floating window.
-     *
-     * Configuration:
-     * - [overlayContent]: the Compose UI (bubble or widget depending on
-     *   [com.mlbb.assistant.presentation.overlay.OverlayStateHolder.isExpanded]).
-     * - Drag-to-dismiss: enabled so users can drag the bubble to the bottom of
-     *   the screen to close the overlay (calls [JetOverlay.hide] internally,
-     *   then the service watchdog detects the closed state and stops itself).
-     * - The notification channel is managed by [OverlayService] (it needs to
-     *   co-exist with the foreground service notification), so JetOverlay's
-     *   notificationConfig is left minimal here.
-     */
-    private fun initJetOverlay() {
-        JetOverlay.initialize(this) {
-            overlayContent {
-                DraftOverlayContent()
-            }
-        }
     }
 
     // ── WorkManager configuration ─────────────────────────────────────────────

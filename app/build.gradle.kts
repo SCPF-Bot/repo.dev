@@ -163,9 +163,6 @@ dependencies {
     // Lottie: phase-transition animations in overlay (scanning, pick-success, ban-warning)
     implementation(libs.lottie.compose)
 
-    // Balloon (skydoves): Compose tooltip on hero chip long-press in SuggestionCard + PickPhaseContent
-    implementation(libs.balloon)
-
     // ML Kit Text Recognition: on-device OCR for PhaseOcrDetector
     implementation(libs.mlkit.text.recognition)
 
@@ -179,12 +176,6 @@ dependencies {
 
     // AutoStarter: OEM auto-start settings deep-link in PermissionWizardScreen
     implementation(libs.autostarter)
-
-    // JetOverlay: Compose-first floating overlay SDK (rec. §1.1, Critical)
-    // Replaces all WindowManager / LifecycleOwner / touch-handler boilerplate in OverlayService.
-    // Reduces OverlayService from ~1,100 LOC to ~200 LOC (P1-03 resolved via library adoption).
-    // JitPack dependency — requires maven("https://jitpack.io") in settings.gradle.kts
-    implementation(libs.jet.overlay)
 
     // Unit tests
     testImplementation(libs.junit)
