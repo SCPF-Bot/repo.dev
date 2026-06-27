@@ -12,7 +12,7 @@ import com.mlbb.assistant.data.local.crashlog.AppLogTree
 import com.mlbb.assistant.data.local.crashlog.installCrashHandler
 import com.mlbb.assistant.data.worker.HeroSyncWorker
 import com.mlbb.assistant.presentation.overlay.DraftOverlayContent
-import com.yazanaesmael.jetoverlay.JetOverlay
+import com.mlbb.assistant.presentation.overlay.JetOverlay
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.util.concurrent.TimeUnit

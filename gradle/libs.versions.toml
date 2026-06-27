@@ -58,11 +58,6 @@ jImageHash                   = "3.0.0"
 # JitPack: com.github.judemanutd:autostarter:1.1.0
 autoStarter                  = "1.1.0"
 
-# ── Overlay window management ─────────────────────────────────────────────
-# YazanAesmael/JetOverlay: Compose-first floating overlay SDK (rec. §1.1, Critical)
-# JitPack: com.github.YazanAesmael:JetOverlay:1.1.0
-jetOverlay                   = "1.1.0"
-
 # ── Logging / debug ───────────────────────────────────────────────────────
 timber                       = "5.0.1"
 
@@ -149,10 +144,6 @@ mlkit-objectdetection              = { group = "com.google.mlkit",           nam
 # ── OEM / platform utilities ──────────────────────────────────────────────
 # JitPack: com.github.judemanutd:autostarter:1.1.0
 autostarter                        = { group = "com.github.judemanutd",      name = "autostarter",                    version.ref = "autoStarter" }
-
-# ── Overlay window management ─────────────────────────────────────────────
-# JitPack: com.github.YazanAesmael:JetOverlay:1.1.0
-jet-overlay                        = { group = "com.github.YazanAesmael",    name = "JetOverlay",                     version.ref = "jetOverlay" }
 
 # ── Logging ───────────────────────────────────────────────────────────────
 timber                             = { group = "com.jakewharton.timber",      name = "timber",                         version.ref = "timber" }

@@ -174,9 +174,6 @@ dependencies {
     // and JitPack does not publish a usable AAR. PortraitMatcher loads it via reflection
     // with runCatching, so the dHash fallback engages automatically on device.
 
-    // JetOverlay: Compose-first floating overlay SDK — window, drag, lifecycle (rec. §1.1)
-    implementation(libs.jet.overlay)
-
     // AutoStarter: OEM auto-start settings deep-link in PermissionWizardScreen
     implementation(libs.autostarter)
 
