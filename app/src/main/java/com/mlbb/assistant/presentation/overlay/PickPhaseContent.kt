@@ -27,6 +27,7 @@ import com.mlbb.assistant.presentation.common.components.HeroGrid
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
 import com.mlbb.assistant.presentation.common.components.RoleDashboard
 import com.mlbb.assistant.presentation.common.theme.*
+import kotlinx.coroutines.delay
 import com.skydoves.balloon.BalloonAnimation
 import com.skydoves.balloon.BalloonSizeSpec
 import com.skydoves.balloon.compose.Balloon
@@ -130,12 +131,22 @@ fun PickPhaseContent(
         }
 
         // Recommendations — Lottie scanning animation when analysing; cards when ready
+        // Pick-success Lottie overlay fires for ≈1.4 s after the player taps a hero (rec. §5.2 / RA-07).
+        var lastPickedHero by remember { mutableStateOf<Hero?>(null) }
+        lastPickedHero?.let { hero ->
+            PickSuccessOverlay(hero = hero, onDone = { lastPickedHero = null })
+        }
+
         if (tabFiltered.isEmpty()) {
             ScanningPlaceholder()
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 tabFiltered.take(3).forEach { score ->
-                    RecommendationCard(score = score, onTap = onHeroTap, onLong = onHeroLongPress)
+                    RecommendationCard(
+                        score  = score,
+                        onTap  = { hero -> lastPickedHero = hero; onHeroTap(hero) },
+                        onLong = onHeroLongPress
+                    )
                 }
             }
         }
@@ -294,6 +305,54 @@ private fun TooltipRow(label: String, value: Double) {
     ) {
         Text("$label:", color = TextSecondary, fontSize = 9.sp, modifier = Modifier.width(50.dp))
         Text("%.0f%%".format(value * 100), color = TextPrimary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/**
+ * Full-width celebration overlay that plays [R.raw.lottie_pick_success] exactly once
+ * (at 1.2× speed, ≈1.4 s total) then calls [onDone] to dismiss itself.
+ *
+ * Positioned immediately above the recommendation row so the player gets instant
+ * visual confirmation that their tap was registered — critical during the 30-second
+ * pick clock. The animation completes in the background even if the overlay composable
+ * recomposes, because [LaunchedEffect] is keyed to [hero].
+ *
+ * Acceptance: §5.2 step 3 — pick-success animation plays in the overlay.
+ */
+@Composable
+private fun PickSuccessOverlay(hero: Hero, onDone: () -> Unit) {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.lottie_pick_success))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations  = 1,
+        speed       = 1.2f
+    )
+    LaunchedEffect(hero) {
+        delay(1_400L)
+        onDone()
+    }
+    Box(
+        modifier         = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            LottieAnimation(
+                composition = composition,
+                progress    = { progress },
+                modifier    = Modifier.size(52.dp)
+            )
+            Text(
+                text       = "${hero.name} selected!",
+                color      = SuccessGreen,
+                fontSize   = 10.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 

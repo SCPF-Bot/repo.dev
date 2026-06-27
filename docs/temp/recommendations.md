@@ -7,6 +7,24 @@
 
 ---
 
+## Summary (updated 2026-06-27, sixth-pass reconciliation)
+
+| Metric | Count |
+|---|---|
+| Total recommendations in this document | 47 |
+| ✅ Already implemented when doc was generated | 5 (ComposeCharts, compose-shimmer, ML Kit Text Rec, WorkManager, detekt) |
+| ✅ Adopted — fully wired in source (sixth pass) | 6 (JetOverlay, Lottie, Balloon, kotlinx.serialization, AutoStarter, README) |
+| ⚙️ Added to Gradle — integration pending | 2 (KilianB/JImageHash, ML Kit Object Detection) |
+| ❌ Not Implemented — deferred or out of scope | 34 |
+
+**Remaining 🔴 Critical items (not yet implemented):**
+- **RA-02** `p3hndrx/MLBB-API` — hero/item JSON database (blocked: backend verification)
+- **RA-03** `ridwaanhall/api-mobilelegends` — live meta snapshot API (blocked: API liveness)
+- **RA-04** `KilianB/JImageHash` — WaveletHash + ColorDifferenceHash for PortraitMatcher (In Gradle; integration pending)
+- **RA-05** ML Kit Object Detection + TFLite hero detector (In Gradle; model training pipeline pending)
+
+---
+
 ## How to read this document
 
 | Priority | Meaning |

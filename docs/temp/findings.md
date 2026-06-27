@@ -1,6 +1,25 @@
 # Audit Findings — MLBB Draft Assistant
-> Generated: 2026-06-23 · Last reconciled: 2026-06-26 (fifth pass) · Source reconciled against `versionName 2.0.0` (versionCode 2)
+> Generated: 2026-06-23 · Last reconciled: 2026-06-27 (sixth pass) · Source reconciled against `versionName 2.0.0` (versionCode 2)
 > Kotlin 2.1.0 · AGP 9.2.1 · Min SDK 29 · Target SDK 36
+>
+> **Delta summary (sixth-pass reconciliation, 2026-06-27 — UI/UX overhaul execution pass):**
+> All 5 ⚙️ library adoptions from the fifth pass fully wired in source:
+> (1) **JetOverlay** — `MLBBApplication.initJetOverlay()` registered; `OverlayService` decomposed
+> from ~1,100 LOC into `OverlayStateHolder` + `OverlayCaptureCoordinator` + `DraftOverlayContent`
+> via `JetOverlay.show/hide`; new `misc.md` §11 documents deviation + LOC delta.
+> (2) **Lottie** — all 3 animations wired: `lottie_ban_warning` in `BanPhaseContent.BanTurnBanner`;
+> `lottie_scanning` in `PickPhaseContent.ScanningPlaceholder`; `lottie_pick_success` in new
+> `PickPhaseContent.PickSuccessOverlay` (fires on hero tap, `LaunchedEffect` dismisses after 1.4 s).
+> (3) **Balloon** — `RecommendationCard` long-press shows `RecommendationTooltipContent` (meta,
+> synergy, counter scores + reason text); `balloonWindow.showAlignBottom()` on `onLongClick`.
+> (4) **kotlinx.serialization** — DTOs `@Serializable`; `NetworkModule` uses `asConverterFactory`;
+> `JsonParser` uses `Json.decodeFromString`; Gson removal deferred pending minified smoke test.
+> (5) **AutoStarter** — `PermissionWizardScreen.openAutoStartSettings()` calls
+> `AutoStartPermissionHelper.getInstance().getAutoStartPermission(ctx)` with curated OEM-intent
+> fallback chain and App Info final fallback.
+> Root `README.md` written with architecture overview, build instructions, permissions table, and
+> repository map. All docs updated to reflect sixth-pass reality.
+> Open findings: 10 (unchanged — no new issues discovered; no previously-open issues closed this pass).
 >
 > **Delta summary (fifth-pass reconciliation, 2026-06-26):**
 > NEW FINDING P0-06: Duplicate keys in `libs.versions.toml` resolved by deduplication

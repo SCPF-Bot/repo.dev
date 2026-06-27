@@ -4,9 +4,10 @@
 > data-flow contract changes. Last reconciled against source at `versionName 2.0.0`
 > (`versionCode 2`). For audit findings see [`docs/temp/findings.md`](./temp/findings.md).
 >
-> Updated: 2026-06-26 (fifth audit pass — P0-06 TOML deduplication; AGP/BOM/Hilt/Coroutines
-> version table corrected to effective build values; five new library entries added to
-> §9; P2-07 `undo()` TOCTOU confirmed resolved; Architecture History updated.)
+> Updated: 2026-06-27 (sixth audit pass — overhaul execution: JetOverlay wired + OverlayService
+> decomposed; all 3 Lottie animations wired; Balloon tooltip wired; kotlinx.serialization fully
+> wired (Gson removal deferred); AutoStarter wired; README.md written; §11 notes updated;
+> Architecture History updated.)
 
 ---
 
@@ -446,7 +447,7 @@ markets — alongside default English (`values`, ~75 strings).
 
 ## 11. Known limitations / sharp edges
 
-- `OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window management, and UI hosting — see `todo.md` §3. Decomposition tracked as `P1/L` in `roadmap.md` (**deferred** 2026-06-26, see `docs/misc.md` §6).
+- ~~`OverlayService` is large (~1,100 LOC) and mixes service lifecycle, window management, and UI hosting~~ — **Resolved (2026-06-27, sixth pass):** `OverlayService` decomposed into `OverlayStateHolder` + `OverlayCaptureCoordinator` + `DraftOverlayContent` via JetOverlay SDK. Service shell is now ~250 LOC. See `misc.md` §11.
 - CV detection accuracy depends on device resolution and ROM; `SlotRegions` / `draft_ui_map.json` may need recalibration per aspect ratio (validated aspect ratios: 18:9, 20:9; others require manual calibration).
 - `MetaApi` has no auth or response caching layer beyond the local DB fallback. Staleness is silent — no `lastUpdated` metadata surfaced in the UI (P4-04).
 - ~~`Bitmap.getPixel()` in luminance loops is a performance bottleneck~~ — **Resolved (P1-01):** both `sampleLuminanceBaseline` and `isSlotFilled` in `FrameProcessor` now use `copyPixelsToBuffer` + byte-array iteration. See `docs/misc.md` §5 and `docs/temp/findings.md` P1-01.
@@ -456,7 +457,7 @@ markets — alongside default English (`values`, ~75 strings).
 - ~~`DraftSessionManager.undo()` reads `undoStack` from a pre-snapshot that could be mutated by a concurrent caller~~ — **Resolved (P2-07, 2026-06-26, confirmed):** `undo()` reads `val last` from inside the `_session.update { current ->}` lambda.
 - ~~`gradle/libs.versions.toml` contains 17 duplicate keys causing silent version downgrades~~ — **Resolved (P0-06, 2026-06-26):** file rewritten with exactly one entry per key; see `misc.md` §8 for downgrade inventory.
 - `DraftScorer.computeScore` is a simplified linear scoring formula incompatible with production `HeroScore` values; annotated `@VisibleForTesting` — see `docs/misc.md` §2.
-- Gson is still used for `MetaSnapshotDto` and `JsonParser`; `kotlinx.serialization` plugin + runtime added; full migration deferred to next dedicated change (P3-01 / RA-07, `misc.md` §10).
+- Gson is still present in Gradle (pending minified-build smoke test) but all JSON parsing now uses `kotlinx.serialization`: DTOs have `@Serializable`, `NetworkModule` uses `asConverterFactory`, `JsonParser` uses `Json.decodeFromString`. Gson removal is the only remaining step (P3-01 / RA-07, `misc.md` §10).
 
 ---
 
@@ -483,3 +484,12 @@ P0-05 (FrameProcessor mutable sets → ConcurrentHashMap). P2-04 (TD-09 gap docu
 - **kotlinx.serialization** plugin added to root `build.gradle.kts` and `app/build.gradle.kts`.
 - All five docs updated (features.md, overview.md, roadmap.md, todo.md, misc.md).
 - Recommendation Adoption Matrix produced in `docs/temp/findings.md`.
+
+### UI/UX overhaul execution pass (2026-06-27 sixth pass)
+- **JetOverlay** fully wired: `MLBBApplication.initJetOverlay()`; `OverlayService` decomposed into `OverlayStateHolder` + `OverlayCaptureCoordinator` + `DraftOverlayContent`; service shell ~250 LOC (was ~1,100). See `misc.md` §11.
+- **Lottie** — all 3 animations wired: `BanTurnBanner` (`lottie_ban_warning`), `ScanningPlaceholder` (`lottie_scanning`), `PickSuccessOverlay` (`lottie_pick_success`, fires on hero tap, auto-dismisses after 1.4 s).
+- **Balloon** — `RecommendationCard` long-press tooltip with `RecommendationTooltipContent` (meta/synergy/counter + reason).
+- **kotlinx.serialization** — all JSON entry points migrated; Gson removal pending smoke test.
+- **AutoStarter** — `PermissionWizardScreen.openAutoStartSettings()` with OEM-intent fallback chain.
+- **README.md** written at repository root.
+- All 6 living docs updated to reflect sixth-pass reality.

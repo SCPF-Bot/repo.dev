@@ -13,7 +13,7 @@
 > **Legacy** = deprecated or superseded flows still present in source.
 
 Reconciled against `versionName 2.0.0` (versionCode 2).
-Last updated: 2026-06-26 (fifth audit pass — P0-06 TOML deduplication, P2-07 undo() confirmed resolved, library adoptions: ComposeCharts, compose-shimmer, ML Kit Text Recognition, WorkManager/HeroSyncWorker, detekt confirmed Already Used; Balloon, kotlinx.serialization, JImageHash, ML Kit Object Detection, AutoStarter Added to Gradle).
+Last updated: 2026-06-27 (seventh audit pass — JImageHash AverageColorHash wired into PortraitMatcher alongside WaveletHash; 4-algorithm dynamic weight scheme: dHash 40%, Histogram 25%, WaveletHash 20%, AverageColorHash 15%; full runCatching guard for Android compatibility).
 
 ---
 
@@ -32,16 +32,22 @@ Last updated: 2026-06-26 (fifth audit pass — P0-06 TOML deduplication, P2-07 u
 | 1.7 | Persistent notification with "Relaunch Overlay" action | ✅ | `OverlayService.kt`, `AppConstants.kt` |
 | 1.8 | Overlay launched from "Start Draft" with permission check | ✅ | `main/MainActivity.kt` |
 | 1.9 | Session state serialised to DataStore (survives OS kill mid-draft) | ✅ | `OverlayService.kt` (KEY_SESSION_PHASE/RANK/FIRST_PICK) |
+| 1.10 | JetOverlay SDK integration — overlay managed by JetOverlay; `MLBBApplication.initJetOverlay()` + `JetOverlay.show/hide` in service | ✅ | `MLBBApplication.kt`, `overlay/OverlayService.kt` |
+| 1.11 | `OverlayService` decomposed into `OverlayStateHolder` (state) + `OverlayCaptureCoordinator` (CV) + `DraftOverlayContent` (UI) | ✅ | `overlay/OverlayStateHolder.kt`, `OverlayCaptureCoordinator.kt`, `DraftOverlayContent.kt` |
 
 #### 1.1 Phase-specific overlay content
 
 | # | Feature | Status | Source |
 |---|---|---|---|
-| 1.10 | Ban-phase panel with ban recommendations | ✅ | `overlay/BanPhaseContent.kt`, `advisor/BanRecommender.kt` |
-| 1.11 | Pick-phase panel with ranked hero suggestions | ✅ | `overlay/PickPhaseContent.kt` |
-| 1.12 | Trading-phase panel (hero swap guidance) | ✅ | `overlay/TradingPhaseContent.kt` |
-| 1.13 | Final draft report panel | ✅ | `overlay/FinalReportContent.kt` |
-| 1.14 | Shared draft panel scaffold | ✅ | `overlay/DraftPanel.kt` |
+| 1.12 | Ban-phase panel with ban recommendations | ✅ | `overlay/BanPhaseContent.kt`, `advisor/BanRecommender.kt` |
+| 1.13 | Pick-phase panel with ranked hero suggestions + tab filter (META/SYNERGY/COUNTER) | ✅ | `overlay/PickPhaseContent.kt` |
+| 1.14 | Trading-phase panel (hero swap guidance) | ✅ | `overlay/TradingPhaseContent.kt` |
+| 1.15 | Final draft report panel | ✅ | `overlay/FinalReportContent.kt` |
+| 1.16 | Shared draft panel scaffold | ✅ | `overlay/DraftPanel.kt` |
+| 1.17 | Lottie ban-warning pulse animation on ban turn (plays indefinitely while it's our ban turn) | ✅ | `overlay/BanPhaseContent.kt` (`BanTurnBanner`) |
+| 1.18 | Lottie scanning animation while draft engine analyses state (no recommendations ready yet) | ✅ | `overlay/PickPhaseContent.kt` (`ScanningPlaceholder`) |
+| 1.19 | Lottie pick-success animation (plays 1× at 1.2× speed on hero tap, auto-dismisses after 1.4 s) | ✅ | `overlay/PickPhaseContent.kt` (`PickSuccessOverlay`) |
+| 1.20 | Balloon tooltip on recommendation card long-press — shows hero name + meta/synergy/counter scores + reason | ✅ | `overlay/PickPhaseContent.kt` (`RecommendationCard`, `RecommendationTooltipContent`) |
 
 ---
 
@@ -54,8 +60,8 @@ Last updated: 2026-06-26 (fifth audit pass — P0-06 TOML deduplication, P2-07 u
 | 2.3 | Draft-phase detection from banner colours | ✅ | `capture/PhaseDetector.kt`, `PhaseDetectionConfig.kt` |
 | 2.4 | OCR-assisted phase disambiguation — ML Kit Text Recognition on-device | ✅ | `capture/PhaseOcrDetector.kt` |
 | 2.5 | Hero portrait identification (perceptual hash) | 🧪 | `capture/PortraitMatcher.kt`, `PerceptualHash.kt` |
-| 2.6 | Hybrid dHash + histogram matching | ✅ | `capture/PortraitMatcher.kt` |
-| 2.7 | Parallel lazy preload of portrait hashes (TD-08) | ✅ | `capture/PortraitMatcher.kt` |
+| 2.6 | Hybrid 4-algorithm portrait matching — dynamic weight scheme (dHash 40%, Histogram 25%, WaveletHash 20%, AverageColorHash 15%); falls back to dHash 75% + Histogram 25% when JImageHash unavailable (Android) | ✅ | `capture/PortraitMatcher.kt` |
+| 2.7 | Parallel lazy preload of portrait hashes (TD-08) — computes all 4 algorithms per portrait in background batches | ✅ | `capture/PortraitMatcher.kt` |
 | 2.8 | Slot-fill detection via normalised luminance threshold (TD-04, P1-01) | ✅ | `capture/FrameProcessor.kt` (`copyPixelsToBuffer` bulk read) |
 | 2.9 | Normalised slot region map (resolution-independent) | ⚠️ | `capture/SlotRegions.kt`, `assets/draft_ui_map.json` |
 | 2.10 | Rank detection from emblem region | ✅ | `capture/RankDetector.kt` |
@@ -200,6 +206,9 @@ Last updated: 2026-06-26 (fifth audit pass — P0-06 TOML deduplication, P2-07 u
 | 9.13 | BuildConfig-driven API base URL (overridable per variant) | ✅ | `app/build.gradle.kts` |
 | 9.14 | detekt static analysis with baseline (`config/detekt/detekt.yml`, P3-03) | ✅ | root `build.gradle.kts`, `config/detekt/` |
 | 9.15 | Dependabot weekly dependency-update PRs | ✅ | `.github/dependabot.yml` |
+| 9.16 | kotlinx.serialization JSON stack — DTOs `@Serializable`, `NetworkModule` `asConverterFactory`, `JsonParser` `Json.decodeFromString` | ✅ | `di/NetworkModule.kt`, `data/remote/dto/`, `utils/JsonParser.kt` |
+| 9.17 | AutoStarter OEM auto-start integration with curated intent fallback chain | ✅ | `welcome/PermissionWizardScreen.kt` (`openAutoStartSettings`) |
+| 9.18 | Root `README.md` with architecture overview, build instructions, permissions table, and repository map | ✅ | `README.md` |
 
 ---
 

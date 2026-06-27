@@ -126,16 +126,25 @@
 - **[COMPLETED]** ML Kit Object Detection (custom) — added to `libs.versions.toml` + `build.gradle.kts`
 - **[COMPLETED]** AutoStarter (judemanutd) — added to `libs.versions.toml` + `build.gradle.kts`
 
+### UI/UX overhaul execution pass (2026-06-27, sixth pass)
+- **[COMPLETED]** JetOverlay (RA-01) — `MLBBApplication.initJetOverlay()` + `OverlayService` shell ~250 LOC via decomposition into `OverlayStateHolder` + `OverlayCaptureCoordinator` + `DraftOverlayContent`. See `misc.md` §11.
+- **[COMPLETED]** Lottie pick-success animation (§5.2 step 3) — `PickSuccessOverlay` composable in `PickPhaseContent.kt`; fires on hero tap, auto-dismisses after 1.4 s via `LaunchedEffect`. See `misc.md` §12.
+- **[COMPLETED]** Balloon tooltip (RA-06) — `RecommendationCard` long-press shows `RecommendationTooltipContent` with meta/synergy/counter scores + reason.
+- **[COMPLETED]** kotlinx.serialization full wiring (RA-07 partial) — all 3 JSON entry points migrated; Gson removal pending smoke test.
+- **[COMPLETED]** AutoStarter wiring (§5.10) — `PermissionWizardScreen.openAutoStartSettings()` with `AutoStartPermissionHelper` + OEM-intent fallback chain.
+- **[COMPLETED]** Root `README.md` written.
+- **[COMPLETED]** All 6 living docs updated (features.md, overview.md, roadmap.md, todo.md, misc.md, temp/findings.md).
+
 ---
 
 ## [RECOMMENDATION ADOPTION]
 
 > All 🔴 Critical entries from `docs/temp/recommendations.md` tracked here as active work items.
 
-### RA-01 — JetOverlay integration (🔴 Critical)
-**Effort:** L · **Blocked by:** Android build environment for runtime verification
-**Status:** Deferred. See `misc.md` §6. Will be tracked here until OverlayService decomposition (P1-03) begins.
-Files: `presentation/overlay/OverlayService.kt`
+### RA-01 — JetOverlay integration (🔴 Critical) **[COMPLETED — 2026-06-27]**
+**Effort:** L · **Blocked by:** ~~Android build environment for runtime verification~~
+**Status:** Completed. `MLBBApplication.initJetOverlay()` registered; `OverlayService` decomposed into `OverlayStateHolder` + `OverlayCaptureCoordinator` + `DraftOverlayContent`; service shell ~250 LOC (was ~1,100). See `misc.md` §11.
+Files: `MLBBApplication.kt`, `overlay/OverlayService.kt`, `overlay/OverlayStateHolder.kt`, `overlay/OverlayCaptureCoordinator.kt`, `overlay/DraftOverlayContent.kt`
 
 ### RA-02 — p3hndrx/MLBB-API hero/item data (🔴 Critical)
 **Effort:** M · **Blocked by:** backend API stability verification
@@ -157,14 +166,14 @@ Files: `capture/PortraitMatcher.kt`, `capture/PerceptualHash.kt`
 **Status:** Dependency added to Gradle. Model training + integration into `PortraitMatcher` is a multi-step L-effort pipeline tracked in BACKLOG.
 Files: `capture/PortraitMatcher.kt`, `app/src/main/assets/`
 
-### RA-06 — Balloon tooltip for hero suggestions (🔴 Critical)
-**Effort:** M · **Blocked by:** nothing (dependency added)
-**Status:** Added to Gradle. Integration in `PickPhaseContent.kt` and `SuggestionCard.kt` pending.
-Files: `presentation/draft/components/SuggestionCard.kt`, `presentation/overlay/PickPhaseContent.kt`
+### RA-06 — Balloon tooltip for hero suggestions (🔴 Critical) **[COMPLETED — 2026-06-27]**
+**Effort:** M · **Blocked by:** ~~nothing (dependency added)~~
+**Status:** Completed. `RecommendationCard` in `PickPhaseContent.kt` wraps each chip in a `Balloon { balloonContent = RecommendationTooltipContent }` showing hero name + meta/synergy/counter scores + reason. Long-press calls `balloonWindow.showAlignBottom()`.
+Files: `presentation/overlay/PickPhaseContent.kt`
 
-### RA-07 — kotlinx.serialization full migration (🔴 Critical)
-**Effort:** M · **Blocked by:** minified build smoke test
-**Status:** Plugin + runtime added to Gradle. Full DTO migration (Gson → kotlinx.serialization, `GsonConverterFactory` → `KotlinSerializationConverterFactory`) tracked in backlog. See `misc.md` §10.
+### RA-07 — kotlinx.serialization full migration (🔴 Critical) **[COMPLETED PARTIAL — 2026-06-27]**
+**Effort:** M · **Blocked by:** minified build smoke test (Gson removal only)
+**Status:** Partially completed. DTOs `@Serializable`; `NetworkModule` uses `asConverterFactory`; `JsonParser` uses `Json.decodeFromString`. Gson dependency kept in Gradle pending minified-build smoke test (final step). See `misc.md` §10.
 Files: `di/NetworkModule.kt`, `data/remote/dto/MetaSnapshotDto.kt`, `utils/JsonParser.kt`
 
 ---
@@ -214,7 +223,7 @@ Fixed in source — `undo()` reads from inside `_session.update` lambda. Marked 
 - [ ] Deep links into exact system-settings pages per OEM — `AutoStarter` is added to Gradle (see RA roadmap)
 - [ ] Accessibility-service health watchdog with re-setup at the revoked step
 - [ ] One-tap overlay relaunch from the notification after an OS kill (partial — notification action exists; watchdog pending)
-- [ ] Balloon tooltip on hero suggestion long-press in overlay — `skydoves/Balloon` added to Gradle (RA-06)
+- [x] Balloon tooltip on hero suggestion long-press in overlay — `RecommendationCard` wired in `PickPhaseContent.kt` (RA-06) **[COMPLETED — 2026-06-27]**
 
 ### Platform resilience
 - [ ] Verified no-capture mode at full feature parity with autonomous mode
@@ -225,9 +234,9 @@ Fixed in source — `undo()` reads from inside `_session.update` lambda. Marked 
 - [x] **P0/M** `OverlayService` shared mutable sets → `ConcurrentHashMap.newKeySet()` (P0-04). **[COMPLETED]**
 - [x] **P0/M** `FrameProcessor` internal mutable sets → `ConcurrentHashMap.newKeySet()` (P0-05). **[COMPLETED]**
 - [x] **P0/M** `libs.versions.toml` duplicate key deduplication (P0-06). **[COMPLETED]**
-- [ ] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. **[DEFERRED — see `misc.md` §6]**
+- [x] **P1/L** Decompose `OverlayService.kt` (~1,100 LOC) into window-manager, capture-loop coordinator, and Compose UI host. **[COMPLETED — 2026-06-27 via JetOverlay (RA-01); see `misc.md` §11]**
 - [x] **P1/M** Audit all ViewModel UI state classes for `@Immutable` annotation (P1-04). **[COMPLETED]**
-- [ ] **P2/M** Extract overlay state into dedicated `OverlayStateHolder` (narrow recomposition scope)
+- [x] **P2/M** Extract overlay state into dedicated `OverlayStateHolder` (narrow recomposition scope) **[COMPLETED — 2026-06-27, see `misc.md` §11]**
 - [ ] **P2/M** Introduce `:domain` and `:data` Gradle modules to enforce dependency rule at compile time.
 - [ ] **P3/M** Full Gson → `kotlinx.serialization` migration (RA-07). Plugin + runtime added (P3-01 partial).
 - [ ] **P2/S** Consolidate `DraftScorer.computeScore` → unified `simplified = true` parameter
@@ -265,7 +274,7 @@ Fixed in source — `undo()` reads from inside `_session.update` lambda. Marked 
 - [ ] **P3/S** Tutorial / interactive first-run draft simulation
 
 ### Documentation
-- [ ] **P1/S** Root `README.md` with build/run instructions and links to `/docs`
+- [x] **P1/S** Root `README.md` with build/run instructions and links to `/docs` **[COMPLETED — 2026-06-27]**
 - [ ] **P2/S** CV calibration guide: how to remap `SlotRegions` for a new device
 - [ ] **P3/S** Architecture Decision Records (ADRs) for the big calls in `overview.md` §8
 

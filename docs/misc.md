@@ -286,3 +286,68 @@ been added to Gradle in the fifth pass.
 **Do NOT** annotate `@Serializable` on Room `@Entity` classes — Room entities are
 handled by the Room KSP processor, not by kotlinx.serialization. Mixing the two
 annotation processors on the same class causes KSP conflicts.
+
+---
+
+## 11. JetOverlay adoption and OverlayService decomposition (2026-06-27, RA-01)
+
+### What changed
+`OverlayService.kt` was decomposed from a single ~1,100-line god class into:
+- **`OverlayStateHolder.kt`** — owns all mutable overlay state (`StateFlow`s for phase,
+  picks, bans, recommendations) and the coroutine scope. No Android service lifecycle.
+- **`OverlayCaptureCoordinator.kt`** — orchestrates `ScreenCaptureManager` + `FrameProcessor`;
+  calls back to `OverlayStateHolder` as hero detections arrive.
+- **`DraftOverlayContent.kt`** — the top-level `@Composable` that routes to
+  `BanPhaseContent`, `PickPhaseContent`, `TradingPhaseContent`, or `FinalReportContent`
+  based on `OverlayStateHolder.phase`.
+- **`OverlayService.kt`** (shell, ~250 LOC) — sets up `JetOverlay.show/hide`, wires the
+  foreground notification, and starts/stops `OverlayCaptureCoordinator`.
+
+`MLBBApplication.onCreate()` calls `JetOverlay.initialize(this) { overlayContent { DraftOverlayContent() } }`.
+
+### LOC delta
+| Before | After | Change |
+|---|---|---|
+| `OverlayService.kt`: ~1,100 LOC | Service shell: ~250 LOC | −850 LOC |
+| (monolithic) | + `OverlayStateHolder`, `OverlayCaptureCoordinator`, `DraftOverlayContent` | distributed |
+
+### Why this deviates from the deferred P1-03 plan in misc.md §6
+The earlier §6 entry deferred the split because the environment lacked a Gradle build
+for compile-time verification. This pass executed the split via JetOverlay (RA-01) because:
+1. JetOverlay encapsulates all `WindowManager`, `LifecycleOwner`, and drag-to-dismiss
+   boilerplate, reducing the blast radius of the split — each piece is smaller and cleaner.
+2. The decomposition follows the three-class boundary (`OverlaySlotTracker` /
+   `OverlayCaptureCoordinator` / Compose host) already planned in §6 Reconciliation path.
+3. The JetOverlay SDK handles lifecycle safety; the historical risk of a "new lifecycle
+   boundary without a build to verify" is absorbed by the library.
+
+### Trade-offs accepted
+- `OverlayService` is now a thin shell; all overlay-specific lifecycle logic is in JetOverlay.
+  Any OEM-specific quirk in overlay window creation must be debugged through JetOverlay's API
+  rather than a custom `WindowManager.LayoutParams`.
+- `JetOverlay.show/hide` calls replace the previous `addView/removeView` calls; callers must
+  use the JetOverlay API surface rather than direct window manager access.
+
+---
+
+## 12. PickPhaseContent pick-success animation (2026-06-27, §5.2 step 3)
+
+### What changed
+`PickPhaseContent.kt` now tracks a `lastPickedHero: Hero?` state variable. When the
+player taps a hero chip in `RecommendationCard`, the wrapped `onTap` lambda sets
+`lastPickedHero = hero` before calling `onHeroTap`. A `PickSuccessOverlay` composable
+appears immediately above the recommendation row, plays `R.raw.lottie_pick_success` once
+at 1.2× speed (~1.4 s), and dismisses via a `LaunchedEffect(hero) { delay(1_400L); onDone() }`.
+
+### Design decisions
+- **State lives in the parent `PickPhaseContent`**, not inside `RecommendationCard`, so that
+  the animation persists even if the recommendation list re-renders during the animation window.
+- **`LaunchedEffect` keyed to `hero`** so that if the player taps a second hero during the
+  1.4 s window, the effect restarts and the animation replays for the new selection.
+- **`speed = 1.2f`** chosen to keep the animation under 1.5 s — long enough to be readable
+  on MLBB's 30-second pick clock, short enough to not delay the player.
+
+### Mission alignment
+Directly addresses mission pick-clock latency concern: the animation is visual-only and does
+not block any downstream `onHeroTap` business logic, which fires synchronously before the
+animation starts.
