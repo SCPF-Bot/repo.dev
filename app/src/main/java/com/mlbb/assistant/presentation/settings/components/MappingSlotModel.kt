@@ -10,6 +10,9 @@ enum class SlotTeam { ALLY, ENEMY }
 /**
  * Normalised (0..1) coordinate of a mapped portrait point with team assignment.
  *
+ * Coordinates are relative to the *rendered image bounds* (not the container),
+ * so they remain stable even when the image is letterboxed inside a larger canvas.
+ *
  * The [team] field defaults to [SlotTeam.ALLY] for backward compatibility with
  * JSON written by older app versions that did not include a "team" key.
  */
@@ -67,31 +70,45 @@ internal const val HIT_RADIUS_PX = 44f
 
 /**
  * 6-ban layout (3 ally + 3 enemy) — standard for Epic/Legend rank.
- * Positions are approximate normalised coords for a typical MLBB landscape ban screen.
- * Users can drag-to-adjust after applying.
+ *
+ * Coordinates are normalised fractions of the *rendered image* (not the full screen).
+ * In a typical MLBB landscape ban-phase screenshot the ban icons appear in a single
+ * row near the top of the game area:
+ *   - Ally bans cluster in the left ~30 % of the image, y ≈ 13–16 % from the top.
+ *   - Enemy bans cluster in the right ~30 %, mirrored.
+ *
+ * Users should drag-to-fine-tune after applying a template.
  */
 internal val TEMPLATE_3_PLUS_3 = listOf(
-    MappedPoint(0.083f, 0.115f, SlotTeam.ALLY),
-    MappedPoint(0.170f, 0.115f, SlotTeam.ALLY),
-    MappedPoint(0.257f, 0.115f, SlotTeam.ALLY),
-    MappedPoint(0.743f, 0.115f, SlotTeam.ENEMY),
-    MappedPoint(0.830f, 0.115f, SlotTeam.ENEMY),
-    MappedPoint(0.917f, 0.115f, SlotTeam.ENEMY),
+    // Ally — left side, single row
+    MappedPoint(0.095f, 0.145f, SlotTeam.ALLY),
+    MappedPoint(0.180f, 0.145f, SlotTeam.ALLY),
+    MappedPoint(0.265f, 0.145f, SlotTeam.ALLY),
+    // Enemy — right side, single row (mirrored)
+    MappedPoint(0.735f, 0.145f, SlotTeam.ENEMY),
+    MappedPoint(0.820f, 0.145f, SlotTeam.ENEMY),
+    MappedPoint(0.905f, 0.145f, SlotTeam.ENEMY),
 )
 
 /**
- * 10-ban layout (5 ally + 5 enemy) — two rounds, used in higher ranks.
- * Round-1 bans appear at y≈0.115; round-2 bans appear at y≈0.240.
+ * 10-ban layout (5 ally + 5 enemy) — two ban rounds, used in Mythic+ rank.
+ *
+ * Round 1 bans (3+3) appear in the first row at y ≈ 13 %.
+ * Round 2 bans (2+2) appear in the second row at y ≈ 27 %.
  */
 internal val TEMPLATE_5_PLUS_5 = listOf(
-    MappedPoint(0.057f, 0.115f, SlotTeam.ALLY),
-    MappedPoint(0.140f, 0.115f, SlotTeam.ALLY),
-    MappedPoint(0.223f, 0.115f, SlotTeam.ALLY),
-    MappedPoint(0.080f, 0.240f, SlotTeam.ALLY),
-    MappedPoint(0.163f, 0.240f, SlotTeam.ALLY),
-    MappedPoint(0.777f, 0.115f, SlotTeam.ENEMY),
-    MappedPoint(0.860f, 0.115f, SlotTeam.ENEMY),
-    MappedPoint(0.943f, 0.115f, SlotTeam.ENEMY),
-    MappedPoint(0.837f, 0.240f, SlotTeam.ENEMY),
-    MappedPoint(0.920f, 0.240f, SlotTeam.ENEMY),
+    // Ally row 1
+    MappedPoint(0.068f, 0.130f, SlotTeam.ALLY),
+    MappedPoint(0.153f, 0.130f, SlotTeam.ALLY),
+    MappedPoint(0.238f, 0.130f, SlotTeam.ALLY),
+    // Ally row 2
+    MappedPoint(0.088f, 0.268f, SlotTeam.ALLY),
+    MappedPoint(0.173f, 0.268f, SlotTeam.ALLY),
+    // Enemy row 1
+    MappedPoint(0.762f, 0.130f, SlotTeam.ENEMY),
+    MappedPoint(0.847f, 0.130f, SlotTeam.ENEMY),
+    MappedPoint(0.932f, 0.130f, SlotTeam.ENEMY),
+    // Enemy row 2
+    MappedPoint(0.827f, 0.268f, SlotTeam.ENEMY),
+    MappedPoint(0.912f, 0.268f, SlotTeam.ENEMY),
 )
