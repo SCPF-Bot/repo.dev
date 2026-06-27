@@ -131,7 +131,7 @@ coil-compose                       = { group = "io.coil-kt.coil3",           nam
 coil-network                       = { group = "io.coil-kt.coil3",           name = "coil-network-okhttp",            version.ref = "coil" }
 
 # ── UI enhancement ────────────────────────────────────────────────────────
-compose-shimmer                    = { group = "com.valentinilk.shimmer",    name = "shimmer",                        version.ref = "shimmer" }
+compose-shimmer                    = { group = "com.valentinilk.shimmer",    name = "compose-shimmer",                version.ref = "shimmer" }
 compose-charts                     = { group = "io.github.ehsannarmani",     name = "compose-charts",                 version.ref = "composeCharts" }
 lottie-compose                     = { group = "com.airbnb.android",         name = "lottie-compose",                 version.ref = "lottie" }
 # JitPack: com.github.skydoves:balloon:1.6.12
@@ -142,8 +142,9 @@ mlkit-text-recognition             = { group = "com.google.mlkit",           nam
 # ML Kit Object Detection (custom TFLite model) — integration guarded by asset existence check
 # Alias avoids "object" keyword in the Kotlin accessor (mlkit-object-detection → libs.mlkit.`object`.detection fails)
 mlkit-objectdetection              = { group = "com.google.mlkit",           name = "object-detection-custom",        version.ref = "mlkitObjectDetection" }
-# JitPack: com.github.KilianB:JImageHash:3.0.0 — JVM-only; Android path falls back to dHash
-jimageshash                        = { group = "com.github.KilianB",         name = "JImageHash",                     version.ref = "jImageHash" }
+# JImageHash removed from Gradle: JitPack build is unavailable and the library uses
+# java.awt which does not exist on Android. PortraitMatcher.kt loads it via reflection
+# with runCatching so the dHash fallback is used automatically at runtime.
 
 # ── OEM / platform utilities ──────────────────────────────────────────────
 # JitPack: com.github.judemanutd:autostarter:1.1.0

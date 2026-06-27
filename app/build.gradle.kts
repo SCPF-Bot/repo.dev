@@ -173,8 +173,9 @@ dependencies {
     // Alias is mlkit-objectdetection (not mlkit-object-detection) to avoid "object" Kotlin keyword in accessor
     implementation(libs.mlkit.objectdetection)
 
-    // KilianB/JImageHash: WaveletHash for PortraitMatcher — JVM-only, dHash fallback on Android
-    implementation(libs.jimageshash)
+    // JImageHash intentionally NOT declared here: it uses java.awt (unavailable on Android)
+    // and JitPack does not publish a usable AAR. PortraitMatcher loads it via reflection
+    // with runCatching, so the dHash fallback engages automatically on device.
 
     // AutoStarter: OEM auto-start settings deep-link in PermissionWizardScreen
     implementation(libs.autostarter)
