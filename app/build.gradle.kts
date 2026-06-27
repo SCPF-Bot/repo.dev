@@ -51,10 +51,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose     = true
         buildConfig = true
@@ -72,6 +68,13 @@ android {
             pickFirsts += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
+}
+
+// kotlin.android is auto-applied by AGP 9.x, so kotlinOptions {} inside android {}
+// is unavailable. Use the top-level kotlin {} DSL instead — jvmToolchain sets the
+// JVM target for both the Kotlin compiler and javac in one call.
+kotlin {
+    jvmToolchain(17)
 }
 
 configurations.all {
