@@ -1,6 +1,10 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    // NOTE: kotlin.android is intentionally omitted here.
+    // AGP 9.x auto-applies org.jetbrains.kotlin.android when it detects Kotlin
+    // sources, so an explicit second application throws
+    // "Cannot add extension with name 'kotlin', as there is an extension already
+    // registered with that name."
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
