@@ -167,7 +167,8 @@ dependencies {
     implementation(libs.mlkit.text.recognition)
 
     // ML Kit Object Detection (custom TFLite model) — guarded by asset existence check; see todo.md §5.9
-    implementation(libs.mlkit.object.detection)
+    // Alias is mlkit-objectdetection (not mlkit-object-detection) to avoid "object" Kotlin keyword in accessor
+    implementation(libs.mlkit.objectdetection)
 
     // KilianB/JImageHash: WaveletHash for PortraitMatcher — JVM-only, dHash fallback on Android
     implementation(libs.jimageshash)

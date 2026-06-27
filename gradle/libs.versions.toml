@@ -140,7 +140,8 @@ balloon                            = { group = "com.github.skydoves",        nam
 # ── ML / CV ───────────────────────────────────────────────────────────────
 mlkit-text-recognition             = { group = "com.google.mlkit",           name = "text-recognition",               version.ref = "mlkitTextRec" }
 # ML Kit Object Detection (custom TFLite model) — integration guarded by asset existence check
-mlkit-object-detection             = { group = "com.google.mlkit",           name = "object-detection-custom",        version.ref = "mlkitObjectDetection" }
+# Alias avoids "object" keyword in the Kotlin accessor (mlkit-object-detection → libs.mlkit.`object`.detection fails)
+mlkit-objectdetection              = { group = "com.google.mlkit",           name = "object-detection-custom",        version.ref = "mlkitObjectDetection" }
 # JitPack: com.github.KilianB:JImageHash:3.0.0 — JVM-only; Android path falls back to dHash
 jimageshash                        = { group = "com.github.KilianB",         name = "JImageHash",                     version.ref = "jImageHash" }
 
