@@ -2,9 +2,17 @@ package com.mlbb.assistant.data.remote.dto
 
 import com.mlbb.assistant.data.local.database.HeroEntity
 import com.mlbb.assistant.domain.model.CoreItem
+import kotlinx.serialization.Serializable
 
+/**
+ * P3-01: @Serializable added — deserialized by kotlinx.serialization via the Retrofit
+ * KotlinSerializationConverterFactory in NetworkModule and by Json.decodeFromString
+ * in JsonParser. Fields not present in the JSON are handled by [ignoreUnknownKeys].
+ */
+@Serializable
 data class MetaSnapshotDto(val heroes: List<HeroDto>)
 
+@Serializable
 data class HeroDto(
     val id: Int,
     val name: String,

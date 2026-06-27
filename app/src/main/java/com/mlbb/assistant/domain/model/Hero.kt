@@ -1,5 +1,7 @@
 package com.mlbb.assistant.domain.model
 
+import kotlinx.serialization.Serializable
+
 data class Hero(
     val id: Int,
     val name: String,
@@ -31,6 +33,12 @@ data class Hero(
     val hasCCUlt: Boolean = false
 )
 
+/**
+ * P3-01: @Serializable added so CoreItem can be included in @Serializable HeroDto
+ * without a separate DTO class. Domain → data cross-reference is acceptable here
+ * because CoreItem is a pure value type with no domain logic.
+ */
+@Serializable
 data class CoreItem(
     val id: Int,
     val name: String,

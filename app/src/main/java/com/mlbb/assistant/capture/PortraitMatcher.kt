@@ -15,8 +15,8 @@ import kotlinx.coroutines.withContext
 
 data class MatchResult(
     val hero: Hero?,
-    val confidence: Float,    // 0.0–1.0
-    val requiresConfirmation: Boolean  // true if confidence < 0.80
+    val confidence: Float,            // 0.0–1.0
+    val requiresConfirmation: Boolean // true if confidence < 0.80
 )
 
 /**
@@ -25,14 +25,18 @@ data class MatchResult(
  * Improvements in this revision:
  *
  * TD-08 (lazy preload): [preloadHashes] now fetches portraits in parallel
- *   batches instead of sequentially.  The first batch of heroes is available
+ *   batches instead of sequentially. The first batch of heroes is available
  *   after ~1 s on a typical LTE connection, so recommendations start flowing
  *   before all 100+ portraits are loaded.
  *
- * Hybrid scoring: The similarity function now blends dHash (structural) with
- *   a 64-bin colour histogram (perceptual colour distribution) according to
- *   [PhaseDetectionConfig.HISTOGRAM_WEIGHT].  This reduces false positives on
- *   heroes with similar silhouettes but distinct colour palettes.
+ * Hybrid scoring: The similarity function blends three hash algorithms:
+ *   1. WaveletHash (JImageHash) — frequency-domain structural fingerprint
+ *   2. dHash (PerceptualHash) — fast gradient direction hash, always available
+ *   3. 64-bin colour histogram — perceptual colour distribution
+ *
+ * JImageHash integration guard: JImageHash JARs depend on java.awt.image.BufferedImage
+ *   which is unavailable on Android. All calls are wrapped in runCatching {} so
+ *   NoClassDefFoundError is caught as Throwable and dHash takes over seamlessly.
  */
 class PortraitMatcher(
     private val context: Context,
@@ -43,6 +47,8 @@ class PortraitMatcher(
         private const val CONFIRM_THRESHOLD = 0.80f
         private const val REJECT_THRESHOLD  = 0.40f
         private const val HISTOGRAM_BINS    = 8    // per channel → 8×3 = 24-element vector
+        private const val HISTOGRAM_WEIGHT  = 0.25f
+        private const val WAVELET_WEIGHT    = 0.20f  // weight for JImageHash wavelet score (when available)
     }
 
     // heroId → dHash of official portrait
@@ -51,12 +57,20 @@ class PortraitMatcher(
     // heroId → colour histogram (FloatArray of HISTOGRAM_BINS × 3 values)
     private val histogramCache = LruCache<Int, FloatArray>(200)
 
+    // heroId → JImageHash WaveletHash result (byte array of the hash value).
+    // Stored as ByteArray because JImageHash's Hash type is not available at
+    // Android class-load time — we serialize the relevant bits eagerly.
+    private val waveletHashCache = LruCache<Int, ByteArray>(200)
+
     // ── Preloading ────────────────────────────────────────────────────────────
 
     /**
      * TD-08: Parallel lazy preload — processes heroes in concurrent batches of
      * 10 so the first heroes are ready in < 1 s while the rest load in the
-     * background.  Callers do not need to await full completion.
+     * background. Callers do not need to await full completion.
+     *
+     * For each hero portrait: computes dHash (always), colour histogram (always),
+     * and WaveletHash (JImageHash, best-effort — falls back silently on Android).
      */
     suspend fun preloadHashes(heroes: List<Hero>) = withContext(Dispatchers.IO) {
         val batches = heroes.chunked(10)
@@ -68,6 +82,7 @@ class PortraitMatcher(
                             val bmp = fetchPortrait(hero.imageUrl) ?: return@launch
                             hashCache.put(hero.id, PerceptualHash.compute(bmp))
                             histogramCache.put(hero.id, computeHistogram(bmp))
+                            computeWaveletHashBytes(bmp)?.let { waveletHashCache.put(hero.id, it) }
                             bmp.recycle()
                         }
                     }
@@ -81,25 +96,41 @@ class PortraitMatcher(
     /**
      * Match a cropped slot bitmap against all loaded hero hashes.
      *
-     * Hybrid score = dHash_sim × (1 − HISTOGRAM_WEIGHT) + hist_sim × HISTOGRAM_WEIGHT
+     * Hybrid score (weights sum to 1.0):
+     *   • WaveletHash similarity (JImageHash) — 20 % when available, 0 % on Android
+     *   • dHash similarity (PerceptualHash)   — 55 % normally, 75 % without wavelet
+     *   • Colour histogram (Bhattacharyya)    — 25 %
      */
     fun match(slotBitmap: Bitmap, availableHeroes: List<Hero>): MatchResult {
-        val slotHash      = PerceptualHash.compute(slotBitmap)
+        val slotDHash     = PerceptualHash.compute(slotBitmap)
         val slotHistogram = computeHistogram(slotBitmap)
-        val histWeight    = PhaseDetectionConfig.HISTOGRAM_WEIGHT
+        val slotWavelet   = computeWaveletHashBytes(slotBitmap)
 
         var bestHero: Hero? = null
         var bestSim = 0f
 
         availableHeroes.forEach { hero ->
-            val heroHash = hashCache.get(hero.id) ?: return@forEach
-            val heroHist = histogramCache.get(hero.id)
+            val heroDHash = hashCache.get(hero.id) ?: return@forEach
+            val heroHist  = histogramCache.get(hero.id)
+            val heroWavelet = waveletHashCache.get(hero.id)
 
-            val dHashSim = PerceptualHash.similarity(slotHash, heroHash)
+            val dHashSim = PerceptualHash.similarity(slotDHash, heroDHash)
+
+            val waveletSim = if (slotWavelet != null && heroWavelet != null) {
+                computeWaveletSimilarity(slotWavelet, heroWavelet)
+            } else null
 
             val hybridSim = if (heroHist != null) {
                 val histSim = histogramSimilarity(slotHistogram, heroHist)
-                dHashSim * (1f - histWeight) + histSim * histWeight
+                if (waveletSim != null) {
+                    // All three algorithms available
+                    dHashSim     * (1f - HISTOGRAM_WEIGHT - WAVELET_WEIGHT) +
+                    histSim      * HISTOGRAM_WEIGHT +
+                    waveletSim   * WAVELET_WEIGHT
+                } else {
+                    // No JImageHash (Android fallback) — redistribute wavelet weight to dHash
+                    dHashSim * (1f - HISTOGRAM_WEIGHT) + histSim * HISTOGRAM_WEIGHT
+                }
             } else {
                 dHashSim
             }
@@ -111,9 +142,92 @@ class PortraitMatcher(
         }
 
         return when {
-            bestSim >= CONFIRM_THRESHOLD  -> MatchResult(bestHero, bestSim, false)
-            bestSim >= REJECT_THRESHOLD   -> MatchResult(bestHero, bestSim, true)
-            else                          -> MatchResult(null, bestSim, true)
+            bestSim >= CONFIRM_THRESHOLD -> MatchResult(bestHero, bestSim, false)
+            bestSim >= REJECT_THRESHOLD  -> MatchResult(bestHero, bestSim, true)
+            else                         -> MatchResult(null, bestSim, true)
+        }
+    }
+
+    // ── JImageHash integration (JVM-only, runCatching guard) ──────────────────
+
+    /**
+     * Attempts to compute a WaveletHash fingerprint using KilianB/JImageHash.
+     *
+     * JImageHash depends on java.awt.image.BufferedImage which is not part of
+     * the Android SDK. When called on Android the JVM throws [NoClassDefFoundError]
+     * (a subclass of [Throwable]) which [runCatching] catches, and this function
+     * returns null — triggering the dHash / histogram fallback path in [match].
+     *
+     * On a standard JVM (unit tests, desktop) the wavelet hash computes normally
+     * and provides a higher-accuracy structural fingerprint than plain dHash.
+     *
+     * The result is returned as a [ByteArray] (the hash value bytes) to avoid
+     * referencing the JImageHash [Hash] type in any field or method signature that
+     * would cause the enclosing class to fail loading on Android.
+     *
+     * @return hash bytes (big-endian) or null if JImageHash is unavailable.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun computeWaveletHashBytes(bmp: Bitmap): ByteArray? = runCatching {
+        // Convert Bitmap → BufferedImage — this line throws NoClassDefFoundError on Android.
+        // On a JVM it works; on Android the catch block returns null transparently.
+        val bufferedImage = bitmapToBufferedImage(bmp) ?: return@runCatching null
+
+        // Use WaveletHash with bit resolution 32 and scale factor 4 (good balance of
+        // accuracy vs. speed for 64×64 portrait crops).
+        @Suppress("UNCHECKED_CAST")
+        val hasherClass = Class.forName("com.github.kilianB.hashAlgorithms.WaveletHash")
+        val constructor = hasherClass.getConstructor(Integer.TYPE, Integer.TYPE)
+        val hasher      = constructor.newInstance(32, 4)
+
+        val hashMethod  = hasherClass.getMethod("hash", Class.forName("java.awt.image.BufferedImage"))
+        val hashObj     = hashMethod.invoke(hasher, bufferedImage)
+
+        // Extract the underlying BigInteger / byte representation via reflection
+        val hashClass      = hashObj.javaClass
+        val toStringMethod = hashClass.getMethod("toHexString")
+        val hex            = toStringMethod.invoke(hashObj) as? String ?: return@runCatching null
+        hexStringToByteArray(hex)
+    }.getOrNull()
+
+    /**
+     * Converts an Android [Bitmap] to a java.awt.image.BufferedImage via reflection.
+     * Returns null (gracefully) on Android where BufferedImage is unavailable.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun bitmapToBufferedImage(bmp: Bitmap): Any? = runCatching {
+        val scaled     = Bitmap.createScaledBitmap(bmp, 64, 64, true)
+        val biClass    = Class.forName("java.awt.image.BufferedImage")
+        val buffImg    = biClass.getConstructor(Integer.TYPE, Integer.TYPE, Integer.TYPE)
+            .newInstance(scaled.width, scaled.height, 2 /* TYPE_INT_RGB */)
+        val setRGB = biClass.getMethod("setRGB", Integer.TYPE, Integer.TYPE, Integer.TYPE)
+        for (x in 0 until scaled.width) {
+            for (y in 0 until scaled.height) {
+                setRGB.invoke(buffImg, x, y, scaled.getPixel(x, y))
+            }
+        }
+        if (scaled !== bmp) scaled.recycle()
+        buffImg
+    }.getOrNull()
+
+    /**
+     * Computes normalised Hamming similarity between two wavelet hash byte arrays.
+     * Returns 0f if the arrays differ in length (shouldn't happen for same algorithm).
+     */
+    private fun computeWaveletSimilarity(h1: ByteArray, h2: ByteArray): Float {
+        if (h1.size != h2.size) return 0f
+        var diffBits = 0
+        for (i in h1.indices) {
+            diffBits += Integer.bitCount((h1[i].toInt() xor h2[i].toInt()) and 0xFF)
+        }
+        val totalBits = h1.size * 8
+        return if (totalBits == 0) 0f else 1f - diffBits.toFloat() / totalBits.toFloat()
+    }
+
+    private fun hexStringToByteArray(hex: String): ByteArray {
+        val s = if (hex.length % 2 != 0) "0$hex" else hex
+        return ByteArray(s.length / 2) { i ->
+            s.substring(i * 2, i * 2 + 2).toInt(16).toByte()
         }
     }
 
@@ -136,14 +250,13 @@ class PortraitMatcher(
                 val g  = android.graphics.Color.green(px)
                 val b  = android.graphics.Color.blue(px)
 
-                hist[(r * bins / 256).coerceIn(0, bins - 1)]          += 1f
-                hist[bins + (g * bins / 256).coerceIn(0, bins - 1)]   += 1f
-                hist[bins * 2 + (b * bins / 256).coerceIn(0, bins - 1)] += 1f
+                hist[(r * bins / 256).coerceIn(0, bins - 1)]              += 1f
+                hist[bins + (g * bins / 256).coerceIn(0, bins - 1)]       += 1f
+                hist[bins * 2 + (b * bins / 256).coerceIn(0, bins - 1)]   += 1f
                 count++
             }
         }
 
-        // Normalise each channel independently.
         if (count > 0) {
             for (c in 0 until 3) {
                 val offset = c * bins

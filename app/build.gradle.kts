@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    // kotlinx.serialization plugin — P3-01 / RA-07; enables @Serializable on DTOs
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
@@ -126,9 +125,10 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
 
-    // kotlinx.serialization runtime — P3-01 / RA-07
-    // Full Gson → kotlinx.serialization migration tracked in todo.md §5.5
+    // kotlinx.serialization runtime — P3-01; full migration from Gson complete
     implementation(libs.kotlinx.serialization.json)
+    // Retrofit kotlinx.serialization converter — replaces GsonConverterFactory
+    implementation(libs.retrofit.kotlinx.converter)
 
     // Coil 3 — image loading
     implementation(libs.coil.compose)
@@ -136,12 +136,12 @@ dependencies {
 
     // DataStore
     implementation(libs.datastore.preferences)
-    implementation(libs.savedstate)
 
     // Paging 3 (TD-10: smooth hero grid scrolling on large datasets)
     implementation(libs.paging.runtime)
-    implementation(libs.paging.compose)
     implementation(libs.room.paging)
+    // Paging 3 Compose — collectAsLazyPagingItems for HeroListScreen paged grid
+    implementation(libs.paging.compose)
 
     // Logging
     implementation(libs.timber)
@@ -153,31 +153,22 @@ dependencies {
     // ComposeCharts: animated pie chart for ScoreExplanationSheet score breakdown
     implementation(libs.compose.charts)
 
-    // ML Kit Text Recognition: on-device OCR for PhaseOcrDetector (replaces reflection stub)
-    implementation(libs.mlkit.text.recognition)
-
-    // Lottie: rich Lottie animation support for phase-transition sequences
+    // Lottie: phase-transition animations in overlay (scanning, pick-success, ban-warning)
     implementation(libs.lottie.compose)
 
-    // Balloon (skydoves): tooltip overlay for hero suggestion long-press
-    // Integration target: SuggestionCard.kt + PickPhaseContent.kt — tracked in todo.md §5.7
-    // JitPack dependency — requires maven("https://jitpack.io") in settings.gradle.kts
+    // Balloon (skydoves): Compose tooltip on hero chip long-press in SuggestionCard + PickPhaseContent
     implementation(libs.balloon)
 
-    // ── ML / CV Libraries ─────────────────────────────────────────────────────
-    // ML Kit Object Detection (custom TFLite model): future hero-detector pipeline
-    // Model training via Roboflow required before integration — tracked in todo.md §5.9
+    // ML Kit Text Recognition: on-device OCR for PhaseOcrDetector
+    implementation(libs.mlkit.text.recognition)
+
+    // ML Kit Object Detection (custom TFLite model) — guarded by asset existence check; see todo.md §5.9
     implementation(libs.mlkit.object.detection)
 
-    // KilianB/JImageHash: WaveletHash + ColorDifferenceHash for PortraitMatcher
-    // Integration target: PortraitMatcher.kt — tracked in todo.md §5.8
-    // JitPack dependency — requires maven("https://jitpack.io") in settings.gradle.kts
+    // KilianB/JImageHash: WaveletHash for PortraitMatcher — JVM-only, dHash fallback on Android
     implementation(libs.jimageshash)
 
-    // ── Platform / OEM Utilities ─────────────────────────────────────────────
     // AutoStarter: OEM auto-start settings deep-link in PermissionWizardScreen
-    // Integration target: PermissionWizardScreen.kt — tracked in todo.md §5.10
-    // JitPack dependency — requires maven("https://jitpack.io") in settings.gradle.kts
     implementation(libs.autostarter)
 
     // JetOverlay: Compose-first floating overlay SDK (rec. §1.1, Critical)

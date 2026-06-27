@@ -2,17 +2,23 @@ package com.mlbb.assistant.presentation.herolist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
+import com.mlbb.assistant.domain.usecase.GetPagedHeroesUseCase
 import com.mlbb.assistant.domain.usecase.SyncHeroesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -21,7 +27,8 @@ import javax.inject.Inject
 @HiltViewModel
 class HeroListViewModel @Inject constructor(
     private val getHeroesUseCase: GetHeroesUseCase,
-    private val syncHeroesUseCase: SyncHeroesUseCase
+    private val syncHeroesUseCase: SyncHeroesUseCase,
+    private val getPagedHeroesUseCase: GetPagedHeroesUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HeroListState(isLoading = true))
@@ -35,6 +42,27 @@ class HeroListViewModel @Inject constructor(
     private val selectedRoleFlow = MutableStateFlow<String?>(null)
 
     private var heroCollectJob: Job? = null
+
+    /**
+     * TD-10: Paged hero stream wired to search query and lane/role filter.
+     *
+     * Uses [flatMapLatest] so any change to the search/role filter immediately
+     * cancels the current page load and starts a fresh one. [cachedIn] keeps
+     * the last page in memory across recompositions so the grid does not
+     * reload when the screen re-enters the composition.
+     *
+     * The 150 ms [debounce] on [searchQueryFlow] matches the filter debounce
+     * in [collectFilters] — rapid keystrokes do not trigger redundant DB queries.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val pagedHeroes: Flow<PagingData<Hero>> = combine(
+        searchQueryFlow.debounce(150L),
+        selectedRoleFlow
+    ) { query, role -> query to (role ?: "") }
+        .flatMapLatest { (query, lane) ->
+            getPagedHeroesUseCase(query = query, lane = lane)
+        }
+        .cachedIn(viewModelScope)
 
     init {
         collectHeroes()

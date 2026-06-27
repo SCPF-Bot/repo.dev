@@ -9,11 +9,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.advisor.BanSuggestion
 import com.mlbb.assistant.domain.engine.BanStructure
 import com.mlbb.assistant.domain.engine.DraftPhase
@@ -63,17 +70,10 @@ fun BanPhaseContent(
             )
         }
 
+        // "YOUR TURN TO BAN" banner — Lottie warning pulse animation (rec. §8.4 / RA-07)
         if (isBanButtonVisible) {
             AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically()) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(MLBBRed.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
-                        .border(1.dp, MLBBRed.copy(alpha = 0.50f), RoundedCornerShape(6.dp))
-                        .padding(6.dp)
-                ) {
-                    Text("🔴 YOUR TURN TO BAN", color = MLBBRed, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                }
+                BanTurnBanner()
             }
         }
 
@@ -100,6 +100,44 @@ fun BanPhaseContent(
     }
 }
 
+/**
+ * "YOUR TURN TO BAN" banner with a Lottie warning-pulse animation.
+ *
+ * The animation ([R.raw.lottie_ban_warning]) plays a red pulsing ring on loop to
+ * draw the player's attention when it's their turn. Lottie renders it with hardware
+ * acceleration so it does not impact the overlay's main-thread compositing budget.
+ */
+@Composable
+private fun BanTurnBanner() {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.lottie_ban_warning))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations  = LottieConstants.IterateForever
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MLBBRed.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+            .border(1.dp, MLBBRed.copy(alpha = 0.50f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress    = { progress },
+            modifier    = Modifier.size(28.dp)
+        )
+        Text(
+            text       = "YOUR TURN TO BAN",
+            color      = MLBBRed,
+            fontWeight = FontWeight.Bold,
+            fontSize   = 11.sp
+        )
+    }
+}
+
 @Composable
 private fun BanSlotRow(
     label: String,
@@ -111,11 +149,9 @@ private fun BanSlotRow(
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, color = labelColor, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            // Round 1 slots
             bans.forEach { hero ->
                 HeroPortrait(hero = hero, size = 42.dp)
             }
-            // Divider between rounds
             if (banStructure.hasRound2) {
                 Spacer(Modifier.width(6.dp))
                 r2Bans.forEach { hero ->

@@ -2,7 +2,7 @@ package com.mlbb.assistant.presentation.overlay
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -14,15 +14,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mlbb.assistant.domain.advisor.CompositionAnalyzer
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.engine.DraftSession
-import com.mlbb.assistant.domain.engine.TeamSide
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.scoring.HeroScore
 import com.mlbb.assistant.presentation.common.components.HeroGrid
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
 import com.mlbb.assistant.presentation.common.components.RoleDashboard
 import com.mlbb.assistant.presentation.common.theme.*
+import com.skydoves.balloon.BalloonAnimation
+import com.skydoves.balloon.BalloonSizeSpec
+import com.skydoves.balloon.compose.Balloon
+import com.skydoves.balloon.compose.rememberBalloonBuilder
 
 enum class SuggestionTab { META, SYNERGY, COUNTER }
 
@@ -104,7 +112,7 @@ fun PickPhaseContent(
                             if (selected) MLBBGold.copy(alpha = 0.20f) else Color.Transparent,
                             RoundedCornerShape(6.dp)
                         )
-                        .clickable { activeTab = tab }
+                        .combinedClickable(onClick = { activeTab = tab })
                         .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -121,8 +129,10 @@ fun PickPhaseContent(
             }
         }
 
-        // Recommendations
-        if (tabFiltered.isNotEmpty()) {
+        // Recommendations — Lottie scanning animation when analysing; cards when ready
+        if (tabFiltered.isEmpty()) {
+            ScanningPlaceholder()
+        } else {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 tabFiltered.take(3).forEach { score ->
                     RecommendationCard(score = score, onTap = onHeroTap, onLong = onHeroLongPress)
@@ -141,6 +151,42 @@ fun PickPhaseContent(
     }
 }
 
+/**
+ * Lottie scanning placeholder shown while the draft engine analyses the current
+ * state and no recommendations are ready yet (rec. §8.4 / RA-07).
+ *
+ * The spinning dashed-ring animation ([R.raw.lottie_scanning]) communicates that
+ * work is in progress — replacing the jarring blank space that appeared before.
+ */
+@Composable
+private fun ScanningPlaceholder() {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.lottie_scanning))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations  = LottieConstants.IterateForever
+    )
+    Box(
+        modifier         = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            LottieAnimation(
+                composition = composition,
+                progress    = { progress },
+                modifier    = Modifier.size(44.dp)
+            )
+            Text(
+                text     = "Analysing draft…",
+                color    = TextSecondary,
+                fontSize = 10.sp
+            )
+        }
+    }
+}
+
 @Composable
 private fun PickSlotRows(session: DraftSession) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -155,32 +201,99 @@ private fun PickSlotRows(session: DraftSession) {
     }
 }
 
+/**
+ * Recommendation chip with a Balloon tooltip on long-press (rec. §8.4 / RA-06).
+ *
+ * Long-pressing any card shows a Balloon popup with the hero's score breakdown:
+ * meta score, synergy score, and counter score as percentages.  This gives advanced
+ * players the detail they need without cluttering the compact overlay UI.
+ */
 @Composable
 private fun RecommendationCard(score: HeroScore, onTap: (Hero) -> Unit, onLong: (Hero) -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .background(SurfaceCard, RoundedCornerShape(8.dp))
-            .border(1.dp, MLBBGold.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
-            .padding(6.dp)
-            .width(80.dp)
-    ) {
-        HeroPortrait(hero = score.hero, size = 56.dp, onClick = onTap)
-        Spacer(Modifier.height(3.dp))
-        Text(score.hero.name, color = TextPrimary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-        Box(
-            Modifier
-                .background(badgeColor(score.badgeLabel).copy(alpha = 0.20f), RoundedCornerShape(4.dp))
-                .padding(horizontal = 4.dp, vertical = 1.dp)
-        ) {
-            Text(score.badgeLabel, color = badgeColor(score.badgeLabel), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+    val balloonBuilder = rememberBalloonBuilder {
+        setArrowSize(10)
+        setWidth(BalloonSizeSpec.WRAP)
+        setHeight(BalloonSizeSpec.WRAP)
+        setArrowPosition(0.5f)
+        setCornerRadius(10f)
+        setPaddingHorizontal(12)
+        setPaddingVertical(8)
+        setBalloonAnimation(BalloonAnimation.ELASTIC)
+        setBackgroundColor(android.graphics.Color.parseColor("#1A1C2E"))
+    }
+
+    Balloon(
+        builder        = balloonBuilder,
+        balloonContent = {
+            RecommendationTooltipContent(score = score)
         }
-        Text("%.0f pts".format(score.totalScore * 100), color = TextSecondary, fontSize = 8.sp)
+    ) { balloonWindow ->
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .background(SurfaceCard, RoundedCornerShape(8.dp))
+                .border(1.dp, MLBBGold.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                .padding(6.dp)
+                .width(80.dp)
+                .combinedClickable(
+                    onClick      = { onTap(score.hero) },
+                    onLongClick  = { balloonWindow.showAlignBottom() },
+                    onLongClickLabel = "View ${score.hero.name} score breakdown"
+                )
+        ) {
+            HeroPortrait(hero = score.hero, size = 56.dp, onClick = onTap)
+            Spacer(Modifier.height(3.dp))
+            Text(score.hero.name, color = TextPrimary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Box(
+                Modifier
+                    .background(badgeColor(score.badgeLabel).copy(alpha = 0.20f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
+            ) {
+                Text(score.badgeLabel, color = badgeColor(score.badgeLabel), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            }
+            Text("%.0f pts".format(score.totalScore * 100), color = TextSecondary, fontSize = 8.sp)
+            Text(
+                score.reason, color = TextDisabled, fontSize = 7.sp, maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecommendationTooltipContent(score: HeroScore) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+        modifier            = Modifier.padding(4.dp)
+    ) {
         Text(
-            score.reason, color = TextDisabled, fontSize = 7.sp, maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
+            text       = score.hero.name,
+            color      = MLBBGold,
+            fontSize   = 11.sp,
+            fontWeight = FontWeight.Bold
         )
+        TooltipRow("Meta",    score.metaScore)
+        TooltipRow("Synergy", score.synergyScore)
+        TooltipRow("Counter", score.counterScore)
+        Text(
+            text     = score.reason,
+            color    = TextDisabled,
+            fontSize = 9.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun TooltipRow(label: String, value: Double) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment     = Alignment.CenterVertically
+    ) {
+        Text("$label:", color = TextSecondary, fontSize = 9.sp, modifier = Modifier.width(50.dp))
+        Text("%.0f%%".format(value * 100), color = TextPrimary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

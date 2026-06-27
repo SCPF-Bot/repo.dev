@@ -54,7 +54,27 @@ private fun tryStartActivity(context: android.content.Context, vararg intents: I
  * Covers: Xiaomi MIUI, OPPO ColorOS, Vivo FuntouchOS, Huawei EMUI, OnePlus OxygenOS,
  * Samsung One UI, Realme UI, Meizu Flyme.
  */
+/**
+ * Opens the manufacturer-specific auto-start / background-launch manager.
+ *
+ * Rec. §2.4 (RA-05): Uses [AutoStartPermissionHelper] from judemanutd/autostarter
+ * as the primary path — it handles OEM intent resolution for 20+ device families.
+ * Falls back to our own curated intent list when the library returns false (device not
+ * recognised), then to the universal App Info screen as a final safety net.
+ *
+ * [runCatching] guards the library call in case it throws on an unusual OEM ROM where
+ * the helper itself crashes (e.g. restricted ClassLoaders on Asus ZenUI).
+ */
 private fun openAutoStartSettings(ctx: android.content.Context) {
+    // Primary: AutoStartPermissionHelper (judemanutd/autostarter 1.1.0)
+    val launchedByLibrary = runCatching {
+        com.judemanutd.autostarter.AutoStartPermissionHelper
+            .getInstance()
+            .getAutoStartPermission(ctx)
+    }.getOrDefault(false)
+    if (launchedByLibrary) return
+
+    // Fallback: manually curated OEM intent list for devices not covered by the library
     tryStartActivity(
         ctx,
         // Xiaomi MIUI

@@ -1,85 +1,78 @@
 [versions]
 # ── Build toolchain ────────────────────────────────────────────────────────
-# P0-06 fix (2026-06-26): all duplicate keys removed; last-wins values preserved
-# to keep effective build behavior unchanged. Suspicious version downgrades
-# discovered during deduplication are documented in docs/misc.md §8.
-agp                    = "9.2.1"
-kotlin                 = "2.1.0"
-ksp                    = "2.3.9"
-detekt                 = "1.23.8"
+agp                          = "9.2.1"
+kotlin                       = "2.1.0"
+ksp                          = "2.3.9"
+detekt                       = "1.23.8"
 
 # ── AndroidX core ─────────────────────────────────────────────────────────
-# NOTE: coreKtx last-wins was 1.16.0 (first entry was 1.19.0 — see misc.md §8)
-coreKtx                = "1.16.0"
-lifecycleRuntime       = "2.11.0"
-activityCompose        = "1.13.0"
-composeBom             = "2026.06.00"
-savedstate             = "1.2.1"
+coreKtx                      = "1.16.0"
+lifecycleRuntime             = "2.11.0"
+activityCompose              = "1.13.0"
+composeBom                   = "2026.06.00"
 
 # ── Jetpack ───────────────────────────────────────────────────────────────
-room                   = "2.7.1"
-datastore              = "1.2.1"
-# NOTE: navigationCompose last-wins was 2.9.0 (first entry was 2.9.8 — see misc.md §8)
-navigationCompose      = "2.9.0"
-paging                 = "3.5.0"
-workRuntime            = "2.11.2"
+room                         = "2.7.1"
+datastore                    = "1.2.1"
+navigationCompose            = "2.9.0"
+paging                       = "3.5.0"
+workRuntime                  = "2.11.2"
 
 # ── DI ────────────────────────────────────────────────────────────────────
-hilt                   = "2.60"
-hiltNavCompose         = "1.3.0"
-hiltWork               = "1.3.0"
+hilt                         = "2.60"
+hiltNavCompose               = "1.3.0"
+hiltWork                     = "1.3.0"
 
 # ── Network ───────────────────────────────────────────────────────────────
-# NOTE: retrofit last-wins was 2.11.0 (first entry was 3.0.0 — see misc.md §8)
-retrofit               = "2.11.0"
-# NOTE: okhttp had 3 entries; last-wins is 4.12.0 (see misc.md §8)
-okhttp                 = "4.12.0"
-gson                   = "2.14.0"
+retrofit                     = "2.11.0"
+# Retrofit converter for kotlinx.serialization (replaces GsonConverterFactory)
+retrofitKotlinxConverter     = "1.0.0"
+okhttp                       = "4.12.0"
+gson                         = "2.14.0"
 
 # ── Async / Kotlin stdlib extensions ──────────────────────────────────────
-coroutines             = "1.11.0"
-kotlinxSerialization   = "1.7.3"
+coroutines                   = "1.11.0"
+kotlinxSerialization         = "1.7.3"
 
 # ── Image loading ─────────────────────────────────────────────────────────
-coil                   = "3.1.0"
+coil                         = "3.1.0"
 
 # ── UI enhancement ────────────────────────────────────────────────────────
-shimmer                = "1.3.0"
-composeCharts          = "0.2.5"
-lottie                 = "6.7.1"
-# skydoves/Balloon: overlay tooltip for hero suggestion long-press (rec. §8.4, RA-06)
-# Requires JitPack repository — see settings.gradle.kts
-balloon                = "1.6.12"
+shimmer                      = "1.3.0"
+composeCharts                = "0.2.5"
+lottie                       = "6.7.1"
+# skydoves/Balloon: Compose tooltip for hero suggestion long-press (rec. §8.4, RA-06)
+# JitPack: com.github.skydoves:balloon:1.6.12
+balloon                      = "1.6.12"
 
 # ── ML / CV ───────────────────────────────────────────────────────────────
-mlkitTextRec           = "16.0.1"
-# ML Kit Object Detection (custom model): future TFLite hero-detector pipeline (rec. §3.2, RA-05)
-mlkitObjectDetection   = "17.0.2"
-# KilianB/JImageHash: multi-algorithm perceptual hashing for PortraitMatcher (rec. §3.1, RA-04)
-# Requires JitPack repository — see settings.gradle.kts
-jImageHash             = "3.0.0"
+mlkitTextRec                 = "16.0.1"
+# ML Kit Object Detection (custom TFLite model) — training pipeline in todo.md §5.9
+mlkitObjectDetection         = "17.0.2"
+# KilianB/JImageHash: multi-algorithm perceptual hashing — JVM-only with dHash fallback
+# JitPack: com.github.KilianB:JImageHash:3.0.0
+jImageHash                   = "3.0.0"
 
 # ── OEM / platform utilities ──────────────────────────────────────────────
-# judemanutd/AutoStarter: OEM auto-start settings navigation in PermissionWizardScreen (RA roadmap)
-# Requires JitPack repository — see settings.gradle.kts
-autoStarter            = "1.1.0"
+# judemanutd/AutoStarter: OEM auto-start settings deep-link (rec. §2.4)
+# JitPack: com.github.judemanutd:autostarter:1.1.0
+autoStarter                  = "1.1.0"
 
-# ── Overlay window management ──────────────────────────────────────────────
-# YazanAesmael/JetOverlay: Compose-first floating overlay SDK; replaces WindowManager boilerplate
-# in OverlayService (~650 LOC removed). Requires JitPack repository.
-# Integration: rec. §1.1 (Critical); replaces P1-03 manual decomposition.
-jetOverlay             = "1.1.0"
+# ── Overlay window management ─────────────────────────────────────────────
+# YazanAesmael/JetOverlay: Compose-first floating overlay SDK (rec. §1.1, Critical)
+# JitPack: com.github.YazanAesmael:JetOverlay:1.1.0
+jetOverlay                   = "1.1.0"
 
 # ── Logging / debug ───────────────────────────────────────────────────────
-timber                 = "5.0.1"
+timber                       = "5.0.1"
 
 # ── Test ──────────────────────────────────────────────────────────────────
-junit                  = "4.13.2"
-junitExt               = "1.2.1"
-espresso               = "3.6.1"
-mockk                  = "1.13.12"
-turbine                = "1.2.0"
-robolectric            = "4.14.1"
+junit                        = "4.13.2"
+junitExt                     = "1.2.1"
+espresso                     = "3.6.1"
+mockk                        = "1.13.12"
+turbine                      = "1.2.0"
+robolectric                  = "4.14.1"
 
 [libraries]
 # ── AndroidX core ─────────────────────────────────────────────────────────
@@ -88,7 +81,6 @@ androidx-lifecycle-runtime-ktx     = { group = "androidx.lifecycle",         nam
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle",         name = "lifecycle-runtime-compose",      version.ref = "lifecycleRuntime" }
 androidx-lifecycle-viewmodel       = { group = "androidx.lifecycle",         name = "lifecycle-viewmodel-ktx",        version.ref = "lifecycleRuntime" }
 androidx-activity-compose          = { group = "androidx.activity",          name = "activity-compose",               version.ref = "activityCompose" }
-savedstate                         = { group = "androidx.savedstate",        name = "savedstate-ktx",                 version.ref = "savedstate" }
 
 # ── Compose BOM + modules ─────────────────────────────────────────────────
 compose-bom                        = { group = "androidx.compose",           name = "compose-bom",                    version.ref = "composeBom" }
@@ -123,13 +115,15 @@ hilt-work-compiler                 = { group = "androidx.hilt",              nam
 # ── Network ───────────────────────────────────────────────────────────────
 retrofit-core                      = { group = "com.squareup.retrofit2",     name = "retrofit",                       version.ref = "retrofit" }
 retrofit-gson                      = { group = "com.squareup.retrofit2",     name = "converter-gson",                 version.ref = "retrofit" }
+# kotlinx.serialization Retrofit converter — replaces GsonConverterFactory in NetworkModule
+retrofit-kotlinx-converter         = { group = "com.jakewharton.retrofit",   name = "retrofit2-kotlinx-serialization-converter", version.ref = "retrofitKotlinxConverter" }
 okhttp-logging                     = { group = "com.squareup.okhttp3",       name = "logging-interceptor",            version.ref = "okhttp" }
+# gson kept in Gradle until minified-build smoke test confirms R8 rules are clean (todo.md §5.5 step 5)
 gson                               = { group = "com.google.code.gson",       name = "gson",                           version.ref = "gson" }
 
 # ── Async / Kotlin extensions ─────────────────────────────────────────────
 kotlinx-coroutines-android         = { group = "org.jetbrains.kotlinx",      name = "kotlinx-coroutines-android",     version.ref = "coroutines" }
 kotlinx-coroutines-test            = { group = "org.jetbrains.kotlinx",      name = "kotlinx-coroutines-test",        version.ref = "coroutines" }
-# kotlinx.serialization runtime — P3-01 migration (full Gson replacement tracked in todo.md §5.5)
 kotlinx-serialization-json         = { group = "org.jetbrains.kotlinx",      name = "kotlinx-serialization-json",     version.ref = "kotlinxSerialization" }
 
 # ── Image loading ─────────────────────────────────────────────────────────
@@ -140,25 +134,21 @@ coil-network                       = { group = "io.coil-kt.coil3",           nam
 compose-shimmer                    = { group = "com.valentinilk.shimmer",    name = "shimmer",                        version.ref = "shimmer" }
 compose-charts                     = { group = "io.github.ehsannarmani",     name = "compose-charts",                 version.ref = "composeCharts" }
 lottie-compose                     = { group = "com.airbnb.android",         name = "lottie-compose",                 version.ref = "lottie" }
-# skydoves/Balloon: tooltip overlay for hero suggestion long-press (rec. §8.4, RA-06)
 # JitPack: com.github.skydoves:balloon:1.6.12
 balloon                            = { group = "com.github.skydoves",        name = "balloon",                        version.ref = "balloon" }
 
 # ── ML / CV ───────────────────────────────────────────────────────────────
 mlkit-text-recognition             = { group = "com.google.mlkit",           name = "text-recognition",               version.ref = "mlkitTextRec" }
-# ML Kit Object Detection Custom: TFLite hero-detector integration (rec. §3.2, RA-05)
+# ML Kit Object Detection (custom TFLite model) — integration guarded by asset existence check
 mlkit-object-detection             = { group = "com.google.mlkit",           name = "object-detection-custom",        version.ref = "mlkitObjectDetection" }
-# KilianB/JImageHash: WaveletHash + ColorDifferenceHash for PortraitMatcher (rec. §3.1, RA-04)
-# JitPack: com.github.KilianB:JImageHash:3.0.0
+# JitPack: com.github.KilianB:JImageHash:3.0.0 — JVM-only; Android path falls back to dHash
 jimageshash                        = { group = "com.github.KilianB",         name = "JImageHash",                     version.ref = "jImageHash" }
 
 # ── OEM / platform utilities ──────────────────────────────────────────────
-# judemanutd/AutoStarter: OEM auto-start deep-link in PermissionWizardScreen (rec. §2.4)
 # JitPack: com.github.judemanutd:autostarter:1.1.0
 autostarter                        = { group = "com.github.judemanutd",      name = "autostarter",                    version.ref = "autoStarter" }
 
-# ── Overlay window management ──────────────────────────────────────────────
-# YazanAesmael/JetOverlay: Compose-first floating overlay SDK (rec. §1.1, Critical)
+# ── Overlay window management ─────────────────────────────────────────────
 # JitPack: com.github.YazanAesmael:JetOverlay:1.1.0
 jet-overlay                        = { group = "com.github.YazanAesmael",    name = "JetOverlay",                     version.ref = "jetOverlay" }
 
@@ -174,10 +164,9 @@ turbine                            = { group = "app.cash.turbine",           nam
 robolectric                        = { group = "org.robolectric",            name = "robolectric",                    version.ref = "robolectric" }
 
 [plugins]
-android-application      = { id = "com.android.application",                version.ref = "agp" }
-kotlin-android           = { id = "org.jetbrains.kotlin.android",           version.ref = "kotlin" }
-kotlin-compose           = { id = "org.jetbrains.kotlin.plugin.compose",    version.ref = "kotlin" }
-# kotlinx.serialization plugin — same version as Kotlin (P3-01, RA-07)
-kotlin-serialization     = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-ksp                      = { id = "com.google.devtools.ksp",                version.ref = "ksp" }
-hilt                     = { id = "com.google.dagger.hilt.android",         version.ref = "hilt" }
+android-application      = { id = "com.android.application",                    version.ref = "agp" }
+kotlin-android           = { id = "org.jetbrains.kotlin.android",               version.ref = "kotlin" }
+kotlin-compose           = { id = "org.jetbrains.kotlin.plugin.compose",        version.ref = "kotlin" }
+kotlin-serialization     = { id = "org.jetbrains.kotlin.plugin.serialization",  version.ref = "kotlin" }
+ksp                      = { id = "com.google.devtools.ksp",                    version.ref = "ksp" }
+hilt                     = { id = "com.google.dagger.hilt.android",             version.ref = "hilt" }
