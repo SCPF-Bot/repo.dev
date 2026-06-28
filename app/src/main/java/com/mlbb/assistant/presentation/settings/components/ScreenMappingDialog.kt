@@ -1,5 +1,6 @@
 package com.mlbb.assistant.presentation.settings.components
 
+import android.view.ViewGroup
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -30,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,12 +47,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import com.mlbb.assistant.presentation.common.theme.ErrorRed
@@ -65,20 +69,39 @@ import com.mlbb.assistant.presentation.common.theme.TextSecondary
 import kotlin.math.sqrt
 
 /**
- * Full-screen mapping tool for tapping hero portrait positions onto a ban-phase screenshot.
+ * Full-screen ban-phase mapping tool.
  *
- * Key design decisions:
- * - **Auto team detection**: taps on the LEFT half are ALLY; taps on the RIGHT half are ENEMY.
- *   This matches the permanent MLBB layout (ally always left, enemy always right during bans).
- *   A [SwapHoriz] button flips the rule for inverted layouts.
- * - **Image-relative coordinates**: marker positions are stored as fractions of the *rendered
- *   image rect* (not the container rect). [ContentScale.Fit] letterboxes the image inside the
- *   container; we compute the actual image bounds and clamp/map all gestures accordingly, so
- *   markers never float outside the screenshot.
- * - **Tap-to-remove**: tapping within [HIT_RADIUS_PX] of an existing marker removes it.
- * - **Long-press drag**: repositions an existing marker.
+ * ## Architecture decisions (backed by research)
  *
- * Data model: [MappedPoint] / serialisation: [MappingSlotModel]
+ * ### Why aspectRatio + FillBounds instead of weight + Fit?
+ * MLBB screenshots are landscape (e.g. 2400×1080). `ContentScale.Fit` inside a
+ * portrait-dialog container (`weight(1f)`) would scale the image down to a thin
+ * horizontal strip (~177dp tall) inside a ~800dp box — producing 300dp of black
+ * bars above and below. Fixing this: once the image intrinsic size is known, the
+ * canvas `BoxWithConstraints` is sized with `Modifier.aspectRatio(w/h)` so it is
+ * *exactly* as tall as the rendered image. `ContentScale.FillBounds` then fills
+ * the container perfectly, eliminating all letterboxing.
+ *
+ * ### Why no letterbox-offset math?
+ * Because the container and image aspect ratios match, there is zero offset.
+ * Tap-to-normalised becomes: `normX = tap.x / containerPx`, no subtraction needed.
+ *
+ * ### Dialog window constraint fix (Google issue #275732345)
+ * `Dialog` uses `Configuration.screenWidthDp/screenHeightDp` which can be
+ * inaccurate (especially for edge-to-edge). Applying `setLayout(MATCH_PARENT,
+ * MATCH_PARENT)` via `DialogWindowProvider` forces the window to truly fill the
+ * screen before content is laid out.
+ *
+ * ### Auto team detection
+ * MLBB always places ally bans on the left half of the screen and enemy bans on
+ * the right half. Tapping left → ALLY, right → ENEMY, no manual toggle required.
+ * A Swap button handles rare inverted layouts.
+ *
+ * ### Tap to remove
+ * Tapping within [HIT_RADIUS_PX] of an existing marker removes it.
+ *
+ * ### Long-press drag
+ * Long-pressing and dragging repositions an existing marker in real time.
  */
 @Composable
 internal fun ScreenMappingDialog(
@@ -90,15 +113,15 @@ internal fun ScreenMappingDialog(
     val initialPoints = remember(initialMapping) { parseMappedPoints(initialMapping) }
     val slots = remember { mutableStateListOf<MappedPoint>().also { it.addAll(initialPoints) } }
 
-    var teamsSwapped  by remember { mutableStateOf(false) }
-    var draggedIndex  by remember { mutableStateOf<Int?>(null) }
+    var teamsSwapped by remember { mutableStateOf(false) }
+    var draggedIndex by remember { mutableStateOf<Int?>(null) }
 
-    // Intrinsic image size — updated once the image loads via onSuccess callback.
-    var imageSize by remember { mutableStateOf(Size.Unspecified) }
+    // Populated by AsyncImage's onSuccess callback once the bitmap is decoded.
+    // Until then the canvas shows a placeholder skeleton.
+    var imageIntrinsicSize by remember { mutableStateOf(Size.Unspecified) }
 
     val allyCount  = slots.count { it.team == SlotTeam.ALLY  }
     val enemyCount = slots.count { it.team == SlotTeam.ENEMY }
-    val totalCount = slots.size
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -108,13 +131,22 @@ internal fun ScreenMappingDialog(
             dismissOnClickOutside   = false
         )
     ) {
+        // ── Google issue #275732345 fix ────────────────────────────────
+        // Force the dialog Window to truly match the device screen,
+        // bypassing the inaccurate Configuration.screenWidthDp calculation.
+        val dialogView = LocalView.current
+        SideEffect {
+            val window = (dialogView.parent as? DialogWindowProvider)?.window
+            window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+
         Column(
             Modifier
                 .fillMaxSize()
                 .background(SurfaceDark)
         ) {
 
-            // ── Header ─────────────────────────────────────────────────────
+            // ── Header ─────────────────────────────────────────────────
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -135,23 +167,23 @@ internal fun ScreenMappingDialog(
                         fontSize   = 15.sp
                     )
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment     = Alignment.CenterVertically
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         TeamDot(MLBBTeal)
                         Text("$allyCount Ally", color = MLBBTeal, fontSize = 11.sp)
                         Text("·", color = TextDisabled, fontSize = 11.sp)
                         TeamDot(MLBBRed)
                         Text("$enemyCount Enemy", color = MLBBRed, fontSize = 11.sp)
-                        if (totalCount > 0) {
+                        if (slots.isNotEmpty()) {
                             Text("· long-press to drag", color = TextDisabled, fontSize = 10.sp)
                         }
                     }
                 }
 
                 IconButton(
-                    onClick = { onSave(serializeMappedPoints(slots)) },
-                    enabled = slots.isNotEmpty()
+                    onClick  = { onSave(serializeMappedPoints(slots)) },
+                    enabled  = slots.isNotEmpty()
                 ) {
                     Icon(
                         Icons.Rounded.Done,
@@ -161,11 +193,11 @@ internal fun ScreenMappingDialog(
                 }
             }
 
-            // ── Template + swap bar ────────────────────────────────────────
+            // ── Template + tools bar ────────────────────────────────────
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(SurfaceElevated.copy(alpha = 0.5f))
+                    .background(SurfaceElevated.copy(alpha = 0.6f))
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -176,303 +208,302 @@ internal fun ScreenMappingDialog(
                     tint     = TextDisabled,
                     modifier = Modifier.size(13.dp)
                 )
-                Text("Templates:", color = TextSecondary, fontSize = 11.sp)
                 TemplateChip("3+3") { slots.clear(); slots.addAll(TEMPLATE_3_PLUS_3) }
                 TemplateChip("5+5") { slots.clear(); slots.addAll(TEMPLATE_5_PLUS_5) }
+
                 Spacer(Modifier.weight(1f))
 
                 // Swap-teams toggle
-                Row(
-                    Modifier
-                        .background(
-                            if (teamsSwapped) MLBBGold.copy(alpha = 0.15f) else Color.Transparent,
-                            RoundedCornerShape(6.dp)
-                        )
-                        .border(
-                            0.5.dp,
-                            if (teamsSwapped) MLBBGold.copy(alpha = 0.4f) else SurfaceElevated,
-                            RoundedCornerShape(6.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .pointerInput(Unit) {
-                            detectTapGestures { teamsSwapped = !teamsSwapped }
-                        },
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        Icons.Rounded.SwapHoriz,
-                        contentDescription = "Swap teams",
-                        tint     = if (teamsSwapped) MLBBGold else TextDisabled,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        "Swap",
-                        color      = if (teamsSwapped) MLBBGold else TextDisabled,
-                        fontSize   = 10.sp,
-                        fontWeight = if (teamsSwapped) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
+                PillButton(
+                    label    = "Swap",
+                    icon     = Icons.Rounded.SwapHoriz,
+                    active   = teamsSwapped,
+                    color    = MLBBGold,
+                    onClick  = { teamsSwapped = !teamsSwapped }
+                )
 
-                // Clear all
+                // Clear
                 if (slots.isNotEmpty()) {
-                    Row(
-                        Modifier
-                            .background(ErrorRed.copy(alpha = 0.10f), RoundedCornerShape(6.dp))
-                            .border(0.5.dp, ErrorRed.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                            .pointerInput(Unit) {
-                                detectTapGestures { slots.clear() }
-                            },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Clear", color = ErrorRed, fontSize = 10.sp)
-                    }
+                    PillButton(
+                        label   = "Clear",
+                        active  = false,
+                        color   = ErrorRed,
+                        onClick = { slots.clear() }
+                    )
                 }
             }
 
-            // ── Auto-team hint ─────────────────────────────────────────────
+            // ── Auto-team hint ─────────────────────────────────────────
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(
-                        if (!teamsSwapped) Color.Transparent
-                        else MLBBGold.copy(alpha = 0.06f)
-                    )
+                    .background(SurfaceDark.copy(alpha = 0.9f))
                     .padding(horizontal = 12.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                TeamDot(if (!teamsSwapped) MLBBTeal else MLBBRed)
+                val allyColor  = if (!teamsSwapped) MLBBTeal else MLBBRed
+                val enemyColor = if (!teamsSwapped) MLBBRed  else MLBBTeal
+                TeamDot(allyColor)
                 Spacer(Modifier.width(4.dp))
                 Text(
                     if (!teamsSwapped) "ALLY" else "ENEMY",
-                    color      = if (!teamsSwapped) MLBBTeal else MLBBRed,
-                    fontSize   = 10.sp,
-                    fontWeight = FontWeight.Bold
+                    color = allyColor, fontSize = 10.sp, fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "  ←  left side     right side  →  ",
-                    color    = TextDisabled,
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center
+                    "  ←  tap left · tap right  →  ",
+                    color = TextDisabled, fontSize = 10.sp
                 )
-                TeamDot(if (!teamsSwapped) MLBBRed else MLBBTeal)
-                Spacer(Modifier.width(4.dp))
                 Text(
                     if (!teamsSwapped) "ENEMY" else "ALLY",
-                    color      = if (!teamsSwapped) MLBBRed else MLBBTeal,
-                    fontSize   = 10.sp,
-                    fontWeight = FontWeight.Bold
+                    color = enemyColor, fontSize = 10.sp, fontWeight = FontWeight.Bold
                 )
+                Spacer(Modifier.width(4.dp))
+                TeamDot(enemyColor)
             }
 
-            // ── Screenshot canvas ──────────────────────────────────────────
-            BoxWithConstraints(
+            // ── Screenshot canvas ──────────────────────────────────────
+            // Outer Box fills remaining Column space (weight(1f)).
+            // Once the image intrinsic size is known, the inner canvas is sized via
+            // aspectRatio so it matches the image exactly — zero letterbox bars.
+            // Before the image loads, the canvas fills the available space.
+            // NOTE: verticalScroll is intentionally NOT used here: scroll conflicts
+            // with tap/drag gesture detection. MLBB screenshots are landscape so the
+            // canvas will be shorter than the available height in all normal cases.
+            Box(
                 Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(Color.Black)
+                    .background(Color(0xFF0D0D0D)),
+                contentAlignment = Alignment.Center
             ) {
-                val density = LocalDensity.current
+                val hasSize = imageIntrinsicSize != Size.Unspecified &&
+                        imageIntrinsicSize.width > 0f &&
+                        imageIntrinsicSize.height > 0f
 
-                val containerWPx = with(density) { maxWidth.toPx() }
-                val containerHPx = with(density) { maxHeight.toPx() }
-
-                // Compute the actual rendered image rect inside ContentScale.Fit letterbox.
-                // Falls back to the container rect until the image has loaded.
-                val imgW = if (imageSize != Size.Unspecified && imageSize.width > 0f) imageSize.width else containerWPx
-                val imgH = if (imageSize != Size.Unspecified && imageSize.height > 0f) imageSize.height else containerHPx
-                val fitScale   = minOf(containerWPx / imgW, containerHPx / imgH)
-                val renderedWPx = imgW * fitScale
-                val renderedHPx = imgH * fitScale
-                val imgOffXPx  = (containerWPx - renderedWPx) / 2f
-                val imgOffYPx  = (containerHPx - renderedHPx) / 2f
-
-                // Keep latest geometry available inside pointer-input lambdas without
-                // re-creating the gesture detectors on every recomposition.
-                val geom = rememberUpdatedState(
-                    ImageGeometry(renderedWPx, renderedHPx, imgOffXPx, imgOffYPx)
-                )
-                val slotsState      = rememberUpdatedState(slots.toList())
-                val teamsSwappedState = rememberUpdatedState(teamsSwapped)
-
-                // Screenshot
-                AsyncImage(
-                    model              = screenshotUri,
-                    contentDescription = "Ban phase screenshot",
-                    contentScale       = ContentScale.Fit,
-                    onSuccess          = { state: AsyncImagePainter.State.Success ->
-                        imageSize = state.painter.intrinsicSize
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                // Centre divider — visual guide for the auto-team split
-                Box(
+                val canvasMod = if (hasSize) {
+                    // Aspect-ratio-matched container → FillBounds fills it perfectly
                     Modifier
-                        .align(Alignment.Center)
-                        .width(1.dp)
-                        .size(width = 1.dp, height = with(density) { renderedHPx.toDp() })
-                        .offset(
-                            x = with(density) { imgOffXPx.toDp() },
-                            y = with(density) { imgOffYPx.toDp() }
-                        )
-                        .background(Color.White.copy(alpha = 0.12f))
-                )
-
-                // Invisible overlay for all gesture handling
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        // Tap: add marker (auto-team by X) or remove existing
-                        .pointerInput(Unit) {
-                            detectTapGestures { tap ->
-                                val g = geom.value
-                                // Ignore taps in the letterbox bars
-                                if (!g.contains(tap.x, tap.y)) return@detectTapGestures
-
-                                val normX = g.normX(tap.x)
-                                val normY = g.normY(tap.y)
-
-                                val removeIdx = slotsState.value.indexOfFirst { p ->
-                                    val px = g.screenX(p.x)
-                                    val py = g.screenY(p.y)
-                                    sqrt((tap.x - px) * (tap.x - px) + (tap.y - py) * (tap.y - py)) < HIT_RADIUS_PX
-                                }
-
-                                if (removeIdx >= 0) {
-                                    slots.removeAt(removeIdx)
-                                } else {
-                                    val team = if (!teamsSwappedState.value) {
-                                        if (normX < 0.5f) SlotTeam.ALLY else SlotTeam.ENEMY
-                                    } else {
-                                        if (normX < 0.5f) SlotTeam.ENEMY else SlotTeam.ALLY
-                                    }
-                                    slots.add(MappedPoint(normX, normY, team))
-                                }
-                            }
-                        }
-                        // Long-press drag: reposition existing marker
-                        .pointerInput(Unit) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = { start ->
-                                    val g = geom.value
-                                    draggedIndex = slotsState.value.indices.minByOrNull { i ->
-                                        val p  = slotsState.value[i]
-                                        val px = g.screenX(p.x)
-                                        val py = g.screenY(p.y)
-                                        sqrt((start.x - px) * (start.x - px) + (start.y - py) * (start.y - py))
-                                    }?.takeIf { i ->
-                                        val p  = slotsState.value[i]
-                                        val px = g.screenX(p.x)
-                                        val py = g.screenY(p.y)
-                                        sqrt((start.x - px) * (start.x - px) + (start.y - py) * (start.y - py)) < HIT_RADIUS_PX * 1.8f
-                                    }
-                                },
-                                onDrag = { change, _ ->
-                                    val idx = draggedIndex ?: return@detectDragGesturesAfterLongPress
-                                    val g = geom.value
-                                    if (idx in slots.indices) {
-                                        val pos = change.position
-                                        slots[idx] = slots[idx].copy(
-                                            x = g.normX(pos.x).coerceIn(0f, 1f),
-                                            y = g.normY(pos.y).coerceIn(0f, 1f)
-                                        )
-                                    }
-                                },
-                                onDragEnd    = { draggedIndex = null },
-                                onDragCancel = { draggedIndex = null }
-                            )
-                        }
-                )
-
-                // Markers rendered on top of the screenshot, correctly placed inside image bounds
-                slots.forEachIndexed { index, point ->
-                    val g = ImageGeometry(renderedWPx, renderedHPx, imgOffXPx, imgOffYPx)
-                    val markerColor = if (point.team == SlotTeam.ALLY) MLBBTeal else MLBBRed
-                    val isDragging  = index == draggedIndex
-
-                    val markerScale by animateFloatAsState(
-                        targetValue   = if (isDragging) 1.45f else 1f,
-                        animationSpec = tween(120),
-                        label         = "ms$index"
-                    )
-                    val ringColor by animateColorAsState(
-                        targetValue   = if (isDragging) MLBBGold else Color.White.copy(alpha = 0.65f),
-                        animationSpec = tween(120),
-                        label         = "mr$index"
-                    )
-
-                    val markerSizeDp = 34.dp
-                    val halfDp       = markerSizeDp / 2
-
-                    val screenXDp = with(density) { g.screenX(point.x).toDp() }
-                    val screenYDp = with(density) { g.screenY(point.y).toDp() }
-                    val label     = slots.slotLabel(point)
-
-                    Box(
-                        Modifier
-                            .offset(x = screenXDp - halfDp, y = screenYDp - halfDp)
-                            .size(markerSizeDp)
-                            .scale(markerScale)
-                            .border(2.dp, ringColor, CircleShape)
-                            .background(markerColor.copy(alpha = 0.88f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            label,
-                            color      = Color.White,
-                            fontSize   = 10.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
+                        .fillMaxWidth()
+                        .aspectRatio(imageIntrinsicSize.width / imageIntrinsicSize.height)
+                } else {
+                    // Loading state — fill the bounded Box until size is known
+                    Modifier.fillMaxSize()
                 }
 
-                // Empty state prompt
-                if (slots.isEmpty()) {
-                    Column(
-                        Modifier
-                            .align(Alignment.Center)
-                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 18.dp, vertical = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text("Tap on each hero portrait", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Left side = Ally  •  Right side = Enemy", color = TextSecondary, fontSize = 11.sp)
-                        Text("Tap a marker again to remove it", color = TextDisabled, fontSize = 10.sp)
+                ImageCanvas(
+                    modifier          = canvasMod,
+                    screenshotUri     = screenshotUri,
+                    slots             = slots,
+                    draggedIndex      = draggedIndex,
+                    teamsSwapped      = teamsSwapped,
+                    onImageLoaded     = { size -> imageIntrinsicSize = size },
+                    onDragIndexChange = { draggedIndex = it }
+                )
+            }
+        }
+    }
+}
+
+// ── Canvas composable (image + gesture layer + markers) ───────────────────────
+
+/**
+ * Draws the screenshot, overlays placement markers, and handles all gestures.
+ * Extracted so the coordinate system is self-contained and easy to reason about.
+ *
+ * Because the parent [BoxWithConstraints] is sized with `aspectRatio(w/h)` matching
+ * the image, `ContentScale.FillBounds` fills the canvas exactly — there is zero
+ * letterbox offset.  Normalised coordinates are therefore:
+ *   normX = tap.x / canvasWidthPx
+ *   normY = tap.y / canvasHeightPx
+ */
+@Composable
+private fun ImageCanvas(
+    modifier:          Modifier,
+    screenshotUri:     String,
+    slots:             MutableList<MappedPoint>,
+    draggedIndex:      Int?,
+    teamsSwapped:      Boolean,
+    onImageLoaded:     (Size) -> Unit,
+    onDragIndexChange: (Int?) -> Unit
+) {
+    BoxWithConstraints(modifier.background(Color.Black)) {
+        val density = LocalDensity.current
+        val canvasWPx = with(density) { maxWidth.toPx() }
+        val canvasHPx = with(density) { maxHeight.toPx() }
+
+        // Keep latest values available in long-lived pointer coroutines.
+        val wState          = rememberUpdatedState(canvasWPx)
+        val hState          = rememberUpdatedState(canvasHPx)
+        val swappedState    = rememberUpdatedState(teamsSwapped)
+
+        // ── Image ──────────────────────────────────────────────────────
+        // FillBounds: container already has the correct aspect ratio, so
+        // stretching to fill is correct (zero distortion).
+        AsyncImage(
+            model              = screenshotUri,
+            contentDescription = "Ban phase screenshot",
+            contentScale       = ContentScale.FillBounds,
+            onSuccess          = { state: AsyncImagePainter.State.Success ->
+                onImageLoaded(state.painter.intrinsicSize)
+            },
+            modifier           = Modifier.fillMaxSize()
+        )
+
+        // Centre-divider: visual guide for the auto-team split line
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .size(width = 1.dp, height = maxHeight)
+                .background(Color.White.copy(alpha = 0.10f))
+        )
+
+        // ── Gesture overlay ────────────────────────────────────────────
+        Box(
+            Modifier
+                .fillMaxSize()
+                // Tap: add (auto-team by X) or remove an existing marker
+                .pointerInput(Unit) {
+                    detectTapGestures { tap ->
+                        val W = wState.value
+                        val H = hState.value
+                        if (W <= 0f || H <= 0f) return@detectTapGestures
+
+                        val normX = (tap.x / W).coerceIn(0f, 1f)
+                        val normY = (tap.y / H).coerceIn(0f, 1f)
+
+                        // Remove if hitting an existing marker
+                        val removeIdx = slots.indexOfFirst { p ->
+                            val px = p.x * W
+                            val py = p.y * H
+                            sqrt((tap.x - px) * (tap.x - px) + (tap.y - py) * (tap.y - py)) < HIT_RADIUS_PX
+                        }
+
+                        if (removeIdx >= 0) {
+                            slots.removeAt(removeIdx)
+                        } else {
+                            val team = if (!swappedState.value) {
+                                if (normX < 0.5f) SlotTeam.ALLY else SlotTeam.ENEMY
+                            } else {
+                                if (normX < 0.5f) SlotTeam.ENEMY else SlotTeam.ALLY
+                            }
+                            slots.add(MappedPoint(normX, normY, team))
+                        }
                     }
+                }
+                // Long-press drag: reposition a marker
+                .pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { start ->
+                            val W = wState.value
+                            val H = hState.value
+                            onDragIndexChange(
+                                slots.indices.minByOrNull { i ->
+                                    val p  = slots[i]
+                                    val px = p.x * W
+                                    val py = p.y * H
+                                    sqrt((start.x - px) * (start.x - px) + (start.y - py) * (start.y - py))
+                                }?.takeIf { i ->
+                                    val p  = slots[i]
+                                    val px = p.x * W
+                                    val py = p.y * H
+                                    sqrt((start.x - px) * (start.x - px) + (start.y - py) * (start.y - py)) < HIT_RADIUS_PX * 2f
+                                }
+                            )
+                        },
+                        onDrag = { change, _ ->
+                            val idx = draggedIndex ?: return@detectDragGesturesAfterLongPress
+                            val W = wState.value
+                            val H = hState.value
+                            if (idx in slots.indices) {
+                                val pos = change.position
+                                slots[idx] = slots[idx].copy(
+                                    x = (pos.x / W).coerceIn(0f, 1f),
+                                    y = (pos.y / H).coerceIn(0f, 1f)
+                                )
+                            }
+                        },
+                        onDragEnd    = { onDragIndexChange(null) },
+                        onDragCancel = { onDragIndexChange(null) }
+                    )
+                }
+        )
+
+        // ── Markers ────────────────────────────────────────────────────
+        val markerSizeDp = 34.dp
+        val halfDp       = markerSizeDp / 2
+
+        slots.forEachIndexed { index, point ->
+            val markerColor = if (point.team == SlotTeam.ALLY) MLBBTeal else MLBBRed
+            val isDragging  = index == draggedIndex
+
+            val markerScale by animateFloatAsState(
+                targetValue   = if (isDragging) 1.5f else 1f,
+                animationSpec = tween(120),
+                label         = "ms$index"
+            )
+            val ringColor by animateColorAsState(
+                targetValue   = if (isDragging) MLBBGold else Color.White.copy(alpha = 0.70f),
+                animationSpec = tween(120),
+                label         = "mr$index"
+            )
+
+            val screenXDp = with(density) { (point.x * canvasWPx).toDp() }
+            val screenYDp = with(density) { (point.y * canvasHPx).toDp() }
+
+            Box(
+                Modifier
+                    .offset(x = screenXDp - halfDp, y = screenYDp - halfDp)
+                    .size(markerSizeDp)
+                    .scale(markerScale)
+                    .border(2.dp, ringColor, CircleShape)
+                    .background(markerColor.copy(alpha = 0.90f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    slots.slotLabel(point),
+                    color      = Color.White,
+                    fontSize   = 10.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
+
+        // ── Empty state ────────────────────────────────────────────────
+        if (slots.isEmpty()) {
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .background(Color.Black.copy(alpha = 0.60f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 18.dp, vertical = 12.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        "Tap each hero portrait",
+                        color      = TextPrimary,
+                        fontSize   = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Left = Ally  ·  Right = Enemy",
+                        color    = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        "Tap a marker again to remove",
+                        color    = TextDisabled,
+                        fontSize = 10.sp
+                    )
                 }
             }
         }
     }
 }
 
-// ── Image geometry helper ──────────────────────────────────────────────────────
-
-/**
- * Encapsulates the pixel-space geometry of the rendered image inside a Fit-scaled container.
- * All coordinates are in raw pixels, matching what gesture APIs report.
- */
-private data class ImageGeometry(
-    val renderedW: Float,
-    val renderedH: Float,
-    val offsetX:   Float,
-    val offsetY:   Float
-) {
-    fun contains(tapX: Float, tapY: Float): Boolean =
-        tapX in offsetX..(offsetX + renderedW) &&
-        tapY in offsetY..(offsetY + renderedH)
-
-    fun normX(tapX: Float): Float = ((tapX - offsetX) / renderedW).coerceIn(0f, 1f)
-    fun normY(tapY: Float): Float = ((tapY - offsetY) / renderedH).coerceIn(0f, 1f)
-
-    fun screenX(normX: Float): Float = normX * renderedW + offsetX
-    fun screenY(normY: Float): Float = normY * renderedH + offsetY
-}
-
-// ── Small indicator dot ────────────────────────────────────────────────────────
+// ── Small reusable components ─────────────────────────────────────────────────
 
 @Composable
 private fun TeamDot(color: Color) {
@@ -481,4 +512,45 @@ private fun TeamDot(color: Color) {
             .size(7.dp)
             .background(color, CircleShape)
     )
+}
+
+@Composable
+private fun PillButton(
+    label:   String,
+    active:  Boolean,
+    color:   Color,
+    onClick: () -> Unit,
+    icon:    androidx.compose.ui.graphics.vector.ImageVector? = null
+) {
+    Row(
+        Modifier
+            .background(
+                if (active) color.copy(alpha = 0.15f) else Color.Transparent,
+                RoundedCornerShape(6.dp)
+            )
+            .border(
+                0.5.dp,
+                if (active) color.copy(alpha = 0.45f) else SurfaceElevated,
+                RoundedCornerShape(6.dp)
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .pointerInput(Unit) { detectTapGestures { onClick() } },
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        if (icon != null) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint     = if (active) color else TextDisabled,
+                modifier = Modifier.size(14.dp)
+            )
+        }
+        Text(
+            label,
+            color      = if (active) color else TextDisabled,
+            fontSize   = 10.sp,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
+        )
+    }
 }
