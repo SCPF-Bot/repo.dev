@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mlbb.assistant.capture.AspectRatioPreset
 import com.mlbb.assistant.domain.engine.WeightCalibrator
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetDraftHistoryUseCase
@@ -50,6 +51,12 @@ class SettingsViewModel @Inject constructor(
 
         /** JSON-serialised normalised tap positions mapped onto the ban-phase screenshot. */
         val KEY_SCREEN_MAPPING      = stringPreferencesKey("screen_mapping")
+
+        /**
+         * Aspect-ratio preset key — stored as [AspectRatioPreset.key].
+         * Defaults to [AspectRatioPreset.AUTO] when absent.
+         */
+        val KEY_ASPECT_RATIO        = stringPreferencesKey("aspect_ratio")
     }
 
     private val _state = MutableStateFlow(SettingsState())
@@ -71,6 +78,7 @@ class SettingsViewModel @Inject constructor(
                         defaultRank           = prefs[KEY_DEFAULT_RANK] ?: "6 bans (Epic)",
                         overlayGranted        = Settings.canDrawOverlays(context),
                         accessibilityGranted  = isAccessibilityEnabled(),
+                        aspectRatioPreset     = AspectRatioPreset.fromKey(prefs[KEY_ASPECT_RATIO] ?: AspectRatioPreset.AUTO.key),
                         banPhaseScreenshotUri = prefs[KEY_BAN_SCREENSHOT_URI] ?: "",
                         screenMappingJson     = prefs[KEY_SCREEN_MAPPING]    ?: ""
                     )
@@ -152,6 +160,7 @@ class SettingsViewModel @Inject constructor(
     fun setDefaultRank(rank: String)          = save { it[KEY_DEFAULT_RANK]       = rank }
     fun setBanPhaseScreenshotUri(uri: String) = save { it[KEY_BAN_SCREENSHOT_URI] = uri  }
     fun setScreenMapping(json: String)        = save { it[KEY_SCREEN_MAPPING]     = json }
+    fun setAspectRatioPreset(preset: AspectRatioPreset) = save { it[KEY_ASPECT_RATIO] = preset.key }
 
     private fun save(block: suspend (MutablePreferences) -> Unit) =
         viewModelScope.launch { dataStore.edit { block(it) } }

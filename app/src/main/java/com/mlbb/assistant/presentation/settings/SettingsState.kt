@@ -1,6 +1,7 @@
 package com.mlbb.assistant.presentation.settings
 
 import androidx.compose.runtime.Immutable
+import com.mlbb.assistant.capture.AspectRatioPreset
 import com.mlbb.assistant.domain.engine.WeightCalibrator
 
 @Immutable
@@ -23,6 +24,14 @@ data class SettingsState(
     val accessibilityGranted: Boolean = false,
     val calibrationResult: WeightCalibrator.CalibrationResult? = null,
     val isCalibrating: Boolean        = false,
+
+    /**
+     * Screen aspect-ratio preset chosen by the user.
+     * Drives how the CV pipeline adjusts ban/pick slot coordinates on devices
+     * where MLBB letterboxes or pillarboxes the game content.
+     * Defaults to [AspectRatioPreset.AUTO] — detected from the live frame.
+     */
+    val aspectRatioPreset: AspectRatioPreset = AspectRatioPreset.AUTO,
 
     /**
      * Content URI (as String) of a user-selected screenshot of the banning phase.

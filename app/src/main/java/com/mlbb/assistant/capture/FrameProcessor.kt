@@ -69,8 +69,24 @@ class FrameProcessor(
     // Lazily computed once per session — reset in [resetSlotTracking].
     private var lumBaseline: Float = -1f
 
-    suspend fun processFrame(frame: Bitmap, currentPhase: DraftPhase) =
-        withContext(Dispatchers.Default) {
+    /**
+     * Analyses a single captured frame.
+     *
+     * @param frame         The bitmap to analyse (recycled by caller after return).
+     * @param currentPhase  The current draft phase from [DraftSessionManager].
+     * @param banDraftType  The active ban layout for the current rank tier.
+     *                      Determines which ban slot regions are scanned — only
+     *                      the slots that are rendered on screen for this rank are
+     *                      checked, preventing false-positive detections on invisible
+     *                      slot positions. Defaults to [BanDraftType.EPIC_6_BANS].
+     *                      Pass the result of [BanDraftType.fromRank] whenever the
+     *                      session rank is known.
+     */
+    suspend fun processFrame(
+        frame: Bitmap,
+        currentPhase: DraftPhase,
+        banDraftType: BanDraftType = BanDraftType.EPIC_6_BANS
+    ) = withContext(Dispatchers.Default) {
 
             val now = System.currentTimeMillis()
             val throttleMs = if (currentPhase == DraftPhase.IDLE || currentPhase == DraftPhase.COMPLETE)
@@ -100,7 +116,8 @@ class FrameProcessor(
             val newOurPicks   = mutableListOf<Int>()
 
             if (currentPhase in listOf(DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2)) {
-                scanBanSlots(frame, newEnemyBans, newOurBans)
+                val template = BanSlotTemplates.forDraftType(banDraftType)
+                scanBanSlots(frame, newEnemyBans, newOurBans, template)
             }
             if (currentPhase == DraftPhase.PICK) {
                 scanPickSlots(frame, newEnemyPicks, newOurPicks)
@@ -178,14 +195,27 @@ class FrameProcessor(
         return result.phase == PhaseDetector.DetectedPhase.BAN && result.confidence > 0.05f
     }
 
-    private fun scanBanSlots(frame: Bitmap, newEnemy: MutableList<Int>, newOur: MutableList<Int>) {
-        SlotRegions.enemyBanSlots.forEachIndexed { i, region ->
+    /**
+     * Scans only the ban slots that are active for the current rank tier.
+     *
+     * [template] is resolved from [BanSlotTemplates.forDraftType] and contains
+     * exactly the slots rendered on screen for the session's rank. Scanning beyond
+     * [template.draftType.slotsPerTeam] slots risks false-positive detections on
+     * screen regions that are not ban slots at the current rank.
+     */
+    private fun scanBanSlots(
+        frame: Bitmap,
+        newEnemy: MutableList<Int>,
+        newOur: MutableList<Int>,
+        template: BanSlotTemplate
+    ) {
+        template.enemyBanSlots.forEachIndexed { i, region ->
             if (i !in filledEnemyBans && isSlotFilled(frame, region)) {
                 filledEnemyBans.add(i)
                 newEnemy.add(i)
             }
         }
-        SlotRegions.ourBanSlots.forEachIndexed { i, region ->
+        template.ourBanSlots.forEachIndexed { i, region ->
             if (i !in filledOurBans && isSlotFilled(frame, region)) {
                 filledOurBans.add(i)
                 newOur.add(i)

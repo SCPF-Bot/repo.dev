@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
@@ -48,6 +49,7 @@ import com.mlbb.assistant.presentation.common.theme.SurfaceDark
 import com.mlbb.assistant.presentation.common.theme.SurfaceMid
 import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
+import com.mlbb.assistant.presentation.settings.components.AspectRatioSection
 import com.mlbb.assistant.presentation.settings.components.BanCountRow
 import com.mlbb.assistant.presentation.settings.components.BanPhaseScreenshotSection
 import com.mlbb.assistant.presentation.settings.components.CalibrationSection
@@ -132,6 +134,18 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // ── Screen shape ──────────────────────────────────────────────
+            SettingsSection(
+                icon     = Icons.Rounded.AspectRatio,
+                title    = "SCREEN",
+                subtitle = "Helps the overlay find the right spots on your screen"
+            ) {
+                AspectRatioSection(
+                    selected   = state.aspectRatioPreset,
+                    onSelected = { viewModel.setAspectRatioPreset(it) }
+                )
+            }
+
             // ── Overlay ───────────────────────────────────────────────────
             SettingsSection(icon = Icons.Rounded.Tune, title = "OVERLAY") {
                 SliderRow("Opacity", state.overlayOpacity, 0.3f..1f) { viewModel.setOpacity(it) }

@@ -5,6 +5,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import coil3.ImageLoader
+import com.mlbb.assistant.capture.BanDraftType
+import com.mlbb.assistant.capture.BanSlotTemplates
 import com.mlbb.assistant.capture.FirstPickDetector
 import com.mlbb.assistant.capture.PhaseDetectionConfig
 import com.mlbb.assistant.capture.PhaseDetector
@@ -227,9 +229,11 @@ class OverlayCaptureCoordinator @Inject constructor(
             DraftPhase.PICK -> {
                 if (!stateHolder.banCatchUpDone) {
                     stateHolder.banCatchUpDone = true
+                    val banTemplate = BanSlotTemplates.forRank(session.rank)
+                    val slotsPerTeam = banTemplate.draftType.slotsPerTeam
                     val anyBanMissed =
-                        stateHolder.filledEnemyBanSlots.size < SlotRegions.enemyBanSlots.size ||
-                        stateHolder.filledOurBanSlots.size   < SlotRegions.ourBanSlots.size
+                        stateHolder.filledEnemyBanSlots.size < slotsPerTeam ||
+                        stateHolder.filledOurBanSlots.size   < slotsPerTeam
                     if (anyBanMissed) scanAndRecordBans(frame, round = 1)
                 }
                 scanAndRecordPicks(frame)
@@ -240,8 +244,18 @@ class OverlayCaptureCoordinator @Inject constructor(
 
     // ── Slot scanning ─────────────────────────────────────────────────────────
 
+    /**
+     * Scans only the ban slots that are visible for the session's rank tier.
+     *
+     * Uses [BanSlotTemplates.forRank] to resolve the active slot subset, so
+     * slots 3 and 4 are never scanned at Epic rank — those screen positions
+     * contain unrelated UI elements that would otherwise produce false positives.
+     */
     private suspend fun scanAndRecordBans(frame: Bitmap, round: Int) {
-        SlotRegions.enemyBanSlots.forEachIndexed { i, region ->
+        val session  = stateHolder.sessionValue()
+        val template = BanSlotTemplates.forRank(session.rank)
+
+        template.enemyBanSlots.forEachIndexed { i, region ->
             if (i !in stateHolder.filledEnemyBanSlots && isSlotFilled(frame, region)) {
                 val hero = matchPortrait(frame, region, 0.45f, "enemyBan$i")
                 if (hero != null) {
@@ -252,7 +266,7 @@ class OverlayCaptureCoordinator @Inject constructor(
                 }
             }
         }
-        SlotRegions.ourBanSlots.forEachIndexed { i, region ->
+        template.ourBanSlots.forEachIndexed { i, region ->
             if (i !in stateHolder.filledOurBanSlots && isSlotFilled(frame, region)) {
                 val hero = matchPortrait(frame, region, 0.45f, "ourBan$i")
                 if (hero != null) {
