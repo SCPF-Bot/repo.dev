@@ -23,7 +23,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -65,7 +65,7 @@ private val NAV_ITEMS = listOf(
 fun AppShell(
     onStartOverlay: () -> Unit,
     onRequestCapture: () -> Unit,
-    viewModel: AppShellViewModel = viewModel()
+    viewModel: AppShellViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
 

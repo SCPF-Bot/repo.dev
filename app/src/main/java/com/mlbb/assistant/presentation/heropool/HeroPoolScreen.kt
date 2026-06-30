@@ -37,7 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.model.Proficiency
@@ -52,7 +52,7 @@ import com.mlbb.assistant.presentation.common.theme.TextSecondary
 @Composable
 fun HeroPoolScreen(
     onBack: () -> Unit,
-    vm: HeroPoolViewModel = viewModel()
+    vm: HeroPoolViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
 

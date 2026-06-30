@@ -59,7 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.mlbb.assistant.data.local.crashlog.LogEntry
 import com.mlbb.assistant.data.local.crashlog.LogLevel
 import com.mlbb.assistant.presentation.common.theme.ErrorRed
@@ -108,7 +108,7 @@ class LogViewerActivity : ComponentActivity() {
 @Composable
 private fun LogViewerScreen(
     onBack: () -> Unit,
-    vm: LogViewModel = viewModel()
+    vm: LogViewModel = hiltViewModel()
 ) {
     val state   by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
