@@ -31,12 +31,24 @@ class ScreenCaptureManager(private val context: Context) {
     private var screenDpi    = 0
 
     init {
-        val wm      = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val metrics = wm.currentWindowMetrics
-        val bounds  = metrics.bounds
-        screenWidth  = bounds.width()
-        screenHeight = bounds.height()
-        screenDpi    = context.resources.displayMetrics.densityDpi
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        // P0 fix: currentWindowMetrics was added in API 30; minSdk is 29.
+        // Use the deprecated Display.getRealSize() path on API 29 devices to avoid
+        // NoSuchMethodError at service startup on Android 10 hardware.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bounds = wm.currentWindowMetrics.bounds
+            screenWidth  = bounds.width()
+            screenHeight = bounds.height()
+        } else {
+            @Suppress("DEPRECATION")
+            val display = wm.defaultDisplay
+            val size    = android.graphics.Point()
+            @Suppress("DEPRECATION")
+            display.getRealSize(size)
+            screenWidth  = size.x
+            screenHeight = size.y
+        }
+        screenDpi = context.resources.displayMetrics.densityDpi
     }
 
     fun startCapture(resultCode: Int, data: Intent) {

@@ -48,6 +48,12 @@ object JetOverlay {
         overlayContent = content
     }
 
+    // P1 fix: synchronize show() and hide() to prevent a race between the
+    // MLBBAccessibilityService path and the MainActivity path both calling
+    // OverlayService.start() near-simultaneously. Without the lock, two threads
+    // can both pass the `composeView != null` guard and then both call
+    // WindowManager.addView(), causing IllegalStateException: "View already added".
+    @Synchronized
     fun show() {
         val app = application ?: return
         val content = overlayContent ?: return
@@ -112,6 +118,7 @@ object JetOverlay {
         wm.addView(view, params)
     }
 
+    @Synchronized
     fun hide() {
         val view = composeView ?: return
         lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)

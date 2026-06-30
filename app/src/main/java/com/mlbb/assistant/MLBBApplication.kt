@@ -63,9 +63,21 @@ class MLBBApplication : Application(), Configuration.Provider {
 
     // ── WorkManager configuration ─────────────────────────────────────────────
 
+    /**
+     * P0 fix: guard against the ContentProvider-based AndroidX Startup initialization
+     * race where [workManagerConfiguration] is called BEFORE [super.onCreate] injects
+     * [workerFactory]. Using [isInitialized] avoids [UninitializedPropertyAccessException]
+     * if the getter is invoked early; WorkManager will fall back to default factory in
+     * that window (workers requiring injection won't run, but the app won't crash).
+     *
+     * The correct factory is always present by the time [scheduleHeroSync] runs because
+     * [scheduleHeroSync] is called after [super.onCreate] completes Hilt field injection.
+     */
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
+            .apply {
+                if (::workerFactory.isInitialized) setWorkerFactory(workerFactory)
+            }
             .setMinimumLoggingLevel(
                 if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.WARN
             )
@@ -77,6 +89,11 @@ class MLBBApplication : Application(), Configuration.Provider {
      * Schedules [HeroSyncWorker] to run every 24 hours on a network connection.
      * [ExistingPeriodicWorkPolicy.KEEP] preserves existing scheduled requests
      * so repeated app launches do not reset the countdown.
+     *
+     * P0 fix: wrapped in try/catch so an [IllegalStateException] from a double-
+     * initialization path (seen on certain OEM ROMs) does not crash the app at launch.
+     * If WorkManager is somehow already initialized by a system-level path, we simply
+     * obtain the existing instance instead of re-initializing.
      */
     private fun scheduleHeroSync() {
         val constraints = Constraints.Builder()
@@ -87,7 +104,14 @@ class MLBBApplication : Application(), Configuration.Provider {
             .setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+        val wm = try {
+            WorkManager.getInstance(this)
+        } catch (e: IllegalStateException) {
+            WorkManager.initialize(this, workManagerConfiguration)
+            WorkManager.getInstance(this)
+        }
+
+        wm.enqueueUniquePeriodicWork(
             HeroSyncWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request
