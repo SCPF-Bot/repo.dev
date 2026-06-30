@@ -32,7 +32,7 @@ class SettingsViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val syncHeroesUseCase: SyncHeroesUseCase,
     private val getDraftHistoryUseCase: GetDraftHistoryUseCase,
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : ViewModel() {
 
     companion object {

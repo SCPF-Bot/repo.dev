@@ -62,7 +62,7 @@ class OverlayStateHolder @Inject constructor(
     private val dataStore:            DataStore<Preferences>,
     private val preferencesDataStore: PreferencesDataStore,
     private val heroPoolDao:          HeroPoolDao,
-    @ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: Context
 ) {
 
     // ── Compose snapshot state (read by DraftOverlayContent) ─────────────────

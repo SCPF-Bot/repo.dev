@@ -35,7 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mlbb.assistant.domain.model.DraftHistoryItem
 import com.mlbb.assistant.presentation.common.components.BackButton
@@ -77,7 +77,7 @@ private const val LOADING_DELAY_MS = 400L
 fun DraftHistoryScreen(
     onBack:        () -> Unit,
     onReplayClick: (Int) -> Unit = {},
-    viewModel: DraftHistoryViewModel = hiltViewModel()
+    viewModel: DraftHistoryViewModel = viewModel()
 ) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
 

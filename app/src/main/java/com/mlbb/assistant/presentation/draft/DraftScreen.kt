@@ -24,13 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mlbb.assistant.domain.scoring.HeroScore
 import com.mlbb.assistant.presentation.common.components.HeroPortrait
 
 @Composable
-fun DraftScreen(viewModel: DraftViewModel = hiltViewModel()) {
+fun DraftScreen(viewModel: DraftViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(

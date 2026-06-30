@@ -32,7 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -95,7 +95,7 @@ class DraftReplayViewModel @Inject constructor(
 fun DraftReplayScreen(
     sessionId: Int,
     onBack:    () -> Unit,
-    vm: DraftReplayViewModel = hiltViewModel()
+    vm: DraftReplayViewModel = viewModel()
 ) {
     androidx.compose.runtime.LaunchedEffect(sessionId) { vm.load(sessionId) }
     val state by vm.state.collectAsStateWithLifecycle()

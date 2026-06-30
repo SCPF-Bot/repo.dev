@@ -39,7 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.theme.ErrorRed
@@ -74,7 +74,7 @@ import com.mlbb.assistant.presentation.settings.components.ToggleRow
 fun SettingsScreen(
     onBack:         () -> Unit,
     onOpenHeroPool: () -> Unit = {},
-    viewModel:      SettingsViewModel = hiltViewModel()
+    viewModel:      SettingsViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showResetDialog   by remember { mutableStateOf(false) }

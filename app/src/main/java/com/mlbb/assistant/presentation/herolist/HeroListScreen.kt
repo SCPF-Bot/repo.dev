@@ -43,7 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -67,7 +67,7 @@ private val HERO_ROLES = listOf<String?>(null, "Tank", "Fighter", "Mage", "Marks
 fun HeroListScreen(
     onHeroClick: (Hero) -> Unit,
     onBack: () -> Unit,
-    viewModel: HeroListViewModel = hiltViewModel()
+    viewModel: HeroListViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // TD-10: Collect as paged items — lifecycle-aware, cancels on composition exit.

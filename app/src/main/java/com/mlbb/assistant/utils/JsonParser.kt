@@ -16,7 +16,7 @@ import javax.inject.Inject
  * resource [R.raw.default_heroes] must remain a JSON array of [HeroDto] objects.
  */
 class JsonParser @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     private val json = Json {

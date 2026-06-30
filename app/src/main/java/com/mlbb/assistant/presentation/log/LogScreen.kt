@@ -20,14 +20,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mlbb.assistant.data.local.crashlog.LogEntry
 import com.mlbb.assistant.data.local.crashlog.LogLevel
@@ -36,11 +37,12 @@ import com.mlbb.assistant.presentation.common.theme.*
 @Composable
 fun LogScreen(
     onBack: () -> Unit,
-    vm: LogViewModel = hiltViewModel()
+    vm: LogViewModel = viewModel()
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val clipScope = rememberCoroutineScope()
     var showClearDialog by remember { mutableStateOf(false) }
 
     if (showClearDialog) {
@@ -159,7 +161,7 @@ fun LogScreen(
                                 val text = "[${entry.formattedTime}] ${entry.level.label}/${entry.tag}\n" +
                                     entry.message +
                                     if (entry.stackTrace.isNotBlank()) "\n${entry.stackTrace}" else ""
-                                clipboard.setText(AnnotatedString(text))
+                                clipScope.launch { clipboard.setClipEntry(AnnotatedString(text).toClipEntry()) }
                             }
                         )
                     }

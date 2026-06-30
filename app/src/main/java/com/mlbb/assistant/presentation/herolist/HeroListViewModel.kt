@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.FlowPreview::class)
+
 package com.mlbb.assistant.presentation.herolist
 
 import androidx.lifecycle.ViewModel

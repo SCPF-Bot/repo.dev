@@ -9,7 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -82,7 +82,7 @@ fun AppNavGraph(
             arguments = listOf(navArgument(AppRoute.HeroDetail.ARG) { type = NavType.IntType })
         ) { backStack ->
             val heroId = backStack.arguments?.getInt(AppRoute.HeroDetail.ARG) ?: return@composable
-            val vm: HeroListViewModel = hiltViewModel()
+            val vm: HeroListViewModel = viewModel()
             val state by vm.state.collectAsStateWithLifecycle()
             val heroMap = state.heroes.associateBy { it.id }
             val hero    = heroMap[heroId]
@@ -100,7 +100,7 @@ fun AppNavGraph(
         }
 
         composable(AppRoute.MetaBoard.route) {
-            val vm: HeroListViewModel = hiltViewModel()
+            val vm: HeroListViewModel = viewModel()
             val state by vm.state.collectAsStateWithLifecycle()
             MetaBoardScreen(
                 heroes      = state.heroes,
