@@ -78,7 +78,7 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-16**
 
 ## 6. Observability
 
-- [ ] **P2/M** Optional remote crash reporting (Crashlytics or Sentry) gated behind a settings toggle; keep local `CrashLogStore` as fallback.
+- [x] **P2/M** Embedded debug companion via **Pluto v3.0.0** (https://github.com/androidPluto/pluto). Debug APK shows a persistent floating bubble; tap to open: log viewer (all Timber output via `PlutoTimberTree`), network inspector (OkHttp via `PlutoOkhttpInterceptor`), crash/exception capture, Room DB browser (`PlutoRoomsDBWatcher`), DataStore viewer (`PlutoDatastoreWatcher`), SharedPrefs viewer. Release uses no-op stubs — zero overhead. No Play Store / Google Play Services dependency. Wired in `MLBBApplication`, `NetworkModule`, `DatabaseModule`, `AppModule`, `libs.versions.toml`, and `build.gradle.kts`.
 - [ ] **P2/S** Add a "Share logs" action from `LogScreen` via the existing FileProvider.
 - [ ] **P3/S** Structured event logging for detection accuracy (phase-detect confidence, match confidence) to inform tuning.
 

@@ -57,6 +57,13 @@ class SettingsViewModel @Inject constructor(
          * Defaults to [AspectRatioPreset.AUTO] when absent.
          */
         val KEY_ASPECT_RATIO        = stringPreferencesKey("aspect_ratio")
+
+        /**
+         * Whether the Developer logging mode is enabled.
+         * Defaults to `true` on a fresh install so the companion verbose-logger app
+         * is automatically prompted for installation alongside the main app.
+         */
+        val KEY_DEVELOPER_MODE      = booleanPreferencesKey("developer_mode")
     }
 
     private val _state = MutableStateFlow(SettingsState())
@@ -80,7 +87,8 @@ class SettingsViewModel @Inject constructor(
                         accessibilityGranted  = isAccessibilityEnabled(),
                         aspectRatioPreset     = AspectRatioPreset.fromKey(prefs[KEY_ASPECT_RATIO] ?: AspectRatioPreset.AUTO.key),
                         banPhaseScreenshotUri = prefs[KEY_BAN_SCREENSHOT_URI] ?: "",
-                        screenMappingJson     = prefs[KEY_SCREEN_MAPPING]    ?: ""
+                        screenMappingJson     = prefs[KEY_SCREEN_MAPPING]    ?: "",
+                        developerModeEnabled  = prefs[KEY_DEVELOPER_MODE]    ?: true
                     )
                 }
             }
@@ -161,6 +169,14 @@ class SettingsViewModel @Inject constructor(
     fun setBanPhaseScreenshotUri(uri: String) = save { it[KEY_BAN_SCREENSHOT_URI] = uri  }
     fun setScreenMapping(json: String)        = save { it[KEY_SCREEN_MAPPING]     = json }
     fun setAspectRatioPreset(preset: AspectRatioPreset) = save { it[KEY_ASPECT_RATIO] = preset.key }
+
+    /**
+     * Persists the Developer mode toggle.
+     *
+     * Callers should also invoke [com.mlbb.assistant.utils.DevLoggerManager.promptInstallIfNeeded]
+     * with `force = true` when [enabled] is `true` so the companion logger is installed.
+     */
+    fun setDeveloperMode(enabled: Boolean) = save { it[KEY_DEVELOPER_MODE] = enabled }
 
     private fun save(block: suspend (MutablePreferences) -> Unit) =
         viewModelScope.launch { dataStore.edit { block(it) } }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
@@ -61,6 +62,7 @@ import com.mlbb.assistant.presentation.settings.components.ScoringWeightsSection
 import com.mlbb.assistant.presentation.settings.components.SettingsSection
 import com.mlbb.assistant.presentation.settings.components.SliderRow
 import com.mlbb.assistant.presentation.settings.components.ToggleRow
+import com.mlbb.assistant.utils.DevLoggerManager
 
 /**
  * Settings screen root. This is a thin orchestrator that delegates each
@@ -198,6 +200,44 @@ fun SettingsScreen(
                 InfoRow("Last synced", state.lastSyncedLabel)
                 TextButton(onClick = { viewModel.syncNow() }) {
                     Text("Sync now", color = MLBBGold, fontSize = 12.sp)
+                }
+            }
+
+            // ── Logs ──────────────────────────────────────────────────────
+            SettingsSection(
+                icon     = Icons.Rounded.BugReport,
+                title    = "LOGS",
+                subtitle = "Diagnostic and crash log settings"
+            ) {
+                val context = LocalContext.current
+                ToggleRow(
+                    label   = "Developer",
+                    checked = state.developerModeEnabled,
+                    onToggle = { enabled ->
+                        viewModel.setDeveloperMode(enabled)
+                        if (enabled) {
+                            DevLoggerManager.promptInstallIfNeeded(context, force = true)
+                        }
+                    }
+                )
+                if (state.developerModeEnabled) {
+                    SectionDivider()
+                    val loggerInstalled = DevLoggerManager.isInstalled(context)
+                    InfoRow(
+                        label = "Verbose logger",
+                        value = if (loggerInstalled) "Installed" else "Not installed"
+                    )
+                    if (!loggerInstalled) {
+                        TextButton(onClick = {
+                            DevLoggerManager.promptInstallIfNeeded(context, force = true)
+                        }) {
+                            Text("Install logger app", color = MLBBGold, fontSize = 12.sp)
+                        }
+                    } else {
+                        TextButton(onClick = { DevLoggerManager.launch(context) }) {
+                            Text("Open logger app", color = MLBBGold, fontSize = 12.sp)
+                        }
+                    }
                 }
             }
 

@@ -115,7 +115,17 @@ object JetOverlay {
         }
 
         composeView = view
-        wm.addView(view, params)
+        runCatching {
+            wm.addView(view, params)
+        }.onFailure { e ->
+            // Typically WindowManager.BadTokenException when SYSTEM_ALERT_WINDOW
+            // permission is not yet granted.  Reset state so a subsequent show()
+            // call (after permission is granted) can retry cleanly.
+            android.util.Log.e("JetOverlay", "addView failed — overlay permission may be missing", e)
+            composeView = null
+            windowManager = null
+            lifecycleOwner = null
+        }
     }
 
     @Synchronized

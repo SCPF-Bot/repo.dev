@@ -3,6 +3,7 @@ package com.mlbb.assistant.di
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.mlbb.assistant.BuildConfig
 import com.mlbb.assistant.data.remote.api.MetaApi
+import com.pluto.plugins.network.interceptors.okhttp.PlutoOkhttpInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -60,6 +61,10 @@ object NetworkModule {
             }
             builder.addInterceptor(logging)
         }
+        // PlutoOkhttpInterceptor captures every request/response for the Pluto
+        // network inspector panel. The release no-op companion is a pass-through.
+        // Must be added LAST so it sees the fully-decorated request.
+        builder.addInterceptor(PlutoOkhttpInterceptor)
         return builder.build()
     }
 

@@ -44,5 +44,17 @@ data class SettingsState(
      * the ban-phase screenshot. Format: `[{"x":0.25,"y":0.3},…]`.
      * Empty = no mapping saved yet.
      */
-    val screenMappingJson: String = ""
+    val screenMappingJson: String = "",
+
+    /**
+     * Whether the Developer logging mode is enabled.
+     *
+     * When `true` the companion verbose-logger app ([DevLoggerManager.LOGGER_PACKAGE])
+     * is expected to be installed alongside this app so it can capture full logcat
+     * output even if the app crashes before [CrashLogStore] has a chance to write.
+     *
+     * Defaults to `true` so a fresh install automatically prompts the user to install
+     * the companion logger (see [MainActivity] and [DevLoggerManager]).
+     */
+    val developerModeEnabled: Boolean = true
 )

@@ -13,6 +13,14 @@ import com.mlbb.assistant.data.local.crashlog.installCrashHandler
 import com.mlbb.assistant.data.worker.HeroSyncWorker
 import com.mlbb.assistant.presentation.overlay.DraftOverlayContent
 import com.mlbb.assistant.presentation.overlay.JetOverlay
+import com.pluto.Pluto
+import com.pluto.plugins.datastore.pref.PlutoDatastorePreferencesPlugin
+import com.pluto.plugins.exceptions.PlutoExceptionsPlugin
+import com.pluto.plugins.logger.PlutoLoggerPlugin
+import com.pluto.plugins.logger.PlutoTimberTree
+import com.pluto.plugins.network.PlutoNetworkPlugin
+import com.pluto.plugins.preferences.PlutoSharePreferencesPlugin
+import com.pluto.plugins.rooms.db.PlutoRoomsDatabasePlugin
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -46,8 +54,27 @@ class MLBBApplication : Application(), Configuration.Provider {
 
         installCrashHandler(applicationContext)
 
+        // ── Pluto: embedded debug companion ─────────────────────────────────────
+        // Installs a persistent floating bubble (debug builds only). Tap it to open
+        // the inspector panel — log viewer, network calls, crash reports, Room DB
+        // browser, DataStore viewer, and SharedPreferences viewer. No Play Store or
+        // Google Play Services dependency. Release builds use no-op stubs.
+        if (BuildConfig.DEBUG) {
+            Pluto.Installer(this)
+                .addPlugin(PlutoExceptionsPlugin())
+                .addPlugin(PlutoLoggerPlugin())
+                .addPlugin(PlutoNetworkPlugin())
+                .addPlugin(PlutoRoomsDatabasePlugin())
+                .addPlugin(PlutoDatastorePreferencesPlugin())
+                .addPlugin(PlutoSharePreferencesPlugin())
+                .install()
+        }
+
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
+            // Route all Timber output into the Pluto log viewer panel so every
+            // tag/level is visible in the bubble inspector without Logcat.
+            Timber.plant(PlutoTimberTree())
         }
         Timber.plant(AppLogTree(applicationContext))
 

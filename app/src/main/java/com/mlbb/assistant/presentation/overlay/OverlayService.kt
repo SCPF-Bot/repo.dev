@@ -112,10 +112,13 @@ class OverlayService : Service() {
         createNotificationChannel()
         startFg()
 
-        // 5. Show the floating overlay window via JetOverlay.
-        //    DraftOverlayContent was registered in MLBBApplication.onCreate();
-        //    show() inflates it inside JetOverlay's WindowManager window.
-        JetOverlay.show()
+        // 5. Show the floating overlay window via JetOverlay only when the
+        //    SYSTEM_ALERT_WINDOW permission is available. Without it addView()
+        //    throws BadTokenException, crashing the service in onCreate() before
+        //    the onStartCommand() permission guard has a chance to run.
+        if (SystemSettings.canDrawOverlays(this)) {
+            JetOverlay.show()
+        }
 
         // 6. Overlay permission watchdog.
         startPermissionWatchdog()

@@ -162,6 +162,25 @@ dependencies {
     // Logging
     implementation(libs.timber)
 
+    // ── Pluto — embedded debug companion (floating bubble + inspector panel) ──
+    // Appears in debug builds as a persistent bubble; no Play Store dependency.
+    // Release builds use no-op stubs — compile-time only, zero runtime overhead.
+    // Plugins: exceptions, Timber log viewer, OkHttp network, Room DB, DataStore, SharedPrefs.
+    debugImplementation(libs.pluto)
+    releaseImplementation(libs.pluto.no.op)
+    debugImplementation(libs.pluto.plugin.exceptions)
+    releaseImplementation(libs.pluto.plugin.exceptions.no.op)
+    debugImplementation(libs.pluto.plugin.logger)
+    releaseImplementation(libs.pluto.plugin.logger.no.op)
+    debugImplementation(libs.pluto.plugin.network)
+    releaseImplementation(libs.pluto.plugin.network.no.op)
+    debugImplementation(libs.pluto.plugin.rooms)
+    releaseImplementation(libs.pluto.plugin.rooms.no.op)
+    debugImplementation(libs.pluto.plugin.datastore)
+    releaseImplementation(libs.pluto.plugin.datastore.no.op)
+    debugImplementation(libs.pluto.plugin.prefs)
+    releaseImplementation(libs.pluto.plugin.prefs.no.op)
+
     // ── UI Enhancement Libraries ──────────────────────────────────────────────
     // compose-shimmer: loading skeleton for HeroList, MetaBoard, History screens
     implementation(libs.compose.shimmer)

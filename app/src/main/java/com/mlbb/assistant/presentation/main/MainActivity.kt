@@ -11,6 +11,7 @@ import com.mlbb.assistant.presentation.common.theme.MLBBAssistantTheme
 import com.mlbb.assistant.presentation.overlay.OverlayService
 import com.mlbb.assistant.presentation.shell.AppShell
 import com.mlbb.assistant.service.VoiceAlertService
+import com.mlbb.assistant.utils.DevLoggerManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -43,6 +44,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Developer mode defaults to ON. On a fresh install the companion verbose
+        // logger is not yet installed, so prompt the user to install it now.
+        // DevLoggerManager tracks whether the prompt has already been shown via
+        // SharedPreferences and skips repeat prompts on subsequent launches.
+        DevLoggerManager.promptInstallIfNeeded(this)
 
         setContent {
             MLBBAssistantTheme {

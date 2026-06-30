@@ -64,3 +64,10 @@
 
 # ── DataStore ────────────────────────────────────────────────────────────────
 -keep class androidx.datastore.** { *; }
+
+# ── Pluto (debug companion) ───────────────────────────────────────────────────
+# Pluto is only present in debug builds (release uses no-op stubs), but these
+# rules guard against accidental inclusion via transitive dependencies.
+-dontwarn com.pluto.**
+-keep class com.pluto.** { *; }
+-keep class com.pluto.plugins.** { *; }
