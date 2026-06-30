@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
@@ -39,8 +40,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.theme.ErrorRed
 import com.mlbb.assistant.presentation.common.theme.MLBBGold
@@ -49,6 +50,7 @@ import com.mlbb.assistant.presentation.common.theme.SurfaceDark
 import com.mlbb.assistant.presentation.common.theme.SurfaceMid
 import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
+import com.mlbb.assistant.presentation.logviewer.LogViewerActivity
 import com.mlbb.assistant.presentation.settings.components.AspectRatioSection
 import com.mlbb.assistant.presentation.settings.components.BanCountRow
 import com.mlbb.assistant.presentation.settings.components.BanPhaseScreenshotSection
@@ -63,12 +65,9 @@ import com.mlbb.assistant.presentation.settings.components.SliderRow
 import com.mlbb.assistant.presentation.settings.components.ToggleRow
 
 /**
- * Settings screen root. This is a thin orchestrator that delegates each
- * settings section to its own composable in `components/`:
- *  - [ScoringWeightsSection]       — meta/counter/synergy sliders + reset
- *  - [CalibrationSection]          — auto-calibration result display
- *  - [BanCountRow]                 — ban phase count dropdown
- *  - [BanPhaseScreenshotSection]   — screenshot picker + mapping buttons
+ * Settings screen root. Delegates each section to its own composable in
+ * `components/`. The LOGS section controls developer mode and opens the
+ * [LogViewerActivity] (launched as a separate Activity, not a nav destination).
  */
 @Composable
 fun SettingsScreen(
@@ -94,7 +93,9 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("Cancel", color = TextSecondary) }
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
             }
         )
     }
@@ -120,7 +121,10 @@ fun SettingsScreen(
                 verticalAlignment     = Alignment.CenterVertically
             ) {
                 BackButton(onBack = onBack)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Icon(Icons.Rounded.Settings, contentDescription = null, tint = MLBBGold, modifier = Modifier.size(18.dp))
                     Text("SETTINGS", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
@@ -198,6 +202,36 @@ fun SettingsScreen(
                 InfoRow("Last synced", state.lastSyncedLabel)
                 TextButton(onClick = { viewModel.syncNow() }) {
                     Text("Sync now", color = MLBBGold, fontSize = 12.sp)
+                }
+            }
+
+            // ── Logs ──────────────────────────────────────────────────────
+            SettingsSection(
+                icon     = Icons.Rounded.BugReport,
+                title    = "LOGS",
+                subtitle = "Crash and warning diagnostics"
+            ) {
+                val context = LocalContext.current
+
+                ToggleRow(
+                    label    = "Developer mode",
+                    checked  = state.developerModeEnabled,
+                    onToggle = { viewModel.setDeveloperMode(it) }
+                )
+                InfoRow(
+                    label = "Log icon in drawer",
+                    value = if (state.developerModeEnabled) "Visible" else "Hidden"
+                )
+
+                SectionDivider()
+
+                TextButton(onClick = {
+                    context.startActivity(
+                        Intent(context, LogViewerActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }) {
+                    Text("Open log viewer", color = MLBBGold, fontSize = 12.sp)
                 }
             }
 

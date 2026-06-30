@@ -84,15 +84,26 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_assistant.db")
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_assistant.db")
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            // P1 fix: fallbackToDestructiveMigration() covers upgrade paths whose starting
+            // version is not in the migration chain (e.g. v0 → v3 on an old beta install).
+            // Without this, Room throws IllegalStateException: "A migration from X to Y
+            // cannot be found" and the app crashes before any UI is shown.
+            // fallbackToDestructiveMigrationOnDowngrade is still kept for downgrades.
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
+    }
 
-    @Provides fun provideHeroDao(db: AppDatabase): HeroDao = db.heroDao()
+    // P2 fix: all DAO providers are now @Singleton so Hilt returns the same proxy
+    // instance on every injection rather than constructing a new one each time.
+    // The underlying database is already a singleton; the DAO proxy itself is
+    // stateless, so a single shared instance is both safe and more efficient.
+    @Provides @Singleton fun provideHeroDao(db: AppDatabase): HeroDao = db.heroDao()
 
-    @Provides fun provideDraftSessionDao(db: AppDatabase): DraftSessionDao = db.draftSessionDao()
+    @Provides @Singleton fun provideDraftSessionDao(db: AppDatabase): DraftSessionDao = db.draftSessionDao()
 
-    @Provides fun provideHeroPoolDao(db: AppDatabase): HeroPoolDao = db.heroPoolDao()
+    @Provides @Singleton fun provideHeroPoolDao(db: AppDatabase): HeroPoolDao = db.heroPoolDao()
 }

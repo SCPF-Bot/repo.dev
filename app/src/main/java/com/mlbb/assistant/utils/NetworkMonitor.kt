@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class NetworkMonitor @Inject constructor(@ApplicationContext private val context: Context) {
+class NetworkMonitor @Inject constructor(@param:ApplicationContext private val context: Context) {
 
     val isConnected: Flow<Boolean> = callbackFlow {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

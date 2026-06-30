@@ -1,9 +1,10 @@
-name: Extract Zip
+name: Extract Archives
 
 on:
   push:
     paths:
       - '*.zip'
+      - '*.tar.gz'
   workflow_dispatch:
 
 permissions:
@@ -17,27 +18,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Delete all files/folders except .github, .git, and *.zip
+      - name: Delete all files/folders except .github, .git, and archives
         run: |
           find . -mindepth 1 -maxdepth 1 \
-          ! -name '.github' \
-          ! -name '.git' \
-          ! -name '*.zip' \
-          -exec rm -rf {} +
+            ! -name '.github' \
+            ! -name '.git' \
+            ! -name '*.zip' \
+            ! -name '*.tar.gz' \
+            -exec rm -rf {} +
         working-directory: ${{ github.workspace }}
 
-      - name: Extract all .zip archives
+      - name: Extract all archives
         run: |
+          # Extract .zip files
           for archive in *.zip; do
             if [ -f "$archive" ]; then
               echo "Extracting $archive"
               unzip -o "$archive"
             fi
           done
+          # Extract .tar.gz files
+          for archive in *.tar.gz; do
+            if [ -f "$archive" ]; then
+              echo "Extracting $archive"
+              tar -xzf "$archive"
+            fi
+          done
         working-directory: ${{ github.workspace }}
 
-      - name: Delete extracted .zip files
-        run: rm -f *.zip
+      - name: Delete extracted archive files
+        run: rm -f *.zip *.tar.gz
         working-directory: ${{ github.workspace }}
 
       - name: Commit and push changes to main branch
@@ -48,6 +58,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Extract zip archive and cleanup [skip ci]"
+            git commit -m "Extract archives and cleanup [skip ci]"
             git push origin main
           fi

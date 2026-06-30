@@ -26,7 +26,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.ShowChart
+import androidx.compose.material.icons.automirrored.rounded.ShowChart
 import androidx.compose.material.icons.rounded.SportsMartialArts
 import androidx.compose.material.icons.rounded.SportsKabaddi
 import androidx.compose.material3.CardDefaults
@@ -46,7 +46,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.model.Hero
@@ -165,7 +165,7 @@ private fun InsightsCard(insights: InsightsState) {
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Rounded.ShowChart, contentDescription = null, tint = MLBBGold, modifier = Modifier.size(16.dp))
+                Icon(Icons.AutoMirrored.Rounded.ShowChart, contentDescription = null, tint = MLBBGold, modifier = Modifier.size(16.dp))
                 Text(
                     stringResource(R.string.insights_title),
                     color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 12.sp

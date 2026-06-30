@@ -32,8 +32,7 @@ object DateFormatter {
     /**
      * ISO-style log formatter: "yyyy-MM-dd HH:mm:ss".
      * Locale-independent — always uses digits, no localised month names.
-     * Used by [com.mlbb.assistant.data.local.crashlog.CrashLogStore] and
-     * CSV exports where machine-parseable output is required.
+     * Used for CSV exports where machine-parseable output is required.
      */
     private val LOG_FORMATTER: DateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -91,7 +90,7 @@ object DateFormatter {
     /**
      * Formats [timestampMs] as an ISO-style log string (e.g. "2026-06-15 18:30:45").
      * Locale-independent — safe for machine-parseable log files and CSV exports.
-     * Use in [com.mlbb.assistant.data.local.crashlog.CrashLogStore] and CSV exports.
+     * Use for CSV exports.
      */
     fun formatLog(timestampMs: Long): String =
         timestampMs.toLocalDateTime().format(LOG_FORMATTER)

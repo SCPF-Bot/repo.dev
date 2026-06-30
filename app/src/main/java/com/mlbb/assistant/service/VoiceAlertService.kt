@@ -31,9 +31,13 @@ class VoiceAlertService(private val context: Context) {
     fun alertDraftComplete()  = speak("Draft complete.")
     fun alertTradingPhase()   = speak("Trading phase. You have 20 seconds.")
 
+    // P2 fix: TTS engine binding on some MIUI/Xiaomi ROMs can leave the engine in
+    // a partial state; calling stop()/shutdown() on a not-fully-bound engine throws
+    // IllegalArgumentException. Wrap in runCatching so MainActivity.onDestroy()
+    // never propagates a TTS crash into an Activity teardown crash.
     fun shutdown() {
-        tts?.stop()
-        tts?.shutdown()
+        runCatching { tts?.stop() }
+        runCatching { tts?.shutdown() }
         tts = null
     }
 }

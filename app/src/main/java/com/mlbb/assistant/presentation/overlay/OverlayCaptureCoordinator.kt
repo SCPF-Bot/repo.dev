@@ -76,7 +76,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class OverlayCaptureCoordinator @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val stateHolder:         OverlayStateHolder,
     private val draftSessionManager: DraftSessionManager
 ) {

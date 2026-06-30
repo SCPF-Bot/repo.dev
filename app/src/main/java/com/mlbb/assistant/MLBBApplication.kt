@@ -13,6 +13,7 @@ import com.mlbb.assistant.data.local.crashlog.installCrashHandler
 import com.mlbb.assistant.data.worker.HeroSyncWorker
 import com.mlbb.assistant.presentation.overlay.DraftOverlayContent
 import com.mlbb.assistant.presentation.overlay.JetOverlay
+import com.mlbb.assistant.utils.DevModeManager
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -26,15 +27,9 @@ import javax.inject.Inject
  * [com.mlbb.assistant.presentation.overlay.OverlayService] only needs to call
  * [JetOverlay.show] / [JetOverlay.hide] to control visibility.
  *
- * Note: The overlayContent lambda is registered here but EXECUTED only when
- * [JetOverlay.show] runs from [OverlayService.onCreate], at which point
- * [com.mlbb.assistant.presentation.overlay.OverlayContentBridge] is already
- * populated with the Hilt-injected dependencies.
- *
  * Implements [Configuration.Provider] so WorkManager uses [HiltWorkerFactory]
  * for dependency injection into [@HiltWorker][androidx.hilt.work.HiltWorker]-
- * annotated workers.  Do not declare the WorkManager startup initializer in
- * AndroidManifest.xml alongside this provider — the two paths conflict.
+ * annotated workers.
  */
 @HiltAndroidApp
 class MLBBApplication : Application(), Configuration.Provider {
@@ -44,16 +39,20 @@ class MLBBApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
 
+        // Install crash handler before anything else so even early crashes are captured.
         installCrashHandler(applicationContext)
 
+        // Default Timber tree for debug builds.
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
+        // Persist WARN/ERROR/CRASH to the internal log file (all builds).
         Timber.plant(AppLogTree(applicationContext))
 
-        // Register DraftOverlayContent with JetOverlay BEFORE OverlayService starts.
-        // OverlayService.onCreate() calls JetOverlay.show() which executes this lambda.
-        // OverlayContentBridge will be populated by that point so state reads are safe.
+        // Restore the DevLogAlias component-enabled state after installs / OTA updates,
+        // which reset component state to the manifest default (enabled).
+        DevModeManager.applyStoredState(applicationContext)
+
         JetOverlay.initialize(this) {
             overlayContent { DraftOverlayContent() }
         }
@@ -65,7 +64,9 @@ class MLBBApplication : Application(), Configuration.Provider {
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
+            .apply {
+                if (::workerFactory.isInitialized) setWorkerFactory(workerFactory)
+            }
             .setMinimumLoggingLevel(
                 if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.WARN
             )
@@ -73,11 +74,6 @@ class MLBBApplication : Application(), Configuration.Provider {
 
     // ── Periodic hero data sync ───────────────────────────────────────────────
 
-    /**
-     * Schedules [HeroSyncWorker] to run every 24 hours on a network connection.
-     * [ExistingPeriodicWorkPolicy.KEEP] preserves existing scheduled requests
-     * so repeated app launches do not reset the countdown.
-     */
     private fun scheduleHeroSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -87,7 +83,14 @@ class MLBBApplication : Application(), Configuration.Provider {
             .setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+        val wm = try {
+            WorkManager.getInstance(this)
+        } catch (e: IllegalStateException) {
+            WorkManager.initialize(this, workManagerConfiguration)
+            WorkManager.getInstance(this)
+        }
+
+        wm.enqueueUniquePeriodicWork(
             HeroSyncWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request

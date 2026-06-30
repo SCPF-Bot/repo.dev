@@ -48,6 +48,12 @@ object JetOverlay {
         overlayContent = content
     }
 
+    // P1 fix: synchronize show() and hide() to prevent a race between the
+    // MLBBAccessibilityService path and the MainActivity path both calling
+    // OverlayService.start() near-simultaneously. Without the lock, two threads
+    // can both pass the `composeView != null` guard and then both call
+    // WindowManager.addView(), causing IllegalStateException: "View already added".
+    @Synchronized
     fun show() {
         val app = application ?: return
         val content = overlayContent ?: return
@@ -109,9 +115,20 @@ object JetOverlay {
         }
 
         composeView = view
-        wm.addView(view, params)
+        runCatching {
+            wm.addView(view, params)
+        }.onFailure { e ->
+            // Typically WindowManager.BadTokenException when SYSTEM_ALERT_WINDOW
+            // permission is not yet granted.  Reset state so a subsequent show()
+            // call (after permission is granted) can retry cleanly.
+            android.util.Log.e("JetOverlay", "addView failed — overlay permission may be missing", e)
+            composeView = null
+            windowManager = null
+            lifecycleOwner = null
+        }
     }
 
+    @Synchronized
     fun hide() {
         val view = composeView ?: return
         lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)

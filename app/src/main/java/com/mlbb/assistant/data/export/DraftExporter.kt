@@ -36,7 +36,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class DraftExporter @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     companion object {

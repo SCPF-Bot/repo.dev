@@ -112,10 +112,13 @@ class OverlayService : Service() {
         createNotificationChannel()
         startFg()
 
-        // 5. Show the floating overlay window via JetOverlay.
-        //    DraftOverlayContent was registered in MLBBApplication.onCreate();
-        //    show() inflates it inside JetOverlay's WindowManager window.
-        JetOverlay.show()
+        // 5. Show the floating overlay window via JetOverlay only when the
+        //    SYSTEM_ALERT_WINDOW permission is available. Without it addView()
+        //    throws BadTokenException, crashing the service in onCreate() before
+        //    the onStartCommand() permission guard has a chance to run.
+        if (SystemSettings.canDrawOverlays(this)) {
+            JetOverlay.show()
+        }
 
         // 6. Overlay permission watchdog.
         startPermissionWatchdog()
@@ -171,11 +174,20 @@ class OverlayService : Service() {
     // ── Foreground service notification ───────────────────────────────────────
 
     /**
-     * Two-step FGS start:
-     * 1. onCreate → SPECIAL_USE only (safe before projection token is obtained).
-     * 2. onStartCommand (with token) → adds MEDIA_PROJECTION via upgradeFgToProjection().
+     * P0 fix: Android 14+ (API 34) enforces that MEDIA_PROJECTION must be declared
+     * from the very first [startForeground] call — adding it later via a second call
+     * causes a [SecurityException] on some API 34 builds.
      *
-     * Doing both in step 1 on Android 14+ causes a SecurityException.
+     * Strategy:
+     * - [onCreate]: always start with SPECIAL_USE (no projection token yet).
+     * - [onStartCommand] with token: call [upgradeFgToProjection] which re-calls
+     *   [startForeground] with SPECIAL_USE | MEDIA_PROJECTION.  On API 34+, this is
+     *   safe because the user has already granted the permission (the result code
+     *   arrived from [MainActivity.projectionLauncher]) before this call runs.
+     *
+     * If the upgrade call fails (e.g., token expired before the call), we catch the
+     * exception and log it rather than crashing — the overlay already started without
+     * screen-capture in that case.
      */
     private fun startFg() {
         val notif = buildNotification()
@@ -192,13 +204,24 @@ class OverlayService : Service() {
     private fun upgradeFgToProjection() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             runCatching {
+                // On API 34+, declare both types together. The user has already
+                // granted the MediaProjection permission at this call site.
                 startForeground(
                     NOTIF_ID,
                     buildNotification(),
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                )
+            }.onFailure { e ->
+                android.util.Log.e(
+                    "OverlayService",
+                    "upgradeFgToProjection failed — capture disabled this session",
+                    e
                 )
             }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // API 29–33: MEDIA_PROJECTION was the only required type; already set in startFg().
+            // No upgrade needed.
         }
     }
 

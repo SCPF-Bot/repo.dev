@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun startOverlay() {
         if (!Settings.canDrawOverlays(this)) {
-            OverlayService.start(this) // service will show a prompt via OverlayPermissionActivity
+            OverlayService.start(this)
             return
         }
         OverlayService.start(this)

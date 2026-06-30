@@ -66,7 +66,7 @@
     <string name="clear_all">Clear All</string>
     <string name="cd_hero_portrait">%1$s hero portrait</string>
 
-    <!-- Insights card (Section 5.1.2) -->
+    <!-- Insights card -->
     <string name="insights_title">Your Insights</string>
     <string name="insights_sessions">%1$d drafts analysed</string>
     <string name="insights_win_rate">Win rate: %1$d%%</string>
@@ -74,27 +74,27 @@
     <string name="insights_recommendation_rate">Followed recommendations: %1$d%%</string>
     <string name="insights_need_more">Play %1$d more drafted games to unlock insights.</string>
 
-    <!-- Calibration transparency (Section 5.2.2) -->
+    <!-- Calibration transparency -->
     <string name="calibration_title">Auto-calibration</string>
     <string name="calibration_rationale_label">Why these weights?</string>
     <string name="calibration_confidence_label">Confidence</string>
     <string name="calibration_apply">Apply suggested weights</string>
     <string name="calibration_need_more">Need at least 10 sessions with outcomes to calibrate.</string>
 
-    <!-- Rising badge (Section 4.2.2) -->
+    <!-- Rising badge -->
     <string name="badge_rising">↑ RISING</string>
     <string name="badge_meta">◆ META</string>
     <string name="badge_synergy">◈ SYNERGY</string>
     <string name="badge_counter">◉ COUNTER</string>
     <string name="badge_balanced">◎ BALANCED</string>
 
-    <!-- Export (Section 6.3) -->
+    <!-- Export -->
     <string name="export_summary_title">Export Draft Summary</string>
     <string name="export_csv_title">Export History as CSV</string>
     <string name="export_success">Exported successfully</string>
     <string name="export_failed">Export failed — please try again</string>
 
-    <!-- Accessibility (Section 6.5) -->
+    <!-- Accessibility -->
     <string name="a11y_draft_phase">Draft phase: %1$s</string>
     <string name="a11y_hero_score">%1$s, score %2$d out of 100, %3$s</string>
     <string name="a11y_ban_suggestion">Ban suggestion: %1$s</string>
@@ -102,4 +102,8 @@
     <string name="a11y_minimize_overlay">Minimise overlay</string>
     <string name="a11y_close_overlay">Close overlay</string>
     <string name="a11y_rising_this_patch">Rising this patch</string>
+
+    <!-- Log Viewer -->
+    <string name="log_viewer_title">App Log</string>
+    <string name="log_viewer_label">MLBB Log</string>
 </resources>

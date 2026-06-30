@@ -67,8 +67,8 @@ fun MetaBoardScreen(
             Spacer(Modifier.size(48.dp))
         }
 
-        // M3 TabRow — fully accessible, handles selected state announcement
-        TabRow(
+        // M3 PrimaryTabRow — fully accessible, handles selected state announcement
+        PrimaryTabRow(
             selectedTabIndex = activeTab.ordinal,
             containerColor   = SurfaceMid,
             contentColor     = MLBBGold

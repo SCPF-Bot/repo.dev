@@ -18,7 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -111,8 +111,8 @@ fun HeroDetailScreen(
         // Stats row
         StatRow(hero = hero)
 
-        // M3 TabRow — accessible, handles selection announcements, underline indicator
-        TabRow(
+        // M3 PrimaryTabRow — accessible, handles selection announcements, underline indicator
+        PrimaryTabRow(
             selectedTabIndex = activeTab.ordinal,
             containerColor   = SurfaceMid,
             contentColor     = MLBBGold
