@@ -26,6 +26,8 @@ You are **not** allowed to execute compilation, tests, or runtime. All analysis 
 ## FINAL REMINDERS 
 - This prompt should only be activated or executed when the user explicitly entered the command `execute mini.instructions.txt`. Only then you will proceed to fully execute this prompt autonomously. The user is the author of this prompt and is acknowledging any tasks that this prompt will execute.
 
-## LIST OF ERRORS
-1. 
-2. 
+## LIST OF PROBLEMS
+1. the app is still crashing when I open it.
+2. in app settings, in logs, create an option there named "Developer" that can be toggled on or off.
+3. the Developer option will install a third party app that will do a verbose log of the app (because the app can have a possibility to crash instantly when turning on, it's better to have a third party app doing a verbose log on it).
+4. the developer option is now set to on by default so when I do a fress install of the app, the third party logging app should also be installed alongside it.
