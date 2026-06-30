@@ -15,7 +15,7 @@ You are **not** allowed to execute compilation, tests, or runtime. All analysis 
 ## LIST OF TASKS
 
 ### Phase 1
-- Plan an exhaustive, systematic, robust, systematic, in-depth, versatile, and perpetual planning on how to resolve the problems that the user is encountering below.
+- Plan an exhaustive, systematic, robust, in-depth, versatile, and perpetual planning on how to resolve the problems that the user is encountering below.
 
 ### Phase 2
 - After planning, do a precise codebase refactoring based on the plan. You're allowed to edit, modify, add, delete, merge, or split any files or directories.
