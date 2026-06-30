@@ -92,8 +92,8 @@ object DatabaseModule {
             // Without this, Room throws IllegalStateException: "A migration from X to Y
             // cannot be found" and the app crashes before any UI is shown.
             // fallbackToDestructiveMigrationOnDowngrade is still kept for downgrades.
-            .fallbackToDestructiveMigration()
-            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .fallbackToDestructiveMigrationOnDowngrade()
             .build()
 
     // P2 fix: all DAO providers are now @Singleton so Hilt returns the same proxy
