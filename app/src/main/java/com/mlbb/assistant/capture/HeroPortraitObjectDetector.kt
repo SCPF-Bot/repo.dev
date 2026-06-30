@@ -5,24 +5,31 @@ import android.graphics.RectF
 import timber.log.Timber
 
 /**
- * Hero portrait region detector using ML Kit Object Detection (custom TFLite model).
+ * Hero portrait **region** detector using ML Kit Object Detection (custom TFLite model).
  *
- * todo.md §5.9: ML Kit custom model pipeline.
+ * ### This class vs. [HeroClassifier]
  *
- * MODEL REQUIREMENT
- * -----------------
- * Place the trained model at [MODEL_ASSET_PATH] inside the app's `assets/` directory.
- * The model must output bounding boxes for hero portrait regions, labelled with a
- * single class per detection.  Until the model is available, [detectPortraitRegions]
- * returns an empty list, allowing callers to fall back to the existing slot-based
- * coordinate system in [SlotRegions].
+ * There are two distinct ML tasks in the CV pipeline:
  *
- * INTEGRATION STATUS
- * ------------------
- * ML Kit custom object detection is currently **stubbed** pending the training pipeline
- * (todo.md §5.9). All calls return an empty list, which triggers the coordinate-based
- * [SlotRegions] fallback in every caller.  No ML Kit dependency is required at this
- * stage; restore the implementation once the TFLite model is available.
+ * | Task | Class | Model type | Current status |
+ * |---|---|---|---|
+ * | **Classification** — *which* hero is in a pre-cropped slot | [HeroClassifier] | MobileNetV3Small softmax classifier (`mlbb_hero_classifier.tflite`) | ✅ Integrated |
+ * | **Detection** — *where* hero portrait regions are in the full frame | [HeroPortraitObjectDetector] | SSD / YOLO object-detection model (not yet trained) | ⚙️ Stubbed |
+ *
+ * [HeroClassifier] is the fully wired primary matching path in [PortraitMatcher].
+ * This class ([HeroPortraitObjectDetector]) is a stub for a separate, not-yet-trained
+ * SSD-style object-detection model that would locate hero portrait bounding boxes in
+ * the raw MediaProjection frame, replacing the coordinate-based [SlotRegions] approach.
+ * Training that model requires 500+ annotated portrait crops (see `roadmap.md` RA-05).
+ *
+ * ### Integration
+ * [detectPortraitRegions] returns an empty list while the stub is active. Callers
+ * fall back to [SlotRegions] coordinate-based detection, which is the production path.
+ *
+ * ### MODEL REQUIREMENT (when training is complete)
+ * Place the trained SSD model at [MODEL_ASSET_PATH] and replace [detectPortraitRegions]
+ * with the ML Kit ObjectDetector API call.  The model must output bounding boxes with a
+ * single class label per detection.
  */
 class HeroPortraitObjectDetector {
 
@@ -34,24 +41,29 @@ class HeroPortraitObjectDetector {
     data class DetectedPortrait(
         val boundingBox: RectF,
         val confidence: Float,
-        val label: String?
+        val label: String?,
     )
 
     /**
-     * Detects hero portrait regions in [frame] using the custom ML Kit model.
+     * Detects hero portrait bounding boxes in [frame] using the custom ML Kit
+     * object-detection model.
      *
-     * Currently stubbed — returns an empty list until the TFLite model is trained
-     * and placed at [MODEL_ASSET_PATH] (todo.md §5.9). Callers fall back to
-     * [SlotRegions] coordinate-based detection when the list is empty.
+     * **Currently stubbed** — returns an empty list until the SSD/YOLO detection
+     * model is trained and placed at [MODEL_ASSET_PATH] (see `roadmap.md` RA-05).
+     * Callers fall back to [SlotRegions] coordinate-based slot scanning when the
+     * list is empty.
+     *
+     * Note: hero *identification* (which hero) is handled by [HeroClassifier], not
+     * this class. This class only locates portrait *regions* in the raw frame.
      */
     suspend fun detectPortraitRegions(
         frame: Bitmap,
-        assetManager: android.content.res.AssetManager
+        assetManager: android.content.res.AssetManager,
     ): List<DetectedPortrait> {
-        Timber.d("$TAG: model stub active — returning empty list (todo.md §5.9)")
+        Timber.d("$TAG: detection model stub active — returning empty list (roadmap RA-05)")
         return emptyList()
     }
 
-    /** No-op until the model is integrated. */
+    /** No-op until the detection model is integrated. */
     fun close() = Unit
 }

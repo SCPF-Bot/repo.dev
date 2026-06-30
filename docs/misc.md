@@ -22,6 +22,7 @@
 10. [kotlinx.serialization migration guidance](#10-kotlinxserialization-migration-guidance-ra-07)
 11. [JetOverlay adoption and `OverlayService` decomposition](#11-jetoverlay-adoption-and-overlayservice-decomposition-ra-01)
 12. [`PickPhaseContent` pick-success animation](#12-pickphasecontent-pick-success-animation)
+13. [TFLite hero classifier integration (TD-15)](#13-tflite-hero-classifier-integration-td-15)
 
 ---
 
@@ -292,3 +293,71 @@ at 1.2× speed (~1.4 s), and dismisses via `LaunchedEffect(hero) { delay(1_400L)
   pick clock, short enough not to delay the player.
 - The animation is **visual-only** and does not block the `onHeroTap` business logic,
   which fires synchronously before the animation starts.
+
+---
+
+## 13. TFLite hero classifier integration (TD-15)
+
+### What was integrated
+`mlbb_hero_classifier.tflite` (MobileNetV3Small, ~2 MB, trained with TensorFlow 2.20.0)
+is the **primary** hero-portrait matching path in `PortraitMatcher`. The pHash + colour-
+histogram path becomes the fallback.
+
+| File | Role |
+|---|---|
+| `capture/HeroClassifier.kt` | `Interpreter` wrapper — loads model, preprocesses bitmaps, runs inference |
+| `assets/mlbb_hero_classifier.tflite` | Trained MobileNetV3Small model (pre-existing asset) |
+| `assets/hero_classifier_labels.txt` | Output index → heroId mapping (120 entries, IDs 1–120) |
+| `capture/PortraitMatcher.kt` | Tries `HeroClassifier.classify()` first; falls through to pHash when confidence is below `TFLITE_TENTATIVE_THRESHOLD` |
+| `capture/PhaseDetectionConfig.kt` | `TFLITE_ACCEPT_THRESHOLD = 0.70`, `TFLITE_TENTATIVE_THRESHOLD = 0.45`, `TFLITE_TOP_K = 3` |
+| `gradle/libs.versions.toml` | `tensorflowLite = "2.16.1"` + `tensorflow-lite` library alias |
+| `app/build.gradle.kts` | `implementation(libs.tensorflow.lite)` + `androidResources { noCompress += listOf("tflite") }` |
+
+### Model specification
+- **Architecture:** MobileNetV3Small (Keras) → `global_average_pooling2d` → Dense → softmax
+- **Input:** `[1, 224, 224, 3]` float32, normalised to [−1, 1] (`pixel / 127.5 − 1.0`)
+- **Output:** `[1, 120]` float32 softmax probabilities
+- **Inference threads:** 2 (`Interpreter.Options.setNumThreads(2)`)
+
+### APK packaging requirement
+TFLite's `Interpreter` memory-maps the model via `MappedByteBuffer` + `FileChannel.map()`.
+This requires the asset to be **uncompressed** in the APK. Without `androidResources { noCompress += listOf("tflite") }`, aapt compresses the file and the `FileChannel.map()` call throws `IOException: offset + length > FileChannel size`.
+
+### Label file contract
+`hero_classifier_labels.txt` is loaded by `HeroClassifier` line by line (skipping `#` comments
+and blank lines). Line index *n* maps to output neuron *n*. If the label count doesn't equal
+the model output size, `isAvailable` returns `false` and every call falls back to pHash.
+When the model is retrained with a different class ordering, update this file to match.
+
+### Confidence thresholds
+| Constant | Value | Meaning |
+|---|---|---|
+| `TFLITE_ACCEPT_THRESHOLD` | 0.70 | Use result directly (no confirmation required if count met) |
+| `TFLITE_TENTATIVE_THRESHOLD` | 0.45 | Start multi-frame counter; mark `requiresConfirmation = true` |
+| Below `TFLITE_TENTATIVE_THRESHOLD` | — | Fall through to pHash + histogram |
+
+Tuning note: MobileNetV3Small reaches ~0.90 confidence on clean, static portrait crops but
+drops to ~0.60 on hero-reveal animation frames. The 0.70 accept threshold is deliberately
+conservative — lower it only after benchmarking false-positive rates on a representative
+frame set from MLBB's current patch.
+
+### Class disambiguation
+`HeroPortraitObjectDetector` (stub) handles portrait *region detection* (bounding boxes in
+the raw frame) and is a separate, not-yet-trained model. Do not confuse it with
+`HeroClassifier`, which handles *identification* of heroes in pre-cropped slots.
+
+### Thread safety
+`org.tensorflow.lite.Interpreter` is not thread-safe. `HeroClassifier.classify()` must
+be called from a single thread. `PortraitMatcher.match()` runs inside
+`withContext(Dispatchers.Default)` — callers must not invoke `match()` concurrently on
+the same `PortraitMatcher` instance without external synchronisation.
+
+### Trade-offs accepted
+- The labels file (`hero_classifier_labels.txt`) assumes heroIds 1–120 in ascending order,
+  matching the training dataset order at the time of model creation. If the model is
+  retrained with a different hero set or ordering, the labels file must be updated manually.
+- Heroes added after training (IDs 121–132 in the current roster) will not be classified
+  by TFLite and will be matched via the pHash fallback path.
+- `Bitmap.createScaledBitmap` uses bilinear interpolation — sufficient for the
+  MobileNetV3Small receptive field but not as accurate as bicubic. This is an acceptable
+  trade-off for inference speed on mid-range devices.

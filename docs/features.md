@@ -59,8 +59,9 @@ Version: `2.0.0` (versionCode 2) · Last updated: 2026-06-28 (aspect ratio setti
 | 2.3 | Draft-phase detection from banner colours | ✅ | `capture/PhaseDetector.kt`, `PhaseDetectionConfig.kt` |
 | 2.4 | OCR-assisted phase disambiguation — ML Kit Text Recognition on-device | ✅ | `capture/PhaseOcrDetector.kt` |
 | 2.5 | Hero portrait identification (perceptual hash) | 🧪 | `capture/PortraitMatcher.kt`, `PerceptualHash.kt` |
-| 2.6 | Hybrid 4-algorithm portrait matching — dHash 40%, Histogram 25%, WaveletHash 20%, AverageColorHash 15%; falls back to dHash 75% + Histogram 25% when JImageHash unavailable | ✅ | `capture/PortraitMatcher.kt` |
-| 2.7 | Parallel lazy preload of portrait hashes — all 4 algorithms per portrait in background batches | ✅ | `capture/PortraitMatcher.kt` |
+| 2.6 | **TFLite primary path** — `HeroClassifier` (MobileNetV3Small, `mlbb_hero_classifier.tflite`, [1,224,224,3]→[1,120]); `TFLITE_ACCEPT_THRESHOLD = 0.70`; pHash+histogram fallback when confidence < tentative threshold | ✅ | `capture/HeroClassifier.kt`, `capture/PortraitMatcher.kt` |
+| 2.6a | pHash + colour-histogram fallback matching — dHash pre-filter (0.60), pHash 65% + 48-bin histogram 35%; engages when TFLite confidence below tentative threshold | ✅ | `capture/PortraitMatcher.kt` |
+| 2.7 | Parallel lazy preload of portrait hashes — pHash + dHash + histogram per portrait in batches of 10 (fallback path) | ✅ | `capture/PortraitMatcher.kt` |
 | 2.8 | Slot-fill detection via normalised luminance threshold | ✅ | `capture/FrameProcessor.kt` |
 | 2.9 | Normalised slot region map (resolution-independent) | ✅ | `capture/SlotRegions.kt`, `assets/draft_ui_map.json` |
 | 2.10 | Rank detection from emblem region | ✅ | `capture/RankDetector.kt` |

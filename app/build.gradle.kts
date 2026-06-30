@@ -56,6 +56,15 @@ android {
         buildConfig = true
     }
 
+    // Prevent AAPT from compressing the TFLite model inside the APK.
+    // The TFLite Interpreter memory-maps the model file directly from the APK
+    // via MappedByteBuffer — this requires the asset to be stored uncompressed.
+    // Without this flag, aapt compresses .tflite assets and the Interpreter
+    // throws an IOException when trying to map a compressed byte range.
+    androidResources {
+        noCompress += listOf("tflite")
+    }
+
     // Export Room schema to allow proper migrations to be authored.
     // The generated JSON files should be checked into version control.
     ksp {
@@ -169,6 +178,10 @@ dependencies {
     // ML Kit Object Detection (custom TFLite model) — guarded by asset existence check; see todo.md §5.9
     // Alias is mlkit-objectdetection (not mlkit-object-detection) to avoid "object" Kotlin keyword in accessor
     implementation(libs.mlkit.objectdetection)
+
+    // TFLite runtime — direct Interpreter for HeroClassifier portrait classification (misc.md §13)
+    // Model: assets/mlbb_hero_classifier.tflite  Labels: assets/hero_classifier_labels.txt
+    implementation(libs.tensorflow.lite)
 
     // JImageHash intentionally NOT declared here: it uses java.awt (unavailable on Android)
     // and JitPack does not publish a usable AAR. PortraitMatcher loads it via reflection

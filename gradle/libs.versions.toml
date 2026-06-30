@@ -49,6 +49,9 @@ balloon                      = "1.6.12"
 mlkitTextRec                 = "16.0.1"
 # ML Kit Object Detection (custom TFLite model) — training pipeline in todo.md §5.9
 mlkitObjectDetection         = "17.0.0"
+# TFLite runtime — powers HeroClassifier (MobileNetV3Small hero portrait classifier)
+# assets/mlbb_hero_classifier.tflite is a trained [1,224,224,3]→[1,120] softmax model
+tensorflowLite               = "2.16.1"
 # KilianB/JImageHash: multi-algorithm perceptual hashing — JVM-only with dHash fallback
 # JitPack: com.github.KilianB:JImageHash:3.0.0
 jImageHash                   = "3.0.0"
@@ -137,6 +140,9 @@ mlkit-text-recognition             = { group = "com.google.mlkit",           nam
 # ML Kit Object Detection (custom TFLite model) — integration guarded by asset existence check
 # Alias avoids "object" keyword in the Kotlin accessor (mlkit-object-detection → libs.mlkit.`object`.detection fails)
 mlkit-objectdetection              = { group = "com.google.mlkit",           name = "object-detection-custom",        version.ref = "mlkitObjectDetection" }
+# TFLite runtime — direct Interpreter API for HeroClassifier (MobileNetV3Small portrait classifier)
+# Model asset: assets/mlbb_hero_classifier.tflite  Labels: assets/hero_classifier_labels.txt
+tensorflow-lite                    = { group = "org.tensorflow",              name = "tensorflow-lite",                version.ref = "tensorflowLite" }
 # JImageHash removed from Gradle: JitPack build is unavailable and the library uses
 # java.awt which does not exist on Android. PortraitMatcher.kt loads it via reflection
 # with runCatching so the dHash fallback is used automatically at runtime.

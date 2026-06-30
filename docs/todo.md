@@ -12,7 +12,7 @@
 
 ## 1. Technical-debt register (TD-xx)
 
-Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-15**.
+Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-16**.
 
 | ID | Item | State | Where |
 |---|---|---|---|
@@ -30,6 +30,7 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-15**
 | TD-12 | Bubble position persistence | done | `OverlayService.kt` |
 | TD-13 | WorkManager periodic hero-data sync | done | `HeroSyncWorker.kt`, `MLBBApplication.scheduleHeroSync()` |
 | TD-14 | OCR-calibrated ban slot coords + rank-aware `BanDraftType`/`BanSlotTemplates` + `processFrame(banDraftType)` | done | `capture/SlotRegions.kt`, `capture/FrameProcessor.kt`, `assets/draft_ui_map.json` |
+| TD-15 | TFLite hero classifier integrated as primary matching path in `PortraitMatcher`; `HeroClassifier` wraps `mlbb_hero_classifier.tflite`; `hero_classifier_labels.txt` maps index→heroId; `TFLITE_ACCEPT/TENTATIVE_THRESHOLD` in `PhaseDetectionConfig` | done | `capture/HeroClassifier.kt`, `capture/PortraitMatcher.kt`, `capture/PhaseDetectionConfig.kt`, `assets/hero_classifier_labels.txt` |
 
 ---
 
@@ -118,7 +119,8 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-15**
 | Library | Status | Next step |
 |---|---|---|
 | KilianB/JImageHash | ⚙️ In Gradle | Benchmark false-positive rate against portrait test set; keep dHash fallback (see `misc.md` §9) |
-| ML Kit Object Detection | ⚙️ In Gradle | Collect 500+ portrait crops → train TFLite model → integrate into `PortraitMatcher` as primary (see `roadmap.md` RA-05) |
+| ML Kit Object Detection | ⚙️ In Gradle | For portrait *region detection* (bounding boxes) — separate from `HeroClassifier`. Collect 500+ annotated crops → train SSD model → integrate into `HeroPortraitObjectDetector` (see `roadmap.md` RA-05) |
+| TFLite Hero Classifier | ✅ Integrated | `HeroClassifier.kt` wraps `mlbb_hero_classifier.tflite`; wired as primary path in `PortraitMatcher`; `hero_classifier_labels.txt` maps output index→heroId; see `misc.md` §13 |
 | p3hndrx/MLBB-API | 📋 Deferred | Backend stability verification required |
 | ridwaanhall/api-mobilelegends | 📋 Deferred | API liveness confirmation first (blocks RA-03) |
 

@@ -139,6 +139,35 @@ object PhaseDetectionConfig {
      */
     const val OCR_OVERRIDE_CONFIDENCE: Float = 0.70f
 
+    // ── TFLite hero classifier (HeroClassifier / misc.md §13) ────────────────
+
+    /**
+     * Minimum softmax confidence from [HeroClassifier] for a result to be used
+     * directly, bypassing the pHash + histogram fallback.
+     *
+     * Tuned conservatively at 0.70: MobileNetV3Small reaches ~0.90 on clean crops
+     * but drops to ~0.60–0.65 on hero-reveal animation frames. The threshold is set
+     * below the steady-state confidence to allow the classifier to fire on the first
+     * clear frame while still rejecting ambiguous animation frames.
+     * Lower this value carefully — it increases the false-positive rate.
+     */
+    const val TFLITE_ACCEPT_THRESHOLD: Float = 0.70f
+
+    /**
+     * Minimum softmax confidence for the TFLite result to be returned as a
+     * "requires confirmation" match (confident enough to start the multi-frame
+     * counter, but not confident enough to record immediately).
+     * Must be less than [TFLITE_ACCEPT_THRESHOLD].
+     */
+    const val TFLITE_TENTATIVE_THRESHOLD: Float = 0.45f
+
+    /**
+     * Maximum number of top-K predictions requested from [HeroClassifier.classify].
+     * Only the top-1 result drives the matching logic; top-2/3 are logged for
+     * debugging and future ensemble scoring work.
+     */
+    const val TFLITE_TOP_K: Int = 3
+
     // ── Phase history smoothing ───────────────────────────────────────────────
 
     /**

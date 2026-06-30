@@ -100,7 +100,8 @@ Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 ## [BACKLOG]
 
 ### Autonomous awareness
-- [ ] Higher-confidence portrait matching via TFLite hybrid model (RA-05 pipeline — see below)
+- [x] **TFLite hero portrait classifier** — `HeroClassifier` wraps `mlbb_hero_classifier.tflite` (MobileNetV3Small, [1,224,224,3]→[1,120]) and is the primary matching path in `PortraitMatcher` (TD-15, `misc.md` §13)
+- [ ] SSD/YOLO portrait *region* detector — train on 500+ annotated crops; integrate into `HeroPortraitObjectDetector` to replace coordinate-based `SlotRegions` (RA-05 — detection model, separate from classifier)
 - [ ] JImageHash FP benchmark against portrait test set; promote WaveletHash + AverageColorHash to primary in `PortraitMatcher` (RA-04)
 - [ ] Auto-recalibration of `SlotRegions` from a one-time guided capture
 - [ ] Patch-delta weighting from historical snapshots
@@ -172,7 +173,7 @@ Items originally from `docs/temp/recommendations.md`.
 | RA-02 | p3hndrx/MLBB-API hero/item data | 📋 Deferred — backend stability verification required |
 | RA-03 | ridwaanhall/api-mobilelegends | 📋 Deferred — API liveness confirmation first |
 | RA-04 | KilianB/JImageHash multi-algorithm hashing | ⚙️ In Gradle — FP benchmark pending (see `misc.md` §9) |
-| RA-05 | ML Kit Object Detection + TFLite hero detector | ⚙️ In Gradle — model training pipeline is a multi-step L-effort backlog item |
+| RA-05 | TFLite hero portrait classifier (`HeroClassifier`) | ✅ Completed — `mlbb_hero_classifier.tflite` integrated; see TD-15 and `misc.md` §13. SSD detection model (portrait *region* bounding boxes) remains as backlog. |
 | RA-06 | Balloon tooltip for hero suggestions | ✅ Completed — `RecommendationCard` long-press in `PickPhaseContent.kt` |
 | RA-07 | kotlinx.serialization full migration | ✅ Completed (partial) — all entry points migrated; Gson removal pending smoke test |
 

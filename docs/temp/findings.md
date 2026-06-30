@@ -1,6 +1,17 @@
 # Audit Findings — MLBB Draft Assistant
-> Generated: 2026-06-23 · Last reconciled: 2026-06-27 (sixth pass) · Source reconciled against `versionName 2.0.0` (versionCode 2)
+> Generated: 2026-06-23 · Last reconciled: 2026-06-29 (seventh pass — TFLite classifier integration) · Source reconciled against `versionName 2.0.0` (versionCode 2)
 > Kotlin 2.1.0 · AGP 9.2.1 · Min SDK 29 · Target SDK 36
+>
+> **Delta summary (seventh-pass reconciliation, 2026-06-29 — TFLite hero classifier integration):**
+> TD-15 resolved: `HeroClassifier.kt` wraps `mlbb_hero_classifier.tflite` (MobileNetV3Small,
+> [1,224,224,3]→[1,120] softmax); integrated as primary matching path in `PortraitMatcher`;
+> `hero_classifier_labels.txt` maps output index→heroId (120 classes, IDs 1–120);
+> `TFLITE_ACCEPT_THRESHOLD = 0.70` / `TFLITE_TENTATIVE_THRESHOLD = 0.45` added to
+> `PhaseDetectionConfig`; `org.tensorflow:tensorflow-lite:2.16.1` added to Gradle;
+> `androidResources { noCompress += listOf("tflite") }` added to prevent APK compression.
+> RA-05 marked ✅ Completed in `roadmap.md`. `HeroPortraitObjectDetector` stub updated to
+> clarify that it targets *region detection* (bounding boxes), not *classification*.
+> Open findings: 10 (unchanged — no new issues discovered; no previously-open issues closed this pass).
 >
 > **Delta summary (sixth-pass reconciliation, 2026-06-27 — UI/UX overhaul execution pass):**
 > All 5 ⚙️ library adoptions from the fifth pass fully wired in source:
