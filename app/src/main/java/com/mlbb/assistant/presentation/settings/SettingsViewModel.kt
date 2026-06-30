@@ -17,6 +17,7 @@ import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetDraftHistoryUseCase
 import com.mlbb.assistant.domain.usecase.SyncHeroesUseCase
 import com.mlbb.assistant.utils.DateFormatter
+import com.mlbb.assistant.utils.DevModeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,37 +37,25 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        val KEY_META    = floatPreferencesKey("weight_meta")
-        val KEY_COUNTER = floatPreferencesKey("weight_counter")
-        val KEY_SYNERGY = floatPreferencesKey("weight_synergy")
-        val KEY_OPACITY = floatPreferencesKey("overlay_opacity")
+        val KEY_META          = floatPreferencesKey("weight_meta")
+        val KEY_COUNTER       = floatPreferencesKey("weight_counter")
+        val KEY_SYNERGY       = floatPreferencesKey("weight_synergy")
+        val KEY_OPACITY       = floatPreferencesKey("overlay_opacity")
         val KEY_AUTO_SHOW     = booleanPreferencesKey("auto_show_overlay")
         val KEY_VOICE         = booleanPreferencesKey("voice_alerts")
         val KEY_AUTO_SYNC     = booleanPreferencesKey("auto_sync")
         val KEY_LAST_SYNCED   = stringPreferencesKey("last_synced")
         val KEY_DEFAULT_RANK  = stringPreferencesKey("default_rank")
-
-        /** Content URI of the user's ban-phase reference screenshot. */
-        val KEY_BAN_SCREENSHOT_URI  = stringPreferencesKey("ban_screenshot_uri")
-
-        /** JSON-serialised normalised tap positions mapped onto the ban-phase screenshot. */
-        val KEY_SCREEN_MAPPING      = stringPreferencesKey("screen_mapping")
-
-        /**
-         * Aspect-ratio preset key — stored as [AspectRatioPreset.key].
-         * Defaults to [AspectRatioPreset.AUTO] when absent.
-         */
-        val KEY_ASPECT_RATIO        = stringPreferencesKey("aspect_ratio")
-
-        /**
-         * Whether the Developer logging mode is enabled.
-         * Defaults to `true` on a fresh install so the companion verbose-logger app
-         * is automatically prompted for installation alongside the main app.
-         */
-        val KEY_DEVELOPER_MODE      = booleanPreferencesKey("developer_mode")
+        val KEY_BAN_SCREENSHOT_URI = stringPreferencesKey("ban_screenshot_uri")
+        val KEY_SCREEN_MAPPING     = stringPreferencesKey("screen_mapping")
+        val KEY_ASPECT_RATIO       = stringPreferencesKey("aspect_ratio")
     }
 
-    private val _state = MutableStateFlow(SettingsState())
+    private val _state = MutableStateFlow(
+        // Developer mode is stored in SharedPreferences (synchronous) so we can
+        // read the initial value right here without a coroutine.
+        SettingsState(developerModeEnabled = DevModeManager.isEnabled(context))
+    )
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
     init {
@@ -85,15 +74,15 @@ class SettingsViewModel @Inject constructor(
                         defaultRank           = prefs[KEY_DEFAULT_RANK] ?: "6 bans (Epic)",
                         overlayGranted        = Settings.canDrawOverlays(context),
                         accessibilityGranted  = isAccessibilityEnabled(),
-                        aspectRatioPreset     = AspectRatioPreset.fromKey(prefs[KEY_ASPECT_RATIO] ?: AspectRatioPreset.AUTO.key),
+                        aspectRatioPreset     = AspectRatioPreset.fromKey(
+                            prefs[KEY_ASPECT_RATIO] ?: AspectRatioPreset.AUTO.key
+                        ),
                         banPhaseScreenshotUri = prefs[KEY_BAN_SCREENSHOT_URI] ?: "",
-                        screenMappingJson     = prefs[KEY_SCREEN_MAPPING]    ?: "",
-                        developerModeEnabled  = prefs[KEY_DEVELOPER_MODE]    ?: true
+                        screenMappingJson     = prefs[KEY_SCREEN_MAPPING]     ?: ""
                     )
                 }
             }
         }
-        // Section 5.2.2: Run calibration on init to show transparency data.
         runCalibration()
     }
 
@@ -113,33 +102,28 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Triggers a hero data sync and records the completion timestamp.
-     * Uses [DateFormatter.formatFull] — which is thread-safe by design —
-     * instead of the non-thread-safe [java.text.SimpleDateFormat].
-     */
     fun syncNow() = viewModelScope.launch {
         syncHeroesUseCase()
         val label = DateFormatter.formatFull(System.currentTimeMillis())
         dataStore.edit { it[KEY_LAST_SYNCED] = label }
     }
 
-    // ── Section 5.2.2: Calibration transparency ───────────────────────────────
-
     /**
-     * Reads recent session history and runs [WeightCalibrator] in the background.
-     * Updates [SettingsState.calibrationResult] with the result.
+     * Toggles Developer mode.
+     * Persists to SharedPreferences and immediately enables/disables the
+     * [DevLogAlias] activity-alias so the launcher icon appears or disappears.
      */
+    fun setDeveloperMode(enabled: Boolean) {
+        DevModeManager.setEnabled(context, enabled)
+        _state.update { it.copy(developerModeEnabled = enabled) }
+    }
+
+    // ── Calibration ───────────────────────────────────────────────────────────
+
     fun runCalibration() {
         viewModelScope.launch {
             _state.update { it.copy(isCalibrating = true) }
             val history = getDraftHistoryUseCase.all().first()
-            // Use normalized() rather than the ScoreWeights primary constructor:
-            // the three weight sliders are persisted independently, so their raw
-            // sum drifts away from 1.0 between edits. ScoreWeights' init block
-            // throws IllegalArgumentException when the sum != 1.0, which would
-            // crash the app every time Settings opened after a slider was moved.
-            // normalized() rescales to a valid, sum-to-1.0 instance instead.
             val currentWeights = ScoreWeights.normalized(
                 meta    = _state.value.metaWeight,
                 synergy = _state.value.synergyWeight,
@@ -150,10 +134,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Applies the calibration-suggested weights to DataStore.
-     * Called when the user taps "Apply suggested weights".
-     */
     fun applyCalibrationWeights() {
         val suggested = _state.value.calibrationResult?.suggestedWeights ?: return
         viewModelScope.launch {
@@ -168,22 +148,18 @@ class SettingsViewModel @Inject constructor(
     fun setDefaultRank(rank: String)          = save { it[KEY_DEFAULT_RANK]       = rank }
     fun setBanPhaseScreenshotUri(uri: String) = save { it[KEY_BAN_SCREENSHOT_URI] = uri  }
     fun setScreenMapping(json: String)        = save { it[KEY_SCREEN_MAPPING]     = json }
-    fun setAspectRatioPreset(preset: AspectRatioPreset) = save { it[KEY_ASPECT_RATIO] = preset.key }
-
-    /**
-     * Persists the Developer mode toggle.
-     *
-     * Callers should also invoke [com.mlbb.assistant.utils.DevLoggerManager.promptInstallIfNeeded]
-     * with `force = true` when [enabled] is `true` so the companion logger is installed.
-     */
-    fun setDeveloperMode(enabled: Boolean) = save { it[KEY_DEVELOPER_MODE] = enabled }
+    fun setAspectRatioPreset(preset: AspectRatioPreset) =
+        save { it[KEY_ASPECT_RATIO] = preset.key }
 
     private fun save(block: suspend (MutablePreferences) -> Unit) =
         viewModelScope.launch { dataStore.edit { block(it) } }
 
     private fun isAccessibilityEnabled(): Boolean = runCatching {
         val service = "${context.packageName}/${com.mlbb.assistant.service.MLBBAccessibilityService::class.java.canonicalName}"
-        val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        val enabled = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        )
         enabled?.contains(service) == true
     }.getOrDefault(false)
 }

@@ -24,7 +24,6 @@ import com.mlbb.assistant.presentation.heropool.HeroPoolScreen
 import com.mlbb.assistant.presentation.history.DraftHistoryScreen
 import com.mlbb.assistant.presentation.history.DraftReplayScreen
 import com.mlbb.assistant.presentation.home.HomeScreen
-import com.mlbb.assistant.presentation.log.LogScreen
 import com.mlbb.assistant.presentation.metaboard.MetaBoardScreen
 import com.mlbb.assistant.presentation.settings.SettingsScreen
 import com.mlbb.assistant.presentation.welcome.PermissionWizardScreen
@@ -124,12 +123,6 @@ fun AppNavGraph(
             SettingsScreen(
                 onBack        = { navController.popBackStack() },
                 onOpenHeroPool = { navController.navigate(AppRoute.HeroPool.route) }
-            )
-        }
-
-        composable(AppRoute.CrashLog.route) {
-            LogScreen(
-                onBack = { navController.popBackStack() }
             )
         }
 

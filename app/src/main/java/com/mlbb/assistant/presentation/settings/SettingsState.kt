@@ -14,10 +14,6 @@ data class SettingsState(
     val voiceAlertsEnabled: Boolean   = false,
     val autoSync: Boolean             = true,
 
-    /**
-     * Ban-count tier: "6 bans (Epic)", "8 bans (Legend)", "10 bans (Mythic and higher)".
-     * Controls how many portrait slots the overlay watches during the ban phase.
-     */
     val defaultRank: String           = "6 bans (Epic)",
     val lastSyncedLabel: String       = "Never",
     val overlayGranted: Boolean       = false,
@@ -25,36 +21,16 @@ data class SettingsState(
     val calibrationResult: WeightCalibrator.CalibrationResult? = null,
     val isCalibrating: Boolean        = false,
 
-    /**
-     * Screen aspect-ratio preset chosen by the user.
-     * Drives how the CV pipeline adjusts ban/pick slot coordinates on devices
-     * where MLBB letterboxes or pillarboxes the game content.
-     * Defaults to [AspectRatioPreset.AUTO] — detected from the live frame.
-     */
     val aspectRatioPreset: AspectRatioPreset = AspectRatioPreset.AUTO,
-
-    /**
-     * Content URI (as String) of a user-selected screenshot of the banning phase.
-     * Empty = no screenshot set.
-     */
     val banPhaseScreenshotUri: String = "",
+    val screenMappingJson: String     = "",
 
     /**
-     * JSON-serialised list of normalised (x, y) tap positions the user mapped onto
-     * the ban-phase screenshot. Format: `[{"x":0.25,"y":0.3},…]`.
-     * Empty = no mapping saved yet.
-     */
-    val screenMappingJson: String = "",
-
-    /**
-     * Whether the Developer logging mode is enabled.
-     *
-     * When `true` the companion verbose-logger app ([DevLoggerManager.LOGGER_PACKAGE])
-     * is expected to be installed alongside this app so it can capture full logcat
-     * output even if the app crashes before [CrashLogStore] has a chance to write.
-     *
-     * Defaults to `true` so a fresh install automatically prompts the user to install
-     * the companion logger (see [MainActivity] and [DevLoggerManager]).
+     * Whether Developer mode is enabled.
+     * Controls the [DevLogAlias] launcher icon visibility via
+     * [com.mlbb.assistant.utils.DevModeManager].
+     * Persisted in SharedPreferences (not DataStore) for synchronous reads at startup.
+     * Defaults to `true` so a fresh install shows the log viewer icon.
      */
     val developerModeEnabled: Boolean = true
 )

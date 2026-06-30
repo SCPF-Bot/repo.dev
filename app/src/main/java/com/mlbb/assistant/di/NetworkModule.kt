@@ -3,7 +3,6 @@ package com.mlbb.assistant.di
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.mlbb.assistant.BuildConfig
 import com.mlbb.assistant.data.remote.api.MetaApi
-import com.pluto.plugins.network.interceptors.okhttp.PlutoOkhttpInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -11,7 +10,6 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -49,24 +47,12 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
-        val builder = OkHttpClient.Builder()
+    fun provideOkHttpClient(): OkHttpClient =
+        OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-
-        if (BuildConfig.DEBUG) {
-            val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
-            }
-            builder.addInterceptor(logging)
-        }
-        // PlutoOkhttpInterceptor captures every request/response for the Pluto
-        // network inspector panel. The release no-op companion is a pass-through.
-        // Must be added LAST so it sees the fully-decorated request.
-        builder.addInterceptor(PlutoOkhttpInterceptor)
-        return builder.build()
-    }
+            .build()
 
     @Provides
     @Singleton

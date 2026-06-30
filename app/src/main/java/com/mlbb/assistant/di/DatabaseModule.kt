@@ -4,12 +4,10 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.mlbb.assistant.BuildConfig
 import com.mlbb.assistant.data.local.database.AppDatabase
 import com.mlbb.assistant.data.local.database.DraftSessionDao
 import com.mlbb.assistant.data.local.database.HeroDao
 import com.mlbb.assistant.data.local.database.HeroPoolDao
-import com.pluto.plugins.rooms.db.PlutoRoomsDBWatcher
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -87,7 +85,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_assistant.db")
+        return Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_assistant.db")
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             // P1 fix: fallbackToDestructiveMigration() covers upgrade paths whose starting
             // version is not in the migration chain (e.g. v0 → v3 on an old beta install).
@@ -97,12 +95,6 @@ object DatabaseModule {
             .fallbackToDestructiveMigration(dropAllTables = true)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
-        // Register the database with the Pluto Room browser (debug builds only).
-        // The no-op stub in release is a compile-time-only empty function.
-        if (BuildConfig.DEBUG) {
-            PlutoRoomsDBWatcher.watch("mlbb_assistant.db", AppDatabase::class.java)
-        }
-        return db
     }
 
     // P2 fix: all DAO providers are now @Singleton so Hilt returns the same proxy
