@@ -59,7 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.mlbb.assistant.data.local.crashlog.LogEntry
 import com.mlbb.assistant.data.local.crashlog.LogLevel
 import com.mlbb.assistant.presentation.common.theme.ErrorRed

@@ -93,7 +93,7 @@ object DatabaseModule {
             // cannot be found" and the app crashes before any UI is shown.
             // fallbackToDestructiveMigrationOnDowngrade is still kept for downgrades.
             .fallbackToDestructiveMigration(dropAllTables = true)
-            .fallbackToDestructiveMigrationOnDowngrade()
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
     }
 
