@@ -1,10 +1,15 @@
-name: Build Release APK
+name: Build Release
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build Debug"]
+    types:
+      - completed
 
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:
