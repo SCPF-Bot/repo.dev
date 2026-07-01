@@ -51,14 +51,17 @@ presentation layer. The dependency rule is: `presentation → domain ← data`.
 │              WeightCalibrator, DraftPatternAnalyzer                    │
 │  scoring/    DraftScorer, ScoreWeights, HeroScore                     │
 │  advisor/    CompositionAnalyzer, BanRecommender, BuildAdvisor,       │
-│              EnemyIntentAnalyzer, WinConditionGenerator, ...          │
+│              EnemyIntentAnalyzer, WinConditionGenerator,              │
+│              HeroArchetypeService, TraitCounterEngine,                │
+│              BanValueScorer, BanUrgencyScorer                         │
 │  usecase/    GetSuggestions, SyncHeroes, SaveDraftSession, ...        │
 │  repository/ HeroRepository, DraftSessionRepository (interfaces)      │
 └───────────────────────────────┬──────────────────────────────────────┘
                                  │ implemented by
 ┌───────────────────────────────▼──────────────────────────────────────┐
 │                              DATA                                      │
-│  local/database/   Room v3: AppDatabase, DAOs, Entities, Converters   │
+│  local/database/   Room v4: AppDatabase, DAOs, Entities, Converters,  │
+│                    CounterLookupEntity, CounterLookupDao               │
 │  local/datastore/  Preferences DataStore (single delegate)            │
 │  local/crashlog/   CrashLogStore + Timber AppLogTree                  │
 │  remote/api/       Retrofit MetaApi (GET /v1/meta/snapshot)           │

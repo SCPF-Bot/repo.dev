@@ -57,6 +57,14 @@ object CompositionAnalyzer {
         val mobCount     = heroes.count { it.role in highMobRoles }
         val sustainCount = heroes.count { it.role in sustainRoles }
 
+        // Gap detection: count tanks/supports (frontline presence)
+        val tankCount    = heroes.count { it.role == "Tank" }
+        val supportCount = heroes.count { it.role == "Support" }
+        val hasFrontline = (tankCount + supportCount) >= 1
+
+        // Gap detection: assassin/marksman count for squishiness
+        val glassCannonCount = heroes.count { it.role in setOf("Assassin", "Marksman") }
+
         val ccLevel = when {
             ccCount >= 3 -> CCLevel.HIGH
             ccCount == 2 -> CCLevel.MEDIUM
@@ -80,6 +88,9 @@ object CompositionAnalyzer {
             if (ccLevel == CCLevel.NONE) add("⚠️ No CC — dive compositions will dominate")
             if (sustainLevel == SustainLevel.LOW) add("⚠️ Low sustain — avoid extended fights")
             if (mobilityLevel == MobilityLevel.HIGH) add("⚠️ High enemy mobility — bring crowd control")
+            // Archetype gap warnings (ported from AlanNobita scoring.py ally-state detection)
+            if (magicCount == 0 && heroes.size >= 2) add("⚠️ No magic damage — enemy will rush physical defense")
+            if (!hasFrontline && glassCannonCount >= 2) add("⚠️ Squishy comp — add a tank or support to survive dives")
         }
 
         return CompositionProfile(physicalPct, magicPct, ccLevel, mobilityLevel, sustainLevel, warnings)

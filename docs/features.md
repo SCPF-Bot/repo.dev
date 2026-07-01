@@ -109,9 +109,15 @@ Version: `2.0.0` (versionCode 2) · Last updated: 2026-06-28 (aspect ratio setti
 | 4.6 | Live counter-pick warnings for our picks | ✅ | `advisor/CompositionAnalyzer.kt` |
 | 4.7 | Ban recommendations (flat rank + absolute/reactive split) | 🧪 | `advisor/BanRecommender.kt` (`rank` + `rankSplit`) |
 | 4.8 | Build / item advice (3 core + 3 situational) | ✅ | `advisor/BuildAdvisor.kt` |
-| 4.9 | Enemy intent inference | ✅ | `advisor/EnemyIntentAnalyzer.kt` |
-| 4.10 | Win-condition generation | ✅ | `advisor/WinConditionGenerator.kt` |
+| 4.9 | Enemy intent inference | 🧪 | `advisor/EnemyIntentAnalyzer.kt` |
+| 4.10 | Win-condition generation | 🧪 | `advisor/WinConditionGenerator.kt` |
 | 4.11 | Aggregate draft score calculation | ✅ | `advisor/DraftScoreCalculator.kt` |
+| 4.12 | Ban value scoring — context-free intrinsic value | 🧪 | `advisor/BanValueScorer.kt` |
+| 4.13 | Ban urgency scoring — reactive contextual priority | ✅ | `advisor/BanUrgencyScorer.kt` |
+| 4.14 | Trait-based counter bonus (7-threat-trait × counter-trait matrix) | 🧪 | `advisor/TraitCounterEngine.kt` |
+| 4.15 | Archetype gap detection: magic-damage gap + frontline vulnerability | ✅ | `advisor/CompositionAnalyzer.kt` (updated) |
+| 4.16 | Hero archetype service — 20+ sub-role archetypes, trait sets, matchup rules | ✅ | `advisor/HeroArchetypeService.kt` |
+| 4.17 | Counter confidence lookup — confidence-scored directional counter pairs | ✅ | `data/local/database/CounterLookupDao.kt`, `CounterLookupEntity.kt` |
 
 ---
 

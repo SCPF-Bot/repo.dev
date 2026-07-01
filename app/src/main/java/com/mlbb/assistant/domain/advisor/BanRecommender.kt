@@ -68,10 +68,24 @@ object BanRecommender {
     /**
      * Returns absolute and reactive ban lists separately.
      *
+     * ## A4 — Ban value vs ban urgency separation (roadmap A4, now implemented)
+     *
+     * The ban decision is split into two orthogonal dimensions:
+     *
+     * - **Value** ([BanValueScorer]): intrinsic, context-free desirability of
+     *   removing a hero from the pool.  Driven by win rate, ban rate, toxic
+     *   mechanics, and OP status.
+     *
+     * - **Urgency** ([BanUrgencyScorer]): reactive, context-sensitive priority
+     *   of banning a hero *right now* given the current draft state.  Driven by
+     *   counter threats to allied picks, synergy with enemy picks, and archetype
+     *   enabling.
+     *
+     * Final score = value + urgency, clamped to [0, 1].
+     *
      * Absolute bans (Section 3.3.3):
      *   isToxicMechanic = true  OR  isOP = true  OR  banRate ≥ 0.40
-     * Any single flag is sufficient — the previous code erroneously required
-     * BOTH isOP AND isToxicMechanic, which under-flagged many must-ban heroes.
+     * Any single flag is sufficient.
      *
      * Reactive bans are context-sensitive: they counter allied picks or strengthen
      * the enemy's inferred composition archetype.
@@ -88,28 +102,30 @@ object BanRecommender {
 
         val pool = availableHeroes.filter { it.id !in bannedIds && it.id !in pickedIds }
 
-        // Absolute ban criterion: any one flag is sufficient.
-        val isAbsolute: (Hero) -> Boolean = { hero ->
-            hero.isToxicMechanic ||
-            hero.isOP            ||
-            hero.banRate >= 0.40
-        }
-
-        // Reactive: directly counters one of our picks, or synergises with an enemy pick.
-        val isReactive: (Hero) -> Boolean = { hero ->
-            alliedPicks.any { ally -> hero.id in ally.counteredBy } ||
-            enemyPicks.any  { ep   -> hero.id in ep.synergies }
-        }
+        // Infer enemy archetype for urgency calculations (may be null with < 2 picks)
+        val enemyProfile = if (enemyPicks.size >= 2) {
+            CompositionAnalyzer.analyze(enemyPicks)
+        } else null
+        val enemyArchetype = if (enemyPicks.size >= 2) {
+            val roles    = enemyPicks.map { it.role }
+            val ccUltCnt = enemyPicks.count { it.hasCCUlt }
+            CompositionArchetype.detect(enemyProfile!!, roles, ccUltCnt)
+        } else null
 
         val scored = pool.map { hero ->
-            val baseScore     = computeBaseScore(hero, preferredLanes)
-            val reactiveBonus = if (isReactive(hero)) 0.20f else 0f
-            val totalScore    = (baseScore + reactiveBonus).coerceIn(0f, 1f)
+            // A4: Split into value (context-free) + urgency (context-sensitive)
+            val value   = BanValueScorer.score(hero, preferredLanes)
+            val urgency = BanUrgencyScorer.score(hero, alliedPicks, enemyPicks, enemyArchetype)
+            val totalScore = (value + urgency).coerceIn(0f, 1f)
+
+            val isAbsolute = BanValueScorer.isAbsoluteBan(hero)
+            val isReactive = alliedPicks.any { ally -> hero.id in ally.counteredBy } ||
+                             enemyPicks.any  { ep   -> hero.id in ep.synergies }
 
             val category = when {
-                isAbsolute(hero) -> BanCategory.ABSOLUTE
-                isReactive(hero) -> BanCategory.REACTIVE
-                else             -> BanCategory.SITUATIONAL
+                isAbsolute -> BanCategory.ABSOLUTE
+                isReactive -> BanCategory.REACTIVE
+                else       -> BanCategory.SITUATIONAL
             }
 
             BanSuggestion(
@@ -120,7 +136,7 @@ object BanRecommender {
                     hero.isToxicMechanic -> "Toxic"
                     hero.isOP            -> "OP Meta"
                     hero.banRate > 0.25  -> "High Ban"
-                    reactiveBonus > 0f   -> "Counter Ban"
+                    isReactive           -> "Counter Ban"
                     else                 -> "Situational"
                 },
                 category = category
@@ -133,23 +149,12 @@ object BanRecommender {
         return BanPriorities(absolute, reactive)
     }
 
-    private fun computeBaseScore(hero: Hero, preferredLanes: List<String>): Float {
-        val metaScore:  Float = (hero.winRate.toFloat() - 0.50f).coerceAtLeast(0f) * 2f +
-                                 hero.banRate.toFloat() * 1.5f
-        val toxicBonus: Float = if (hero.isToxicMechanic) 0.30f else 0f
-        val opBonus:    Float = if (hero.isOP) 0.25f else 0f
-        val laneBonus:  Float = if (hero.lane.name in preferredLanes) 0.10f else 0f
-        return (metaScore + toxicBonus + opBonus + laneBonus).coerceIn(0f, 1f)
-    }
-
     private fun buildBanReason(hero: Hero, alliedPicks: List<Hero>, enemyPicks: List<Hero>): String {
-        val counteringAlly = alliedPicks.firstOrNull { ally -> hero.id in ally.counteredBy }
-        val synergyEnemy   = enemyPicks.firstOrNull  { ep   -> hero.id in ep.synergies }
+        // Prefer urgency-derived reason if available
+        val urgencyReason = BanUrgencyScorer.buildReason(hero, alliedPicks, enemyPicks)
+        if (urgencyReason != null) return urgencyReason
+
         return when {
-            counteringAlly != null ->
-                "Directly counters your ${counteringAlly.name} — reactive ban priority"
-            synergyEnemy != null ->
-                "Synergizes with enemy ${synergyEnemy.name} — deny the combo"
             hero.isToxicMechanic ->
                 "Toxic mechanics — difficult for most players to deal with"
             hero.isOP && hero.banRate > 0.25 ->

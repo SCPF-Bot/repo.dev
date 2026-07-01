@@ -7,13 +7,14 @@
 
 ---
 
-## Summary (updated 2026-06-27, sixth-pass reconciliation)
+## Summary (updated 2026-07-01, eighth-pass reconciliation)
 
 | Metric | Count |
 |---|---|
 | Total recommendations in this document | 47 |
 | ✅ Already implemented when doc was generated | 5 (ComposeCharts, compose-shimmer, ML Kit Text Rec, WorkManager, detekt) |
 | ✅ Adopted — fully wired in source (sixth pass) | 6 (JetOverlay, Lottie, Balloon, kotlinx.serialization, AutoStarter, README) |
+| ✅ Adopted — reference repo integration (eighth pass) | 5 data assets (counter_lookup.json, hero_archetypes.json, items.json, emblems.json, spells.json) + 4 new domain classes (HeroArchetypeService, TraitCounterEngine, BanValueScorer, BanUrgencyScorer) |
 | ⚙️ Added to Gradle — integration pending | 2 (KilianB/JImageHash, ML Kit Object Detection) |
 | ❌ Not Implemented — deferred or out of scope | 34 |
 

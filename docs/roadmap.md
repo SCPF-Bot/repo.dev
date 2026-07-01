@@ -50,6 +50,10 @@
 - Personal hero-pool proficiency weighting
 - Build/item advice with situational items
 - Absolute/reactive ban split (`BanRecommender.rankSplit`)
+- Ban value vs urgency separation (`BanValueScorer` + `BanUrgencyScorer`)
+- Trait-based counter scoring (`TraitCounterEngine` — ported from AlanNobita scoring.py)
+- Archetype gap detection: magic-damage gap + frontline-vulnerability warnings (`CompositionAnalyzer`, `HeroArchetypeService`)
+- Counter confidence table: `counter_lookup` Room table, `CounterLookupDao`, confidence scores from community dataset
 
 ### Historical feedback loop
 - Draft history persistence + match-outcome recording + simulation exclusion
@@ -76,10 +80,30 @@
 
 ## [ACTIVE]
 
-### A4 — Ban value vs. ban urgency separation
-**Effort:** M · **Blocked by:** nothing
-`BanRecommender.rankSplit()` already separates absolute from reactive bans. Full separation into dedicated `BanValueScorer` / `BanUrgencyScorer` classes remains open.
-Files: `domain/advisor/BanRecommender.kt`
+### A4 — Ban value vs. ban urgency separation [COMPLETED 2026-07-01]
+`BanValueScorer` (context-free intrinsic value) and `BanUrgencyScorer` (reactive contextual urgency)
+implemented as separate objects. `BanRecommender.rankSplit()` now combines both: `finalScore = value + urgency`.
+`BanValueScorerTest` covers all three absolute-ban triggers and ordering invariants.
+Files: `domain/advisor/BanValueScorer.kt`, `domain/advisor/BanUrgencyScorer.kt`, `BanRecommender.kt`
+
+### A7 — Trait-based counter scoring [COMPLETED 2026-07-01]
+`TraitCounterEngine` — Kotlin port of AlanNobita/mlbb_drafter `scoring.py` trait-counter matrix.
+7-threat-trait × counter-trait cross-reference; up to +0.45 bonus clamped per hero.
+`TraitCounterEngineTest` (14 tests) covers all threat/counter pairs, cap, and `describeCounters`.
+Files: `domain/advisor/TraitCounterEngine.kt`
+
+### A8 — Archetype gap detection + HeroArchetypeService [COMPLETED 2026-07-01]
+`HeroArchetypeService` (@Singleton Hilt) reads `hero_archetypes.json` at startup.
+Provides `computeAllyStateGaps()`, `computeArchetypeMatchupScore()`, `isMagicDamageSource()`,
+`isFrontlineHero()`, `uniqueArchetypes()`, `sharedArchetypes()`.
+`CompositionAnalyzer.analyze()` now emits two additional gap warnings: no magic damage + squishy comp.
+Files: `domain/advisor/HeroArchetypeService.kt`, `domain/advisor/CompositionAnalyzer.kt`
+
+### A9 — Counter confidence table [COMPLETED 2026-07-01]
+`CounterLookupEntity` + `CounterLookupDao` + `MIGRATION_3_4` add a confidence-scored hero
+counter table seeded from `counter_lookup.json` (1 000+ pairs, empirical win-rate-based).
+`AppDatabase` bumped to version 4.
+Files: `data/local/database/CounterLookupEntity.kt`, `CounterLookupDao.kt`, `DatabaseModule.kt`
 
 ---
 
@@ -130,7 +154,8 @@ Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 - [ ] **P1/M** Room migration test (1→2→3) using `MigrationTestHelper`
 - [ ] **P1/M** Compose UI tests for Draft, HeroList, Settings, Permission Wizard
 - [ ] **P1/M** Instrumentation test for overlay foreground-service start/stop lifecycle
-- [ ] **P2/M** Unit tests for `WeightCalibrator`, `DraftPatternAnalyzer`, `EnemyIntentAnalyzer`, `WinConditionGenerator`, `BuildAdvisor`, `DraftScoreCalculator`
+- [x] **P2/M** Unit tests for `WeightCalibrator`, `EnemyIntentAnalyzer`, `WinConditionGenerator` — ✅ 2026-07-01 (5 test classes, 49 tests total)
+- [ ] **P2/M** Unit tests for `DraftPatternAnalyzer`, `BuildAdvisor`, `DraftScoreCalculator`
 - [ ] **P2/M** `FrameProcessor` slot-dedupe and throttle tests with synthetic bitmaps (Robolectric)
 - [ ] **P2/S** `DraftExporter` round-trip serialisation test
 - [ ] **P2/S** detekt baseline — run `./gradlew detektBaseline` and commit `config/detekt/baseline.xml`

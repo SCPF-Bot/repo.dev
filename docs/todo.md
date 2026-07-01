@@ -12,7 +12,7 @@
 
 ## 1. Technical-debt register (TD-xx)
 
-Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-16**.
+Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-17**.
 
 | ID | Item | State | Where |
 |---|---|---|---|
@@ -59,7 +59,8 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-16**
 
 - [ ] **P1/M** Compose UI tests for Draft, HeroList, Settings, and Permission Wizard.
 - [ ] **P1/M** Instrumentation test for the overlay foreground-service start/stop lifecycle.
-- [ ] **P2/M** Unit tests for `WeightCalibrator`, `DraftPatternAnalyzer`, `EnemyIntentAnalyzer`, `WinConditionGenerator`, `BuildAdvisor`, `DraftScoreCalculator`.
+- [x] **P2/M** Unit tests for `WeightCalibrator`, `EnemyIntentAnalyzer`, `WinConditionGenerator` — ✅ implemented 2026-07-01 (`WeightCalibratorTest`, `EnemyIntentAnalyzerTest`, `WinConditionGeneratorTest`, `TraitCounterEngineTest`, `BanValueScorerTest`).
+- [ ] **P2/M** Unit tests for `DraftPatternAnalyzer`, `BuildAdvisor`, `DraftScoreCalculator` — still pending.
 - [ ] **P2/M** `FrameProcessor` slot-dedupe and throttle tests with synthetic bitmaps (Robolectric). Include a benchmark validating the `copyPixelsToBuffer` improvement and `ConcurrentHashMap` correctness under concurrent access.
 - [ ] **P2/S** `DraftExporter` round-trip serialisation test.
 - [ ] **P3/S** Snapshot tests for key Compose components.

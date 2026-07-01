@@ -1,6 +1,17 @@
 # Audit Findings — MLBB Draft Assistant
-> Generated: 2026-06-23 · Last reconciled: 2026-06-29 (seventh pass — TFLite classifier integration) · Source reconciled against `versionName 2.0.0` (versionCode 2)
+> Generated: 2026-06-23 · Last reconciled: 2026-07-01 (eighth pass — reference repo integration) · Source reconciled against `versionName 2.0.0` (versionCode 2)
 > Kotlin 2.1.0 · AGP 9.2.1 · Min SDK 29 · Target SDK 36
+>
+> **Delta summary (eighth-pass reconciliation, 2026-07-01 — reference repository integration):**
+> 5 reference repos analysed: bipash25, techvibedz, polymathicneo, AlanNobita, MomenAlfaqeh.
+> Data assets added: `counter_lookup.json`, `hero_archetypes.json`, `items.json`, `emblems.json`, `spells.json`.
+> New domain classes: `HeroArchetypeService`, `TraitCounterEngine`, `BanValueScorer`, `BanUrgencyScorer`.
+> New data classes: `CounterLookupEntity`, `CounterLookupDao`; `AppDatabase` bumped to v4; `MIGRATION_3_4` added.
+> `BanRecommender.rankSplit()` now delegates to `BanValueScorer` + `BanUrgencyScorer` (roadmap A4 complete).
+> `CompositionAnalyzer.analyze()` emits two new archetype gap warnings (magic damage gap, frontline vulnerability).
+> 5 new unit test classes (49 tests): `WeightCalibratorTest`, `EnemyIntentAnalyzerTest`, `WinConditionGeneratorTest`,
+> `TraitCounterEngineTest`, `BanValueScorerTest`. All docs updated. `improvement_plan.md` created.
+> Open findings: 10 (unchanged — no new issues; A4 closed from roadmap [ACTIVE]).
 >
 > **Delta summary (seventh-pass reconciliation, 2026-06-29 — TFLite hero classifier integration):**
 > TD-15 resolved: `HeroClassifier.kt` wraps `mlbb_hero_classifier.tflite` (MobileNetV3Small,
