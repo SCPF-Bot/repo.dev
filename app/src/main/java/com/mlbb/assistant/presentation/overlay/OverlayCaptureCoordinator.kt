@@ -4,7 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import coil3.ImageLoader
+import com.mlbb.assistant.capture.AspectRatioPreset
 import com.mlbb.assistant.capture.BanDraftType
 import com.mlbb.assistant.capture.BanSlotTemplates
 import com.mlbb.assistant.capture.FirstPickDetector
@@ -23,6 +27,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,7 +84,8 @@ import javax.inject.Singleton
 class OverlayCaptureCoordinator @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val stateHolder:         OverlayStateHolder,
-    private val draftSessionManager: DraftSessionManager
+    private val draftSessionManager: DraftSessionManager,
+    private val dataStore:           DataStore<Preferences>
 ) {
 
     private lateinit var screenCaptureManager: ScreenCaptureManager
@@ -88,9 +95,60 @@ class OverlayCaptureCoordinator @Inject constructor(
     // Frame counter for OCR stride — reset on session start.
     private val frameCounter = AtomicInteger(0)
 
-    // Latest OCR phase result — written from Main thread callback, read on Default.
-    private val lastOcrPhase = AtomicReference(PhaseDetector.DetectedPhase.UNKNOWN)
-    private val lastOcrConfidence = AtomicReference(0f)
+    /**
+     * Full OCR result from the most recent successful ML Kit pass.
+     * Written on Main thread (ML Kit callback), read on Dispatchers.Default.
+     * Initialised to a stable no-op sentinel rather than null to avoid
+     * null-checks on every frame.
+     */
+    private val lastOcrResult = AtomicReference(
+        PhaseOcrDetector.OcrResult(PhaseDetector.DetectedPhase.UNKNOWN, 0f)
+    )
+
+    // ── TD-16: Aspect-ratio horizontal inset ──────────────────────────────────
+    //
+    // MLBB's draft UI is calibrated at 20:9 (landscape reference).  On ultra-wide
+    // screens (21:9) the game is pillarboxed — black bars appear on the left and
+    // right, shifting the visible content inward.  SlotRegions normalised
+    // coordinates assume full-screen content, so they must be adjusted by this
+    // inset fraction when the effective ratio differs from the reference.
+    //
+    // Observed whenever the user-selected AspectRatioPreset changes in Settings.
+    // horizInset = 0 means no adjustment (standard 16:9 or auto-detect ≤ 20:9).
+    @Volatile private var horizInset: Float = 0f
+
+    companion object {
+        /** DataStore key — mirrors SettingsViewModel.KEY_ASPECT_RATIO. */
+        private val KEY_ASPECT_RATIO = stringPreferencesKey("aspect_ratio")
+
+        /**
+         * MLBB draft UI reference aspect ratio (landscape 1600 × 720 px).
+         * Slot coordinates in SlotRegions are calibrated to this ratio.
+         */
+        private const val REF_GAME_RATIO: Float = 20f / 9f
+    }
+
+    /**
+     * Adjusts a [SlotRegionF] for a horizontal content inset caused by pillarboxing
+     * on ultra-wide screens.
+     *
+     * When [horizInset] > 0, the normalised x-coordinates assume the full screen
+     * width includes inert black bars.  This function remaps them into the active
+     * content area (1 − 2·inset wide, starting at `inset`).
+     *
+     * A [horizInset] of 0 (standard 16:9 and most auto-detected phones) returns
+     * `this` unchanged, so the fast path has no overhead.
+     */
+    private fun SlotRegionF.adjusted(): SlotRegionF {
+        if (horizInset <= 0f) return this
+        val contentWidth = 1f - 2f * horizInset
+        return SlotRegionF(
+            left   = horizInset + left   * contentWidth,
+            top    = top,
+            right  = horizInset + right  * contentWidth,
+            bottom = bottom
+        )
+    }
 
     // ── Initialise capture dependencies (called by OverlayService.onCreate) ───
 
@@ -114,6 +172,29 @@ class OverlayCaptureCoordinator @Inject constructor(
         frameCounter.set(0)
         PhaseDetector.resetHistory()
         if (::portraitMatcher.isInitialized) portraitMatcher.resetConfirmation()
+
+        // TD-16: Observe the user-selected AspectRatioPreset and recompute the
+        // horizontal content-inset whenever the preference changes.  The inset is
+        // 0 for standard 16:9 devices; positive for ultra-wide screens (21:9)
+        // where MLBB pillarboxes its draft UI inside the screen area.
+        scope.launch {
+            dataStore.data
+                .map { prefs -> prefs[KEY_ASPECT_RATIO] ?: AspectRatioPreset.AUTO.key }
+                .distinctUntilChanged()
+                .collect { key ->
+                    val preset = AspectRatioPreset.fromKey(key)
+                    val screenRatio =
+                        if (screenCaptureManager.screenWidth > 0 && screenCaptureManager.screenHeight > 0)
+                            screenCaptureManager.screenWidth.toFloat() / screenCaptureManager.screenHeight
+                        else null
+                    val effectiveRatio = preset.effectiveRatio(screenRatio)
+                    // Pillarbox inset: only positive when game content is narrower than screen.
+                    horizInset = if (effectiveRatio > REF_GAME_RATIO)
+                        ((1f - REF_GAME_RATIO / effectiveRatio) / 2f).coerceAtLeast(0f)
+                    else 0f
+                }
+        }
+
         launchCaptureLoop(scope)
     }
 
@@ -159,9 +240,12 @@ class OverlayCaptureCoordinator @Inject constructor(
 
         // ── OCR phase detection (every OCR_FRAME_STRIDE frames, async) ────────
         if (count % PhaseDetectionConfig.OCR_FRAME_STRIDE == 0) {
-            // Copy a small crop for OCR — avoid holding full frame across async gap
+            // Crop the top-centre band where MLBB prints "First Ban Phase",
+            // "Ally Team Pick", "The match is starting soon", etc.
+            // Use the wider TEXT_REGION inside PhaseOcrDetector (not phaseBanner,
+            // which is too narrow at 5% height to capture full multi-line labels).
             val ocrCrop = runCatching {
-                SlotRegions.cropSlot(frame, SlotRegions.phaseBanner)
+                SlotRegions.cropSlot(frame, SlotRegions.ocrTextRegion)
             }.getOrNull()
 
             if (ocrCrop != null) {
@@ -170,8 +254,7 @@ class OverlayCaptureCoordinator @Inject constructor(
                 // PhaseOcrDetector is callback-based (ML Kit); callback fires on Main.
                 withContext(Dispatchers.Main) {
                     PhaseOcrDetector.detect(ocrBitmap) { result ->
-                        lastOcrPhase.set(result.phase)
-                        lastOcrConfidence.set(result.confidence)
+                        lastOcrResult.set(result)
                         ocrBitmap.recycle()
                     }
                 }
@@ -190,12 +273,11 @@ class OverlayCaptureCoordinator @Inject constructor(
         }
 
         // ── Merge colour + OCR phase results ─────────────────────────────────
+        val ocrResult    = lastOcrResult.get()
         val effectivePhase: PhaseDetector.DetectedPhase = run {
-            val ocrPhase = lastOcrPhase.get()
-            val ocrConf  = lastOcrConfidence.get()
-            if (ocrPhase != PhaseDetector.DetectedPhase.UNKNOWN &&
-                ocrConf >= PhaseDetectionConfig.OCR_OVERRIDE_CONFIDENCE) {
-                ocrPhase
+            if (ocrResult.phase != PhaseDetector.DetectedPhase.UNKNOWN &&
+                ocrResult.confidence >= PhaseDetectionConfig.OCR_OVERRIDE_CONFIDENCE) {
+                ocrResult.phase
             } else {
                 // Use history-smoothed phase (majority vote over last N frames)
                 val smoothed = PhaseDetector.smoothedPhase()
@@ -216,10 +298,32 @@ class OverlayCaptureCoordinator @Inject constructor(
 
             withContext(Dispatchers.Main) {
                 stateHolder.autoTransitionPhase(effectivePhase, currentPhase, firstPickResult)
+
+                // OCR-derived BAN_ROUND_2 auto-advance:
+                // When OCR explicitly reads "Second Ban Phase" while the engine is
+                // still in BAN_ROUND_1, advance immediately — more reliable than
+                // waiting for all round-1 slots to be confirmed filled by CV.
+                if (ocrResult.isBanRound2 &&
+                    currentPhase == DraftPhase.BAN_ROUND_1 &&
+                    stateHolder.sessionValue().banStructure.hasRound2
+                ) {
+                    stateHolder.sessionValue().let { s ->
+                        // Only advance if we have at least one round-1 ban detected,
+                        // preventing a stale OCR result from triggering a premature advance.
+                        val anyBanRecorded = s.enemyBansR1.any { it != null } ||
+                                             s.ourBansR1.any  { it != null }
+                        if (anyBanRecorded) stateHolder.advanceToBanRound2()
+                    }
+                }
             }
         }
 
         // ── Slot scanning ─────────────────────────────────────────────────────
+        // Skip entirely when the "Selecting hero" double-pick animation is on
+        // screen (screenshot 7): no hero grid is visible and the hero models in
+        // the centre would cause false portrait matches in the pick slots.
+        if (ocrResult.isPickAnimation) return
+
         val session = stateHolder.sessionValue()
         when (session.phase) {
             DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
@@ -255,9 +359,12 @@ class OverlayCaptureCoordinator @Inject constructor(
         val session  = stateHolder.sessionValue()
         val template = BanSlotTemplates.forRank(session.rank)
 
+        // Apply TD-16 aspect-ratio inset so coordinates map to the active game
+        // content area on pillarboxed ultra-wide screens.
         template.enemyBanSlots.forEachIndexed { i, region ->
-            if (i !in stateHolder.filledEnemyBanSlots && isSlotFilled(frame, region)) {
-                val hero = matchPortrait(frame, region, 0.45f, "enemyBan$i")
+            val adjusted = region.adjusted()
+            if (i !in stateHolder.filledEnemyBanSlots && isSlotFilled(frame, adjusted)) {
+                val hero = matchPortrait(frame, adjusted, 0.45f, "enemyBan$i")
                 if (hero != null) {
                     stateHolder.filledEnemyBanSlots.add(i)
                     withContext(Dispatchers.Main) {
@@ -267,8 +374,9 @@ class OverlayCaptureCoordinator @Inject constructor(
             }
         }
         template.ourBanSlots.forEachIndexed { i, region ->
-            if (i !in stateHolder.filledOurBanSlots && isSlotFilled(frame, region)) {
-                val hero = matchPortrait(frame, region, 0.45f, "ourBan$i")
+            val adjusted = region.adjusted()
+            if (i !in stateHolder.filledOurBanSlots && isSlotFilled(frame, adjusted)) {
+                val hero = matchPortrait(frame, adjusted, 0.45f, "ourBan$i")
                 if (hero != null) {
                     stateHolder.filledOurBanSlots.add(i)
                     withContext(Dispatchers.Main) {
@@ -281,8 +389,9 @@ class OverlayCaptureCoordinator @Inject constructor(
 
     private suspend fun scanAndRecordPicks(frame: Bitmap) {
         SlotRegions.enemyPickSlots.forEachIndexed { i, region ->
-            if (i !in stateHolder.filledEnemyPickSlots && isSlotFilled(frame, region)) {
-                val hero = matchPortrait(frame, region, 0.55f, "enemyPick$i") ?: return@forEachIndexed
+            val adjusted = region.adjusted()
+            if (i !in stateHolder.filledEnemyPickSlots && isSlotFilled(frame, adjusted)) {
+                val hero = matchPortrait(frame, adjusted, 0.55f, "enemyPick$i") ?: return@forEachIndexed
                 stateHolder.filledEnemyPickSlots.add(i)
                 withContext(Dispatchers.Main) {
                     draftSessionManager.recordEnemyPick(hero, i)
@@ -290,8 +399,9 @@ class OverlayCaptureCoordinator @Inject constructor(
             }
         }
         SlotRegions.ourPickSlots.forEachIndexed { i, region ->
-            if (i !in stateHolder.filledOurPickSlots && isSlotFilled(frame, region)) {
-                val hero = matchPortrait(frame, region, 0.55f, "ourPick$i") ?: return@forEachIndexed
+            val adjusted = region.adjusted()
+            if (i !in stateHolder.filledOurPickSlots && isSlotFilled(frame, adjusted)) {
+                val hero = matchPortrait(frame, adjusted, 0.55f, "ourPick$i") ?: return@forEachIndexed
                 stateHolder.filledOurPickSlots.add(i)
                 val topId = stateHolder.recommendations.firstOrNull()?.hero?.id
                 withContext(Dispatchers.Main) {

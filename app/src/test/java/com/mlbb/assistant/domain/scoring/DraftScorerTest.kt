@@ -1,5 +1,7 @@
 package com.mlbb.assistant.domain.scoring
 
+import com.mlbb.assistant.domain.engine.PickTurn
+import com.mlbb.assistant.domain.engine.TeamSide
 import com.mlbb.assistant.domain.model.CoreItem
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Lane
@@ -215,5 +217,95 @@ class DraftScorerTest {
         val small = listOf(hero(1), hero(2), hero(3))
         val bounds = DraftScorer.computeBounds(small)
         assertEquals(DraftScorer.ScoreBounds.DEFAULT, bounds)
+    }
+
+    // ----- scoreSafety guard (todo §2) -----
+
+    /**
+     * scoreSafety divides by enemies.size; when enemies is empty it must not
+     * throw ArithmeticException or produce NaN.  The guard uses coerceAtLeast(1)
+     * on the denominator.  This test drives [DraftScorer.score] via the last-pick
+     * path where safeBonus is computed, proving the guard holds end-to-end.
+     */
+    @Test
+    fun `score does not throw or produce NaN when enemies are empty and isLastPick is true`() {
+        val lastPickTurn = PickTurn(
+            index        = 9,
+            side         = TeamSide.OUR_TEAM,
+            isDoublePick = false,
+            isFirstPick  = false,
+            isLastPick   = true,
+            pickNumber   = 10
+        )
+        val h = hero(1, winRate = 0.5, counters = listOf(99))
+        val result = DraftScorer.score(
+            candidate    = h,
+            alliedPicks  = emptyList(),
+            enemyPicks   = emptyList(),  // triggers the coerceAtLeast(1) guard in scoreSafety
+            bannedIds    = emptySet(),
+            weights      = weights,
+            missingLanes = emptyList(),
+            currentTurn  = lastPickTurn,
+            pickIndex    = 9,
+            maxPickIndex = 10
+        )
+        assertTrue("totalScore must be finite", result.totalScore.isFinite())
+        assertTrue("totalScore must be in [0,1] with empty enemies at last pick",
+            result.totalScore in 0f..1f)
+    }
+
+    // ----- adaptiveWeights sum-to-1 property (todo §2) -----
+
+    /**
+     * ScoreWeights.normalized must always produce weights that sum to exactly 1.0
+     * (within floating-point tolerance) regardless of the raw input magnitudes.
+     * This property is exploited by adaptiveWeights which calls normalized after
+     * every pick-index ramp.
+     */
+    @Test
+    fun `ScoreWeights normalized always sums to 1 for any positive inputs`() {
+        val cases = listOf(
+            Triple(0.40f, 0.30f, 0.30f),   // default weights
+            Triple(0.10f, 0.10f, 0.80f),   // counter-heavy
+            Triple(0.05f, 0.05f, 0.05f),   // equal near-floor values
+            Triple(1.00f, 0.50f, 0.25f),   // unnormalized large inputs
+            Triple(0.80f, 0.15f, 0.05f)    // meta-heavy
+        )
+        for ((m, s, c) in cases) {
+            val w = ScoreWeights.normalized(meta = m, synergy = s, counter = c)
+            val sum = w.meta + w.synergy + w.counter
+            assertEquals(
+                "normalized weights must sum to 1.0 for input ($m, $s, $c)",
+                1.0f, sum, 1e-5f
+            )
+        }
+    }
+
+    /**
+     * adaptiveWeights is indirectly verified: for any pick index in [0, maxPickIndex],
+     * score() must produce a totalScore in [0, 1], which is only possible when the
+     * adapted weights are valid (i.e. sum to 1 and each ≥ 0).
+     */
+    @Test
+    fun `adaptiveWeights produce valid scores across all pick indices`() {
+        val h = hero(1, winRate = 0.6, synergies = listOf(2))
+        val ally = hero(2)
+        for (idx in 0..10) {
+            val result = DraftScorer.score(
+                candidate    = h,
+                alliedPicks  = listOf(ally),
+                enemyPicks   = emptyList(),
+                bannedIds    = emptySet(),
+                weights      = weights,
+                missingLanes = emptyList(),
+                currentTurn  = null,
+                pickIndex    = idx,
+                maxPickIndex = 10
+            )
+            assertTrue("totalScore must be in [0,1] at pickIndex=$idx",
+                result.totalScore in 0f..1f)
+            assertTrue("totalScore must be finite at pickIndex=$idx",
+                result.totalScore.isFinite())
+        }
     }
 }

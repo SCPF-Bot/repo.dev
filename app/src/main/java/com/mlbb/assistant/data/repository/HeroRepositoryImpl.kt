@@ -39,8 +39,17 @@ class HeroRepositoryImpl @Inject constructor(
 ) : HeroRepository {
 
     companion object {
-        private const val MAX_SYNC_RETRIES = 3
+        private const val MAX_SYNC_RETRIES    = 3
         private const val RETRY_BASE_DELAY_MS = 500L
+        /**
+         * Minimum number of heroes a valid [MetaSnapshotDto] must contain.
+         *
+         * todo §2 / TD-15: reject-and-keep-existing on partial data.
+         * MLBB has 120+ heroes. A snapshot with fewer than this threshold
+         * is almost certainly a truncated or malformed response — retaining
+         * the current DB is safer than replacing it with bad data.
+         */
+        private const val MIN_HERO_COUNT = 20
     }
 
     // Flow-based queries: Room delivers on IO automatically.
@@ -102,8 +111,20 @@ class HeroRepositoryImpl @Inject constructor(
             runCatching {
                 Timber.d("syncHeroes: fetching meta snapshot (attempt ${attempt + 1}/$MAX_SYNC_RETRIES)")
                 val snapshot = metaApi.getMetaSnapshot()
+
+                // TD-15: Reject partial / malformed snapshots to avoid replacing a healthy
+                // DB with incomplete data. A valid snapshot always contains all MLBB heroes.
+                if (snapshot.heroes.size < MIN_HERO_COUNT) {
+                    throw IllegalStateException(
+                        "MetaSnapshot rejected: ${snapshot.heroes.size} heroes < min $MIN_HERO_COUNT — keeping existing DB"
+                    )
+                }
+
                 heroDao.replaceAll(snapshot.heroes.map { it.toEntity() })
-                Timber.i("syncHeroes: synced ${snapshot.heroes.size} heroes from network")
+                Timber.i(
+                    "syncHeroes: synced ${snapshot.heroes.size} heroes from network" +
+                    (snapshot.patchVersion?.let { " (patch $it)" } ?: "")
+                )
                 return@withContext   // success — exit early
             }.onFailure { e ->
                 lastError = e

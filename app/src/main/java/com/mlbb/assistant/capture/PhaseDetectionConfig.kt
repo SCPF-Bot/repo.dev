@@ -176,6 +176,46 @@ object PhaseDetectionConfig {
      */
     const val PHASE_HISTORY_SIZE: Int = 3
 
+    // ── Separate ban / pick detection confidence thresholds (ideas.md §1) ────
+
+    /**
+     * Minimum HSV-ratio confidence to declare a **BAN** phase.
+     *
+     * Ban screens have a hard red gradient that produces very reliable
+     * colour samples — a higher threshold reduces false positives.
+     */
+    const val BAN_PHASE_CONFIDENCE_MIN:  Float = 0.12f
+
+    /**
+     * Minimum HSV-ratio confidence to declare a **PICK** phase.
+     *
+     * Pick screens use a blue/teal accent that can overlap with loading
+     * animations, so a slightly lower threshold is used to avoid missing
+     * the transition on slower devices.
+     */
+    const val PICK_PHASE_CONFIDENCE_MIN: Float = 0.08f
+
+    // ── Occupied / empty slot pre-classifier (ideas.md §1) ───────────────────
+
+    /**
+     * Minimum mean-luminance value (0–255) for a slot crop to be forwarded
+     * to the portrait matcher.
+     *
+     * Applied **before** portrait matching as a cheap pre-classifier:
+     * - Empty MLBB slots render a dark near-grey ring  → mean lum ≈ 20–40.
+     * - A hero portrait has a colourful background     → mean lum > 50.
+     *
+     * When `mean_luminance < SLOT_OCCUPIED_LUMINANCE_MIN`, the slot is treated
+     * as empty and portrait matching is skipped entirely.  This removes the
+     * main source of spurious `PortraitMatcher.match()` calls that dominated
+     * per-frame CPU cost before multi-criterion slot detection.
+     *
+     * @see isSlotFilled in [OverlayCaptureCoordinator] — `SLOT_SATURATION_FILLED_MIN`
+     *   is the saturation half of the dual-criterion guard; this constant is
+     *   the fast-exit luminance gate that runs first.
+     */
+    const val SLOT_OCCUPIED_LUMINANCE_MIN: Float = 45f
+
     // ── Accessibility watchdog ────────────────────────────────────────────────
 
     /** How often the service checks that its accessibility permission is still active. */

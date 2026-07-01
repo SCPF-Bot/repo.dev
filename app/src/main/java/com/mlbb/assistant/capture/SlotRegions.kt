@@ -210,11 +210,48 @@ object SlotRegions {
     // PHASE BANNER + COUNTDOWN TIMER — top-center
     // ─────────────────────────────────────────────────────────────────────────
 
-    /** Phase label — "Enemy Team Pick", "Our Team Pick", "Ban Phase", etc. */
-    val phaseBanner = SlotRegionF(0.344f, 0.007f, 0.656f, 0.050f)
+    /**
+     * Narrow phase-label strip — "Ally Team Pick", "Enemy Team Pick", etc.
+     *
+     * Fixed: top bumped from 0.007 → 0.000 after screenshots confirmed the label
+     * text starts flush with the very top of the landscape frame on all tested
+     * devices (1080p, 1440p, 1600×720 reference).  The previous 0.007 offset
+     * clipped the top row of pixels in MLBB's "F" of "First Ban Phase".
+     */
+    val phaseBanner = SlotRegionF(0.344f, 0.000f, 0.656f, 0.050f)
+
+    /**
+     * Wider OCR crop used by [PhaseOcrDetector] — covers the phase label **and**
+     * the sub-labels beneath it ("· 1st ·", countdown timer, "The match is
+     * starting soon", "Proceed to: Exp Lane", "Battle Setup", etc.).
+     *
+     * Dimensions: x 20 %–80 % (centre-weighted to exclude team-emblem columns),
+     * y 0 %–14 % (captures all multi-line phase labels observed in screenshots).
+     *
+     * This is the region passed to [SlotRegions.cropSlot] in the coordinator's
+     * OCR branch — wider and taller than [phaseBanner] so ML Kit receives the
+     * full label context needed for "SECOND BAN PHASE" vs "FIRST BAN PHASE",
+     * "YOUR TURN TO PICK" vs "ALLY TEAM PICK", and end-of-draft strings.
+     */
+    val ocrTextRegion = SlotRegionF(0.200f, 0.000f, 0.800f, 0.140f)
 
     /** Countdown timer digit(s) below the phase label. */
     val countdownTimer = SlotRegionF(0.438f, 0.044f, 0.563f, 0.100f)
+
+    /**
+     * Centre area showing hero models during the "Selecting hero" double-pick
+     * animation (screenshot 7: "Player 1 Selecting hero" + "Player 2 Selecting
+     * hero") and during single-hero pick lock-in animations (screenshots 12–13).
+     *
+     * **Not used for portrait matching** — this region contains hero splash art
+     * that would produce false positives if passed to [PortraitMatcher].  It is
+     * defined here as a reference for future state-detection work (e.g. detecting
+     * whether a pick animation is in progress by checking centre brightness).
+     *
+     * The CV pipeline guards against this interstitial via [PhaseOcrDetector.OcrResult.isPickAnimation]
+     * and skips slot scanning entirely for those frames.
+     */
+    val selectingHeroCenter = SlotRegionF(0.220f, 0.100f, 0.780f, 0.900f)
 
     // ─────────────────────────────────────────────────────────────────────────
     // MISCELLANEOUS

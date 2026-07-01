@@ -324,6 +324,27 @@ class OverlayStateHolder @Inject constructor(
 
     // ── Phase auto-transition (called by OverlayCaptureCoordinator) ───────────
 
+    /**
+     * Called by [OverlayCaptureCoordinator] when OCR explicitly reads
+     * "Second Ban Phase" while the session is still in [DraftPhase.BAN_ROUND_1].
+     *
+     * This is more reliable than slot-count gating because:
+     *  1. Round-1 bans may have been missed by the CV pipeline (animation frames,
+     *     low luminance, obscured slots).
+     *  2. OCR fires on the very first frame that shows "Second Ban Phase", so
+     *     the overlay switches mode without waiting for a slot-fill scan to catch up.
+     *
+     * Guarded upstream by `anyBanRecorded` — at least one R1 ban must have been
+     * observed before this is called, preventing a stale OCR result from
+     * prematurely advancing on a fresh session.
+     */
+    fun advanceToBanRound2() {
+        if (sessionValue().phase == DraftPhase.BAN_ROUND_1 &&
+            sessionValue().banStructure.hasRound2) {
+            draftSessionManager.startBanRound2()
+        }
+    }
+
     fun autoTransitionPhase(
         detected:        PhaseDetector.DetectedPhase,
         current:         DraftPhase,

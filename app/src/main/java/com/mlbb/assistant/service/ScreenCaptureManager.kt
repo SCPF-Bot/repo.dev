@@ -18,6 +18,27 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
+/**
+ * Manages a [MediaProjection] virtual display and captures frames from it.
+ *
+ * ### Android 15+ (API 35) — MediaProjection consent re-prompt
+ *
+ * Starting in Android 15 (API level 35), the platform re-shows the
+ * MediaProjection consent dialog **every time** an app calls
+ * `MediaProjectionManager.createScreenCaptureIntent()` — even if the user
+ * already granted it in a previous session.  The old approach of storing the
+ * projection `resultCode` + `data` in a DataStore and replaying it on service
+ * restart is no longer valid on API 35+ devices.
+ *
+ * **Required handling:** When the owning Activity or Service restarts after
+ * receiving `MediaProjection.Callback.onStop()` (or after process death),
+ * it must re-request a fresh `createScreenCaptureIntent()` rather than
+ * re-using a cached token.  See [OverlayService.onStartCommand] for the
+ * current consent flow.
+ *
+ * Reference: https://developer.android.com/media/grow/media-projection
+ * (ideas.md §5)
+ */
 class ScreenCaptureManager(private val context: Context) {
 
     private var mediaProjection: MediaProjection? = null
@@ -27,8 +48,10 @@ class ScreenCaptureManager(private val context: Context) {
     private val _isCapturing = MutableStateFlow(false)
     val isCapturing: StateFlow<Boolean> = _isCapturing.asStateFlow()
 
-    private var screenWidth  = 0
-    private var screenHeight = 0
+    var screenWidth:  Int = 0
+        private set
+    var screenHeight: Int = 0
+        private set
     private var screenDpi    = 0
 
     init {

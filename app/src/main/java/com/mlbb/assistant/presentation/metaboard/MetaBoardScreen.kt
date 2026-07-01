@@ -44,7 +44,17 @@ fun MetaBoardScreen(
      * Defaults to false so existing call sites without loading state
      * continue to behave as before.
      */
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    /**
+     * Semantic patch label from [MetaSnapshotDto.patchVersion], e.g. "1.9.14".
+     * Displayed next to the META BOARD heading when non-null (todo §8).
+     */
+    patchVersion: String? = null,
+    /**
+     * ISO-8601 timestamp from [MetaSnapshotDto.lastUpdated].
+     * Shown as a sub-caption below the patch label when non-null (todo §8).
+     */
+    lastUpdated: String? = null
 ) {
     var activeTab by remember { mutableStateOf(MetaTab.TIER_LIST) }
 
@@ -59,10 +69,38 @@ fun MetaBoardScreen(
             verticalAlignment     = Alignment.CenterVertically
         ) {
             BackButton(onBack = onBack)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Rounded.Leaderboard, contentDescription = null,
-                    tint = MLBBGold, modifier = Modifier.size(18.dp))
-                Text("META BOARD", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Leaderboard,
+                        contentDescription = null,
+                        tint     = MLBBGold,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        "META BOARD",
+                        color      = MLBBGold,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 16.sp
+                    )
+                    if (patchVersion != null) {
+                        Text(
+                            "v$patchVersion",
+                            color    = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.55f),
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+                if (lastUpdated != null) {
+                    Text(
+                        "Updated: $lastUpdated",
+                        color    = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.38f),
+                        fontSize = 9.sp
+                    )
+                }
             }
             Spacer(Modifier.size(48.dp))
         }
@@ -88,14 +126,43 @@ fun MetaBoardScreen(
             }
         }
 
-        if (isLoading) {
-            MetaBoardLoadingSkeleton()
-        } else {
-            when (activeTab) {
+        when {
+            isLoading        -> MetaBoardLoadingSkeleton()
+            heroes.isEmpty() -> MetaBoardEmptyState()
+            else -> when (activeTab) {
                 MetaTab.TIER_LIST -> TierListView(heroes = heroes, onHeroClick = onHeroClick)
                 MetaTab.TRENDING  -> TrendingView(heroes = heroes, onHeroClick = onHeroClick)
                 MetaTab.BY_ROLE   -> ByRoleView(heroes = heroes, onHeroClick = onHeroClick)
             }
+        }
+    }
+}
+
+/**
+ * Empty state shown when the hero list is loaded but contains no entries
+ * (e.g. network sync failed and DB is empty for a fresh install).
+ *
+ * todo §7: Overlay + MetaBoard empty/error states.
+ */
+@Composable
+private fun MetaBoardEmptyState() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                Icons.Rounded.Leaderboard,
+                contentDescription = null,
+                tint     = TextDisabled,
+                modifier = Modifier.size(48.dp)
+            )
+            Text("No meta data available", color = TextSecondary, fontSize = 14.sp)
+            Text(
+                "Sync failed or still loading — check your connection and pull to refresh.",
+                color    = TextDisabled,
+                fontSize = 12.sp
+            )
         }
     }
 }

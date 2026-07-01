@@ -4,89 +4,101 @@
 
 ---
 
-## Session changes (2026-07-01 — reference repository integration)
+## Session changes (2026-07-01 — screenshot-based CV pipeline review)
 
 ### Overview
-Analysed 5 reference MLBB draft assistant repos and extracted best-practice algorithms, data assets,
-and testing patterns. Implemented all improvements in repo.dev. See `docs/improvement_plan.md` for
-the full structured summary.
+Reviewed 20 MLBB draft-screen screenshots (2026-06-21 and 2026-07-01) and implemented
+all gaps found in the CV pipeline.  See `docs/overhaul_plan.md` items B6–B14 for the
+full tracking table.
 
 ---
 
-### 1. New data assets added to `app/src/main/assets/`
+### 1. PhaseOcrDetector.kt — enriched OcrResult + label coverage
 
-| File | Source repo | Contents |
-|---|---|---|
-| `counter_lookup.json` | bipash25/mlbb-assistant | 1 000+ directional hero counter pairs with empirical confidence scores |
-| `hero_archetypes.json` | AlanNobita/mlbb_drafter | 20+ sub-role archetypes, trait tags, matchup rules |
-| `items.json` | bipash25/mlbb-assistant | 89 items with stats, passives, build paths |
-| `emblems.json` | bipash25/mlbb-assistant | Full emblem system data |
-| `spells.json` | bipash25/mlbb-assistant | All battle spells with role recommendations |
+**`OcrResult` new fields:**
+- `isBanRound2: Boolean` — true when OCR reads "Second Ban Phase".
+- `isAllyPickTurn: Boolean?` — true = "Ally Team Pick" / "Your Turn To Pick";
+  false = "Enemy Team Pick"; null = non-pick frame.
+- `isPickAnimation: Boolean` — true when "Player N Selecting Hero" is detected
+  (double-pick animation, screenshot 7: both players selecting simultaneously with
+  no hero grid visible).
 
----
+**`classifyText()` new label patterns (priority order):**
 
-### 2. New domain classes
+| Detected text                                          | Result phase | Notes |
+|--------------------------------------------------------|--------------|-------|
+| "STARTING" / "PROCEED TO" / "BATTLE SETUP"            | LOADING 0.92 | screenshots 5, 18–20: post-draft / match starting |
+| "TRADING"                                              | TRADING 0.85 | unchanged |
+| "LOADING"                                              | LOADING 0.85 | generic fallback |
+| "BAN" + "SECOND"                                       | BAN 0.90     | Second Ban Phase, isBanRound2=true |
+| "BAN"                                                  | BAN 0.90     | First Ban Phase or generic ban |
+| "PICK" / "YOUR TURN"  + "ALLY"/"ENEMY"               | PICK 0.90    | ally/enemy pick turn attribution |
+| "SELECTING"                                            | PICK 0.80    | isPickAnimation=true, skip slot scan |
 
-**`domain/advisor/HeroArchetypeService.kt`** (new — `@Singleton` Hilt)  
-Reads `hero_archetypes.json` at startup; builds hero↔archetype + hero↔traits indices.  
-Provides: `computeAllyStateGaps()`, `computeArchetypeMatchupScore()`, `isMagicDamageSource()`,
-`isFrontlineHero()`, `uniqueArchetypes()`, `sharedArchetypes()`.
-
-**`domain/advisor/TraitCounterEngine.kt`** (new)  
-Kotlin port of AlanNobita `scoring.py` trait counter matrix.  
-7-threat-trait × counter-trait cross-reference; +0.15 per match, capped at MAX_TRAIT_BONUS = 0.45.
-`describeCounters()` produces human-readable overlay explanation strings.
-
-**`domain/advisor/BanValueScorer.kt`** (new — roadmap A4)  
-Context-free intrinsic ban value: win rate, ban rate, toxic/OP flags, lane priority bonus.
-`isAbsoluteBan()` encapsulates the single-flag-sufficient logic (any of toxic/OP/banRate≥0.40).
-
-**`domain/advisor/BanUrgencyScorer.kt`** (new — roadmap A4)  
-Reactive contextual urgency: counter-threat to allied picks, enemy synergy amplifiers,
-archetype enabler detection. `buildReason()` produces urgency-specific ban reason strings.
+**Double-crop bug fixed:**  
+`detect()` previously held an internal `TEXT_REGION` and re-cropped the bitmap passed
+by the coordinator — which was already cropped to `ocrTextRegion`.  `detect()` now
+accepts the pre-cropped bitmap directly and passes it straight to ML Kit.
 
 ---
 
-### 3. Modified domain classes
+### 2. SlotRegions.kt — ocrTextRegion, selectingHeroCenter, phaseBanner fix
 
-**`domain/advisor/BanRecommender.kt`**  
-`rankSplit()` now delegates to `BanValueScorer.score()` + `BanUrgencyScorer.score()`.
-`finalScore = value + urgency` (clamped to [0,1]). Roadmap item A4 marked complete.
+**`ocrTextRegion`** (new): `SlotRegionF(0.200f, 0.000f, 0.800f, 0.140f)`.  
+Wider/taller than `phaseBanner` — captures full multi-line phase labels observed in
+screenshots ("Second Ban Phase\n·1st·\n13", "The match is starting soon.\nProceed to:
+Roam", etc.).  The coordinator uses this region for all OCR crops.
 
-**`domain/advisor/CompositionAnalyzer.kt`**  
-`analyze()` emits two new gap warnings (ported from AlanNobita gap detection):
-- "No magic damage — enemy will rush physical defense"
-- "Squishy comp — add a tank or support to survive dives"
+**`phaseBanner.top`** fixed: `0.007f → 0.000f`.  
+Screenshots confirmed the "F" of "First Ban Phase" starts flush with the very top of the
+landscape frame.  The previous 0.007 offset clipped the first pixel row.
 
----
-
-### 4. New data classes
-
-- `data/local/database/CounterLookupEntity.kt` — Room entity (composite PK)
-- `data/local/database/CounterLookupDao.kt` — DAO with 5 query methods
-- `data/local/database/AppDatabase.kt` — version 3 → 4; CounterLookupEntity added
-- `di/DatabaseModule.kt` — MIGRATION_3_4 + provideCounterLookupDao()
+**`selectingHeroCenter`** (new): `SlotRegionF(0.220f, 0.100f, 0.780f, 0.900f)`.  
+Reference region for the "Selecting hero" double-pick animation and single pick lock-in
+splash arts (screenshots 7, 12–13).  Not used for portrait matching — defined for
+future interstitial state detection.
 
 ---
 
-### 5. New unit tests (5 classes, 49 tests)
+### 3. OverlayCaptureCoordinator.kt — single OcrResult atomic + ban round 2 advance + animation guard
 
-| Class | Tests |
-|---|---|
-| `WeightCalibratorTest` | 9 |
-| `EnemyIntentAnalyzerTest` | 8 |
-| `WinConditionGeneratorTest` | 9 |
-| `TraitCounterEngineTest` | 14 |
-| `BanValueScorerTest` | 8 |
+**Single `AtomicReference<OcrResult>`:**  
+Replaced two separate `AtomicReference`s (`lastOcrPhase`, `lastOcrConfidence`) with one
+`AtomicReference<PhaseOcrDetector.OcrResult>` (`lastOcrResult`).  Prevents torn reads
+where `phase` and `confidence` could belong to different OCR passes.
+
+**Ban round 2 OCR auto-advance:**  
+After `autoTransitionPhase()`, if `ocrResult.isBanRound2 = true` and the session is
+still in `BAN_ROUND_1`, calls `stateHolder.advanceToBanRound2()`.  Guarded by
+`anyBanRecorded` (at least one R1 ban must exist) to prevent a stale OCR result from
+triggering a premature advance on a fresh session.
+
+**"Selecting hero" animation guard:**  
+If `ocrResult.isPickAnimation = true` the entire slot-scanning block is `return`ed.
+Prevents the hero splash art in the double-pick centre region from producing false
+portrait matches in the pick/ban slots.
+
+**OCR crop fixed:**  
+Coordinator now crops to `SlotRegions.ocrTextRegion` before calling `PhaseOcrDetector.detect()`,
+consistent with the new contract (see §1 above).
 
 ---
 
-### 6. Docs updated
+### 4. OverlayStateHolder.kt — advanceToBanRound2()
 
-- `docs/improvement_plan.md` — new; full structured record of what was done and why
-- `docs/roadmap.md` — A4/A7/A8/A9 completed; deep intelligence section expanded; test items ticked
-- `docs/features.md` — 7 new advisor feature rows (4.12–4.17)
-- `docs/todo.md` — unit test items ticked; TD counter updated to TD-17
-- `docs/overview.md` — advisor and data layers updated; DB version noted as v4
-- `docs/temp/findings.md` — eighth-pass delta summary prepended
-- `docs/temp/recommendations.md` — summary table updated with eighth-pass adoptions
+New public function `advanceToBanRound2()`:  
+Calls `draftSessionManager.startBanRound2()` only when the current phase is still
+`BAN_ROUND_1` and the ban structure has a round 2.  Full KDoc explains why OCR-driven
+advance is more reliable than slot-count gating.
+
+---
+
+### Open items (unchanged)
+
+| Item | Source |
+|------|--------|
+| JImageHash integration into PortraitMatcher | misc.md §9 |
+| DraftPatternAnalyzer / BuildAdvisor / DraftScoreCalculator unit tests | todo §4 |
+| DraftExporter round-trip serialization test | todo §4 |
+| Gson removal after full kotlinx.serialization migration | todo §5 / misc §10 |
+| Overlay self-status banners (capture unavailable / meta stale / accessibility off) | todo §7 |
