@@ -60,7 +60,7 @@ data class MatchResult(
 class PortraitMatcher(
     private val context: Context,
     private val imageLoader: ImageLoader,
-    private val portraitAssetManager: PortraitAssetManager = PortraitAssetManager(context, imageLoader),
+    private val portraitAssetManager: PortraitAssetManager = PortraitAssetManager(context, imageLoader, com.mlbb.assistant.utils.JsonParser(context)),
 ) {
 
     companion object {
