@@ -4,92 +4,32 @@
 
 ---
 
-## Session changes (2026-07-01 — screenshot-based CV pipeline review)
+## Session changes (2026-07-03 — merged `docs/temp/recommendations.md` into permanent docs)
 
 ### Overview
-Reviewed 20 MLBB draft-screen screenshots (2026-06-21 and 2026-07-01) and implemented
-all gaps found in the CV pipeline.  See `docs/overhaul_plan.md` items B6–B14 for the
-full tracking table.
+`docs/temp/recommendations.md` (the CV/hero-detection "pure perceptual matching" proposal,
+v2.2.0) was audited against the current codebase. Its core proposals — `SlotType`-aware
+normalization, `SlotAwareHasher` triple-hash fusion, per-hero/per-slot calibrated
+thresholds, and temporal consensus — were found **already implemented** (`TD-16`, `TD-17`,
+`TD-18` in `todo.md`; `misc.md` §9/§13; `roadmap.md` RA-04/RA-05). The remaining
+not-yet-implemented recommendations were extracted and merged into permanent docs; the
+source file was then deleted.
 
----
+### What was merged
 
-### 1. PhaseOcrDetector.kt — enriched OcrResult + label coverage
+| Recommendation | Destination | Status |
+|---|---|---|
+| `CvFeatureFlags` remote-config kill-switch for the CV matching cascade | `todo.md` §5 | new backlog item (not implemented) |
+| `CV_MIGRATION`-tagged structured telemetry for match confidence/threshold | `todo.md` §6 (existing item, annotated) | not implemented |
+| `test_corpus/` collection protocol (per-hero ban/pick crops + manifest) for `scripts/calibrate_thresholds.py` | `todo.md` §9 | new backlog item (not implemented) |
+| Perpetual CV pipeline maintenance cycle (patch/new-hero/FP-spike/quarterly triggers) | `misc.md` new §9a | documented as standing process |
 
-**`OcrResult` new fields:**
-- `isBanRound2: Boolean` — true when OCR reads "Second Ban Phase".
-- `isAllyPickTurn: Boolean?` — true = "Ally Team Pick" / "Your Turn To Pick";
-  false = "Enemy Team Pick"; null = non-pick frame.
-- `isPickAnimation: Boolean` — true when "Player N Selecting Hero" is detected
-  (double-pick animation, screenshot 7: both players selecting simultaneously with
-  no hero grid visible).
+Everything else in the source file (slot-aware normalization, triple-hash fusion,
+per-hero thresholds, consensus manager, APK-size rationale for dropping TFLite) was
+already accurately reflected in existing docs and required no further changes.
 
-**`classifyText()` new label patterns (priority order):**
-
-| Detected text                                          | Result phase | Notes |
-|--------------------------------------------------------|--------------|-------|
-| "STARTING" / "PROCEED TO" / "BATTLE SETUP"            | LOADING 0.92 | screenshots 5, 18–20: post-draft / match starting |
-| "TRADING"                                              | TRADING 0.85 | unchanged |
-| "LOADING"                                              | LOADING 0.85 | generic fallback |
-| "BAN" + "SECOND"                                       | BAN 0.90     | Second Ban Phase, isBanRound2=true |
-| "BAN"                                                  | BAN 0.90     | First Ban Phase or generic ban |
-| "PICK" / "YOUR TURN"  + "ALLY"/"ENEMY"               | PICK 0.90    | ally/enemy pick turn attribution |
-| "SELECTING"                                            | PICK 0.80    | isPickAnimation=true, skip slot scan |
-
-**Double-crop bug fixed:**  
-`detect()` previously held an internal `TEXT_REGION` and re-cropped the bitmap passed
-by the coordinator — which was already cropped to `ocrTextRegion`.  `detect()` now
-accepts the pre-cropped bitmap directly and passes it straight to ML Kit.
-
----
-
-### 2. SlotRegions.kt — ocrTextRegion, selectingHeroCenter, phaseBanner fix
-
-**`ocrTextRegion`** (new): `SlotRegionF(0.200f, 0.000f, 0.800f, 0.140f)`.  
-Wider/taller than `phaseBanner` — captures full multi-line phase labels observed in
-screenshots ("Second Ban Phase\n·1st·\n13", "The match is starting soon.\nProceed to:
-Roam", etc.).  The coordinator uses this region for all OCR crops.
-
-**`phaseBanner.top`** fixed: `0.007f → 0.000f`.  
-Screenshots confirmed the "F" of "First Ban Phase" starts flush with the very top of the
-landscape frame.  The previous 0.007 offset clipped the first pixel row.
-
-**`selectingHeroCenter`** (new): `SlotRegionF(0.220f, 0.100f, 0.780f, 0.900f)`.  
-Reference region for the "Selecting hero" double-pick animation and single pick lock-in
-splash arts (screenshots 7, 12–13).  Not used for portrait matching — defined for
-future interstitial state detection.
-
----
-
-### 3. OverlayCaptureCoordinator.kt — single OcrResult atomic + ban round 2 advance + animation guard
-
-**Single `AtomicReference<OcrResult>`:**  
-Replaced two separate `AtomicReference`s (`lastOcrPhase`, `lastOcrConfidence`) with one
-`AtomicReference<PhaseOcrDetector.OcrResult>` (`lastOcrResult`).  Prevents torn reads
-where `phase` and `confidence` could belong to different OCR passes.
-
-**Ban round 2 OCR auto-advance:**  
-After `autoTransitionPhase()`, if `ocrResult.isBanRound2 = true` and the session is
-still in `BAN_ROUND_1`, calls `stateHolder.advanceToBanRound2()`.  Guarded by
-`anyBanRecorded` (at least one R1 ban must exist) to prevent a stale OCR result from
-triggering a premature advance on a fresh session.
-
-**"Selecting hero" animation guard:**  
-If `ocrResult.isPickAnimation = true` the entire slot-scanning block is `return`ed.
-Prevents the hero splash art in the double-pick centre region from producing false
-portrait matches in the pick/ban slots.
-
-**OCR crop fixed:**  
-Coordinator now crops to `SlotRegions.ocrTextRegion` before calling `PhaseOcrDetector.detect()`,
-consistent with the new contract (see §1 above).
-
----
-
-### 4. OverlayStateHolder.kt — advanceToBanRound2()
-
-New public function `advanceToBanRound2()`:  
-Calls `draftSessionManager.startBanRound2()` only when the current phase is still
-`BAN_ROUND_1` and the ban structure has a round 2.  Full KDoc explains why OCR-driven
-advance is more reliable than slot-count gating.
+### Result
+`docs/temp/recommendations.md` deleted — fully absorbed into `todo.md` and `misc.md`.
 
 ---
 
@@ -97,8 +37,9 @@ advance is more reliable than slot-count gating.
 
 | Item | Source |
 |------|--------|
-| JImageHash integration into PortraitMatcher | misc.md §9 |
-| DraftPatternAnalyzer / BuildAdvisor / DraftScoreCalculator unit tests | todo §4 |
-| DraftExporter round-trip serialization test | todo §4 |
-| Gson removal after full kotlinx.serialization migration | todo §5 / misc §10 |
-| Overlay self-status banners (capture unavailable / meta stale / accessibility off) | todo §7 |
+| JImageHash FP benchmark / promotion in `PortraitMatcher` | `misc.md` §9, `todo.md` §10 |
+| CV feature-flag rollback gate (`USE_SLOT_AWARE_HASH` etc.) | `todo.md` §5 |
+| Test corpus collection for threshold calibration | `todo.md` §9 |
+| `DraftExporter` round-trip serialization test | `todo.md` §4 |
+| Gson removal after full kotlinx.serialization migration | `todo.md` §5 / `misc.md` §10 |
+| Overlay self-status banners (capture unavailable / meta stale / accessibility off) | `todo.md` §7 |

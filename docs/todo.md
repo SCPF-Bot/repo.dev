@@ -72,6 +72,7 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-19**
 
 ## 5. CI / tooling / release
 
+- [ ] **P2/S** Feature-flag gate for the CV matching cascade (`USE_SLOT_AWARE_HASH`, `ENABLE_TEMPORAL_CONSENSUS`, `TFLITE_FALLBACK_ENABLED`) so a bad `hero_thresholds.json` calibration or `SlotAwareHasher` regression can be rolled back via remote config without an app update. Not yet implemented — `PortraitMatcher.match()` currently has no runtime kill-switch between TFLite / slot-aware-hash / legacy dHash paths.
 - [ ] **P2/M** Signed-release workflow + R8 mapping upload (enables stack-trace deobfuscation).
 - [ ] **P2/S** Verify ProGuard keep rules cover kotlinx.serialization DTOs, Room entities, and Hilt-generated classes; test on a minified build. Run `./gradlew assembleRelease` to confirm.
 - [ ] **P2/S** Run `./gradlew detektBaseline` and commit the generated `config/detekt/baseline.xml`.
@@ -84,7 +85,7 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-19**
 
 - [x] **P2/M** Embedded debug companion via **Pluto v3.0.0** (https://github.com/androidPluto/pluto). Debug APK shows a persistent floating bubble; tap to open: log viewer (all Timber output via `PlutoTimberTree`), network inspector (OkHttp via `PlutoOkhttpInterceptor`), crash/exception capture, Room DB browser (`PlutoRoomsDBWatcher`), DataStore viewer (`PlutoDatastoreWatcher`), SharedPrefs viewer. Release uses no-op stubs — zero overhead. No Play Store / Google Play Services dependency. Wired in `MLBBApplication`, `NetworkModule`, `DatabaseModule`, `AppModule`, `libs.versions.toml`, and `build.gradle.kts`.
 - [ ] **P2/S** Add a "Share logs" action from `LogScreen` via the existing FileProvider.
-- [ ] **P3/S** Structured event logging for detection accuracy (phase-detect confidence, match confidence) to inform tuning.
+- [ ] **P3/S** Structured event logging for detection accuracy (phase-detect confidence, match confidence) to inform tuning. When added, tag it `CV_MIGRATION` and log `slot`, `heroId`, `confidence`, `matchedDistance`, and the calibrated `threshold` from `HeroThresholds` — needed to validate `hero_thresholds.json` recalibrations in production before rolling them out further.
 
 ---
 
@@ -112,6 +113,7 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-19**
 
 - [ ] **P2/M** Wire `AspectRatioPreset` from DataStore into `OverlayCaptureCoordinator` — apply coordinate offset to `SlotRegions` crops when preset is STANDARD_16_9 (pillarbox inset) or ULTRAWIDE_21_9. Currently the preset is stored but not yet read by the CV pipeline.
 - [ ] **P2/S** Document the CV calibration workflow (how to remap `SlotRegions` for a new device) in `overview.md` or a new `docs/cv-calibration.md`.
+- [ ] **P2/M** Formalize a `test_corpus/` collection protocol for `scripts/calibrate_thresholds.py` — real-device ban/pick crops per hero (target: 20 crops × top-40 meta heroes first, ban+pick, plus a `negative/` set of empty slots and UI chrome) with a `manifest.json` recording device, aspect ratio, brightness, and ground-truth hero ID. Needed so future threshold recalibrations after an MLBB patch aren't done against an ad-hoc, unrepresentative sample.
 - [ ] **P3/S** Add ADRs (Architecture Decision Records) for the key calls listed in `overview.md` §8.
 
 ---

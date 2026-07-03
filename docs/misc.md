@@ -19,6 +19,7 @@
 7. [`FrameProcessor` thread-safety fix (P0-05)](#7-frameprocessor-thread-safety-fix-p0-05)
 8. [`libs.versions.toml` duplicate key cleanup (P0-06)](#8-libsversiontoml-duplicate-key-cleanup-p0-06)
 9. [JImageHash integration pattern for `PortraitMatcher`](#9-jimagehas-integration-pattern-for-portraitmatcher-ra-04)
+9a. [CV pipeline maintenance cycle](#9a-cv-pipeline-maintenance-cycle)
 10. [kotlinx.serialization migration guidance](#10-kotlinxserialization-migration-guidance-ra-07)
 11. [JetOverlay adoption and `OverlayService` decomposition](#11-jetoverlay-adoption-and-overlayservice-decomposition-ra-01)
 12. [`PickPhaseContent` pick-success animation](#12-pickphasecontent-pick-success-animation)
@@ -205,6 +206,23 @@ CV pipeline.
 
 **Required before merging:** run `PerceptualHashTest` through both paths. The JImageHash
 path must show a false-positive rate ≤ 2% before the dHash path is removed as primary.
+
+---
+
+## 9a. CV pipeline maintenance cycle
+
+The slot-aware hash pipeline (`SlotAwareHasher`, `HeroThresholds`, `SlotConsensusManager` — TD-16/17/18)
+is not "set and forget." Treat these as standing triggers, not one-time setup:
+
+| Trigger | Action | SLA |
+|---|---|---|
+| New MLBB patch released | Re-run `scripts/calibrate_thresholds.py` against refreshed CDN portraits + new device crops | <24h |
+| New hero added | Add CDN portrait → regenerate `hero_thresholds.json` → add to the test corpus (see `todo.md` §9) | <48h |
+| False-positive spike reported | Investigate `SlotAwareHasher` distances for the affected hero/slot before touching global `PhaseDetectionConfig` constants | best-effort |
+| Quarterly | Spot-check mean match confidence per slot type; recalibrate thresholds if it has drifted materially | every ~90 days |
+
+This list absorbs the "perpetual maintenance cycle" content that previously lived in
+`docs/temp/recommendations.md` before that file was merged into permanent docs and removed.
 
 ---
 
