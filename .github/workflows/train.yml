@@ -1,11 +1,11 @@
-name: Train TFLite Hero Classifier
+name: Train TFLite
 
 on:
   workflow_dispatch: # Allows you to trigger this manually from the "Actions" tab in GitHub
 
 jobs:
   train-model:
-    name: Train MobileNetV3Small TFLite
+    name: Train
     runs-on: ubuntu-latest
     
     steps:
@@ -29,7 +29,7 @@ jobs:
         run: |
           # Assuming you placed the script in a 'scripts/' directory. 
           # Adjust the path if you placed it in the root.
-          python scripts/train_hero_classifier.py
+          python scripts/train.py
         env:
           # Optional: Increase TF logging if you need to debug training in the CI logs
           TF_CPP_MIN_LOG_LEVEL: 2 
