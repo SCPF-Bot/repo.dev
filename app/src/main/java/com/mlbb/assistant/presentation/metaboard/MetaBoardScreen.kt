@@ -315,7 +315,8 @@ private fun TrendingRow(hero: Hero, onHeroClick: (Hero) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Icon(
-                        if (isRising) Icons.AutoMirrored.Rounded.TrendingUp else Icons.AutoMirrored.Rounded.TrendingDown,
+                        @Suppress("DEPRECATION")
+                        if (isRising) Icons.AutoMirrored.Rounded.TrendingUp else Icons.Rounded.TrendingDown,
                         contentDescription = if (isRising) "Rising" else "Falling",
                         tint   = trendColor,
                         modifier = Modifier.size(14.dp)
