@@ -1,5 +1,6 @@
 package com.mlbb.assistant.presentation.welcome
 
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -36,16 +37,120 @@ data class PermissionStep(
     val onAction: (android.content.Context) -> Unit
 )
 
-private fun tryStartActivity(context: android.content.Context, vararg intents: Intent) {
+// ── Intent helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if [pkg] is installed on this device.
+ * Used to skip OEM intents whose package is not present before attempting them,
+ * avoiding silent swallowing of ActivityNotFoundException on unrelated devices.
+ */
+private fun packageExists(ctx: android.content.Context, pkg: String): Boolean =
+    runCatching { ctx.packageManager.getPackageInfo(pkg, 0); true }.getOrDefault(false)
+
+/**
+ * Tries each [Intent] in order, stopping at the first one that launches successfully.
+ * Exceptions (ActivityNotFoundException, SecurityException) are swallowed silently
+ * so the next candidate is always attempted.
+ */
+private fun tryStartActivity(ctx: android.content.Context, vararg intents: Intent) {
     for (intent in intents) {
-        try {
-            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        runCatching {
+            ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return
-        } catch (_: Exception) {
         }
     }
 }
 
+/**
+ * Opens the most appropriate battery/background-running settings screen for the
+ * current device. Checks package existence before constructing each intent so no
+ * unnecessary ActivityNotFoundExceptions are thrown on unrelated OEMs.
+ *
+ * Priority:
+ * 1. OEM-specific battery/background-app manager (most granular control)
+ * 2. Standard Android "ignore battery optimizations" direct dialog
+ * 3. App Info screen (universal guaranteed fallback)
+ */
+private fun openBatterySettings(ctx: android.content.Context) {
+    val pkg = ctx.packageName
+    val intents = buildList {
+        // Xiaomi / MIUI / HyperOS
+        if (packageExists(ctx, "com.miui.powerkeeper"))
+            add(Intent().setComponent(ComponentName("com.miui.powerkeeper",
+                "com.miui.powerkeeper.ui.HiddenAppsContainerManagementActivity")))
+
+        // Huawei / Honor / HarmonyOS
+        if (packageExists(ctx, "com.huawei.systemmanager")) {
+            add(Intent().setComponent(ComponentName("com.huawei.systemmanager",
+                "com.huawei.systemmanager.optimize.process.ProtectActivity")))
+            add(Intent().setComponent(ComponentName("com.huawei.systemmanager",
+                "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity")))
+        }
+
+        // Samsung / One UI
+        if (packageExists(ctx, "com.samsung.android.lool"))
+            add(Intent().setComponent(ComponentName("com.samsung.android.lool",
+                "com.samsung.android.sm.ui.battery.BatteryActivity")))
+
+        // OPPO / ColorOS (covers Realme which runs ColorOS)
+        if (packageExists(ctx, "com.coloros.safecenter")) {
+            add(Intent().setComponent(ComponentName("com.coloros.safecenter",
+                "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
+            add(Intent().setComponent(ComponentName("com.coloros.safecenter",
+                "com.coloros.safecenter.systemfloatwindow.FloatWindowListActivity")))
+        }
+        if (packageExists(ctx, "com.oppo.safe"))
+            add(Intent().setComponent(ComponentName("com.oppo.safe",
+                "com.oppo.safe.permission.startup.StartupAppListActivity")))
+
+        // Vivo / FuntouchOS / OriginOS
+        if (packageExists(ctx, "com.vivo.permissionmanager"))
+            add(Intent().setComponent(ComponentName("com.vivo.permissionmanager",
+                "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")))
+
+        // iQOO (Vivo sub-brand, different package)
+        if (packageExists(ctx, "com.iqoo.secure"))
+            add(Intent().setComponent(ComponentName("com.iqoo.secure",
+                "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager")))
+
+        // OnePlus / OxygenOS
+        if (packageExists(ctx, "com.oneplus.security"))
+            add(Intent().setComponent(ComponentName("com.oneplus.security",
+                "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity")))
+
+        // ASUS / ZenFone
+        if (packageExists(ctx, "com.asus.mobilemanager"))
+            add(Intent().setComponent(ComponentName("com.asus.mobilemanager",
+                "com.asus.mobilemanager.entry.FunctionActivity")))
+
+        // Meizu / Flyme
+        if (packageExists(ctx, "com.meizu.safe"))
+            add(Intent().setComponent(ComponentName("com.meizu.safe",
+                "com.meizu.safe.permission.SmartPermissionActivity")))
+
+        // Tecno / Infinix / Itel (HiOS / XOS — Transsion Group)
+        if (packageExists(ctx, "com.transsion.phonemaster"))
+            add(Intent().setComponent(ComponentName("com.transsion.phonemaster",
+                "com.transsion.phonemaster.business.appdetail.AppDetailActivity")))
+
+        // Standard Android — direct "ignore battery optimizations" dialog
+        add(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            Uri.parse("package:$pkg")))
+
+        // Universal fallback: App Info (always works)
+        add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:$pkg")))
+    }
+    tryStartActivity(ctx, *intents.toTypedArray())
+}
+
+/**
+ * Opens the auto-start / startup manager screen for the current OEM.
+ *
+ * Tries the AutoStarter library first (maintained list of 30+ OEM intents).
+ * Falls back to a curated manual list with package-existence guards so no
+ * spurious exceptions are thrown on devices that don't have these packages.
+ */
 private fun openAutoStartSettings(ctx: android.content.Context) {
     val launchedByLibrary = runCatching {
         com.judemanutd.autostarter.AutoStartPermissionHelper
@@ -54,33 +159,64 @@ private fun openAutoStartSettings(ctx: android.content.Context) {
     }.getOrDefault(false)
     if (launchedByLibrary) return
 
-    tryStartActivity(
-        ctx,
-        Intent().setComponent(android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
-        Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
-        Intent().setComponent(android.content.ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity")),
-        Intent().setComponent(android.content.ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")),
-        Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
-        Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
-        Intent().setComponent(android.content.ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")),
-        Intent().setComponent(android.content.ComponentName("com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity")),
-        Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.systemfloatwindow.FloatWindowListActivity")),
-        Intent().setComponent(android.content.ComponentName("com.meizu.safe", "com.meizu.safe.permission.SmartPermissionActivity")),
-        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
-    )
+    val pkg = ctx.packageName
+    val intents = buildList {
+        // Xiaomi / MIUI / HyperOS
+        if (packageExists(ctx, "com.miui.securitycenter"))
+            add(Intent().setComponent(ComponentName("com.miui.securitycenter",
+                "com.miui.permcenter.autostart.AutoStartManagementActivity")))
+
+        // Huawei / Honor
+        if (packageExists(ctx, "com.huawei.systemmanager"))
+            add(Intent().setComponent(ComponentName("com.huawei.systemmanager",
+                "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")))
+
+        // OPPO / ColorOS / Realme
+        if (packageExists(ctx, "com.coloros.safecenter"))
+            add(Intent().setComponent(ComponentName("com.coloros.safecenter",
+                "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
+        if (packageExists(ctx, "com.oppo.safe"))
+            add(Intent().setComponent(ComponentName("com.oppo.safe",
+                "com.oppo.safe.permission.startup.StartupAppListActivity")))
+
+        // Vivo / FuntouchOS / OriginOS
+        if (packageExists(ctx, "com.vivo.permissionmanager"))
+            add(Intent().setComponent(ComponentName("com.vivo.permissionmanager",
+                "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")))
+
+        // iQOO (Vivo sub-brand)
+        if (packageExists(ctx, "com.iqoo.secure"))
+            add(Intent().setComponent(ComponentName("com.iqoo.secure",
+                "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager")))
+
+        // Samsung
+        if (packageExists(ctx, "com.samsung.android.lool"))
+            add(Intent().setComponent(ComponentName("com.samsung.android.lool",
+                "com.samsung.android.sm.ui.battery.BatteryActivity")))
+
+        // OnePlus / OxygenOS
+        if (packageExists(ctx, "com.oneplus.security"))
+            add(Intent().setComponent(ComponentName("com.oneplus.security",
+                "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity")))
+
+        // Meizu / Flyme
+        if (packageExists(ctx, "com.meizu.safe"))
+            add(Intent().setComponent(ComponentName("com.meizu.safe",
+                "com.meizu.safe.permission.SmartPermissionActivity")))
+
+        // Tecno / Infinix / Itel (HiOS)
+        if (packageExists(ctx, "com.transsion.phonemaster"))
+            add(Intent().setComponent(ComponentName("com.transsion.phonemaster",
+                "com.transsion.phonemaster.business.appdetail.AppDetailActivity")))
+
+        // Universal fallback
+        add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:$pkg")))
+    }
+    tryStartActivity(ctx, *intents.toTypedArray())
 }
 
-private fun openBackgroundRunningSettings(ctx: android.content.Context) {
-    tryStartActivity(
-        ctx,
-        Intent().setComponent(android.content.ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsContainerManagementActivity")),
-        Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
-        Intent().setComponent(android.content.ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")),
-        Intent().setComponent(android.content.ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.entry.FunctionActivity")),
-        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")),
-        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
-    )
-}
+// ── Wizard screen ─────────────────────────────────────────────────────────────
 
 @Composable
 fun PermissionWizardScreen(onComplete: () -> Unit) {
@@ -98,6 +234,7 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
 
     val steps = remember {
         buildList {
+            // Step 1 — Overlay (always required)
             add(PermissionStep(
                 icon        = "🖼️",
                 title       = "Draw Over Other Apps",
@@ -106,81 +243,78 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                 actionLabel = "Grant Permission",
                 onAction    = { ctx ->
                     ctx.startActivity(
-                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))
+                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${ctx.packageName}"))
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }
             ))
 
+            // Step 2 — Battery & Background (merged from old steps 2+3)
+            // Opens the most relevant OEM battery screen; falls back to the
+            // standard Android "ignore battery optimizations" dialog, then App Info.
             add(PermissionStep(
-                icon        = "⚙️",
-                title       = "Open New Windows in Background",
-                description = "Keeps the draft assistant active while MLBB is in the foreground.",
-                why         = "Without this, the overlay is suspended by the OS as soon as you switch to the game.",
-                actionLabel = "Open Background Settings",
+                icon        = "🔋",
+                title       = "Battery & Background",
+                description = "Keeps the overlay running while MLBB is in the foreground.",
+                why         = "Most Android OEMs aggressively kill background apps to save battery. " +
+                              "Set this app to \"Unrestricted\" or add it to the protected list so the overlay stays alive.",
+                actionLabel = "Open Battery Settings",
                 skipLabel   = "Skip for now",
-                onAction    = { ctx -> openBackgroundRunningSettings(ctx) }
+                onAction    = { ctx -> openBatterySettings(ctx) }
             ))
 
-            add(PermissionStep(
-                icon        = "⚡",
-                title       = "Background Start Activity",
-                description = "Grants the app permission to open overlay windows while MLBB is in the foreground.",
-                why         = "Without this AppOps grant, Android silently blocks the overlay. In App Info go to Battery → select \"Unrestricted\".",
-                actionLabel = "Open App Info → Battery",
-                skipLabel   = "Skip (overlay may not open in-game)",
-                onAction    = { ctx ->
-                    tryStartActivity(
-                        ctx,
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")),
-                        Intent(Settings.ACTION_SETTINGS)
-                    )
-                }
-            ))
-
+            // Step 3 — Auto-Start (OEM-specific; skippable on stock Android)
             add(PermissionStep(
                 icon        = "🚀",
                 title       = "App Auto-Start",
                 description = "Lets the overlay restart automatically if Android kills it.",
-                why         = "On Xiaomi, OPPO, Vivo, Huawei and similar phones, apps without auto-start cannot relaunch their services.",
+                why         = "On Xiaomi, OPPO, Vivo, Huawei, Samsung and similar phones, apps without " +
+                              "auto-start permission cannot relaunch their background services after being killed.",
                 actionLabel = "Open Auto-Start Settings",
                 skipLabel   = "My phone doesn't have this",
                 onAction    = { ctx -> openAutoStartSettings(ctx) }
             ))
 
+            // Step 4 — Restricted Settings (Android 13+ / sideloaded only)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(PermissionStep(
                     icon        = "🔓",
                     title       = "Restricted Settings",
                     description = "On Android 13 and newer, sideloaded apps need explicit permission to use certain protected features.",
-                    why         = "If you installed this app outside the Play Store, Android may block permissions until you tap 'Allow restricted settings' in App Info.",
+                    why         = "If you installed this app outside the Play Store, Android may block " +
+                                  "permissions until you tap \"Allow restricted settings\" in App Info.",
                     actionLabel = "Open App Info",
                     skipLabel   = "Installed from Play Store",
                     onAction    = { ctx ->
                         ctx.startActivity(
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${ctx.packageName}"))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
                     }
                 ))
             }
 
+            // Step 5 — Accessibility Service (always last; most sensitive)
             add(PermissionStep(
                 icon        = "♿",
                 title       = "Accessibility Service",
-                description = "Detects when MLBB is open and automatically shows the bubble.",
-                why         = "Without this, you must launch the overlay manually from the app.",
+                description = "Detects when MLBB is open and automatically shows the overlay bubble.",
+                why         = "Without this, you must launch the overlay manually every session. " +
+                              "No gameplay data, keystrokes, or personal input is read.",
                 actionLabel = "Open Accessibility Settings",
                 onAction    = { ctx ->
                     ctx.startActivity(
-                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }
             ))
         }
     }
 
-    // ── Full screen background ─────────────────────────────────────────────────
+    // ── Full-screen background ─────────────────────────────────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -248,7 +382,7 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
 
                 // ── Step content ───────────────────────────────────────────
                 AnimatedContent(
-                    targetState  = currentStep,
+                    targetState = currentStep,
                     transitionSpec = {
                         if (reduceMotion) {
                             fadeIn() togetherWith fadeOut()
@@ -264,7 +398,6 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Icon in branded circle
                         Box(
                             modifier = Modifier
                                 .size(72.dp)
@@ -285,9 +418,9 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                         )
                         Text(
                             s.description,
-                            color     = TextSecondary,
-                            fontSize  = 14.sp,
-                            textAlign = TextAlign.Center,
+                            color      = TextSecondary,
+                            fontSize   = 14.sp,
+                            textAlign  = TextAlign.Center,
                             lineHeight = 20.sp
                         )
 
@@ -302,8 +435,8 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                         ) {
                             Text(
                                 "Why: ${s.why}",
-                                color    = InfoBlue,
-                                fontSize = 12.sp,
+                                color      = InfoBlue,
+                                fontSize   = 12.sp,
                                 lineHeight = 17.sp
                             )
                         }
@@ -325,9 +458,9 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                 ) {
                     Text(
                         step.actionLabel,
-                        color      = SurfaceDark,
-                        fontWeight = FontWeight.Bold,
-                        fontSize   = 14.sp,
+                        color         = SurfaceDark,
+                        fontWeight    = FontWeight.Bold,
+                        fontSize      = 14.sp,
                         letterSpacing = 0.3.sp
                     )
                 }
@@ -335,15 +468,17 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                     onClick = {
                         if (currentStep < steps.lastIndex) currentStep++ else onComplete()
                     },
-                    modifier = Modifier.fillMaxWidth().height(46.dp),
-                    shape    = RoundedCornerShape(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(step.skipLabel, color = TextSecondary)
                 }
 
                 Text(
                     "${currentStep + 1} of ${steps.size}",
-                    color = TextDisabled,
+                    color    = TextDisabled,
                     fontSize = 11.sp
                 )
             }
