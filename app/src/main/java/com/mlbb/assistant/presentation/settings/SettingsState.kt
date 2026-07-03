@@ -32,5 +32,13 @@ data class SettingsState(
      * Persisted in SharedPreferences (not DataStore) for synchronous reads at startup.
      * Defaults to `true` so a fresh install shows the log viewer icon.
      */
-    val developerModeEnabled: Boolean = true
+    val developerModeEnabled: Boolean = true,
+
+    // ── Portrait asset pipeline (hero.main/pick/ban.png) ────────────────────
+    val portraitTotalHeroes: Int      = 0,
+    val portraitDownloadedCount: Int  = 0,
+    val portraitOptimizedCount: Int   = 0,
+    val portraitTaskRunning: Boolean  = false,
+    val portraitTaskLabel: String     = "",
+    val portraitTaskProgress: Float   = 0f // 0f..1f, only meaningful while portraitTaskRunning
 )

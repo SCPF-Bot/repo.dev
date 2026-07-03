@@ -18,6 +18,7 @@ import com.mlbb.assistant.capture.PhaseOcrDetector
 import com.mlbb.assistant.capture.PortraitMatcher
 import com.mlbb.assistant.capture.SlotRegionF
 import com.mlbb.assistant.capture.SlotRegions
+import com.mlbb.assistant.capture.SlotType
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.model.Hero
@@ -420,8 +421,11 @@ class OverlayCaptureCoordinator @Inject constructor(
         slotKey: String = ""
     ): Hero? {
         val crop = runCatching { SlotRegions.cropSlot(frame, region) }.getOrNull() ?: return null
+        // slotKey convention: "enemyBan0"/"ourBan0" → BAN, "enemyPick0"/"ourPick0" → PICK
+        // (see recommendations.md §3 — SlotType drives occlusion masking + hash fusion weights).
+        val slotType = if (slotKey.contains("Ban", ignoreCase = true)) SlotType.BAN else SlotType.PICK
         return try {
-            val r = portraitMatcher.match(crop, stateHolder.allHeroes.toList(), slotKey)
+            val r = portraitMatcher.match(crop, stateHolder.allHeroes.toList(), slotKey, slotType)
             if (r.confidence >= minConf && !r.requiresConfirmation) r.hero else null
         } finally { crop.recycle() }
     }

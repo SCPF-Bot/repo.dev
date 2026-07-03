@@ -12,9 +12,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mlbb.assistant.capture.AspectRatioPreset
+import com.mlbb.assistant.data.portrait.PortraitAssetManager
 import com.mlbb.assistant.domain.engine.WeightCalibrator
+import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetDraftHistoryUseCase
+import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
 import com.mlbb.assistant.domain.usecase.SyncHeroesUseCase
 import com.mlbb.assistant.utils.DateFormatter
 import com.mlbb.assistant.utils.DevModeManager
@@ -33,6 +36,8 @@ class SettingsViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val syncHeroesUseCase: SyncHeroesUseCase,
     private val getDraftHistoryUseCase: GetDraftHistoryUseCase,
+    private val getHeroesUseCase: GetHeroesUseCase,
+    private val portraitAssetManager: PortraitAssetManager,
     @param:ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -84,6 +89,52 @@ class SettingsViewModel @Inject constructor(
             }
         }
         runCalibration()
+        refreshPortraitCounts()
+    }
+
+    // ── Portrait asset pipeline (hero.main/pick/ban.png) ────────────────────
+
+    private fun refreshPortraitCounts() = viewModelScope.launch {
+        val heroes = getHeroesUseCase().first()
+        _state.update {
+            it.copy(
+                portraitTotalHeroes     = heroes.size,
+                portraitDownloadedCount = portraitAssetManager.downloadedCount(heroes),
+                portraitOptimizedCount  = portraitAssetManager.optimizedCount(heroes)
+            )
+        }
+    }
+
+    /** Downloads (or redownloads any missing) `hero.main.png` originals from the CDN. */
+    fun downloadPortraits() = runPortraitTask("Downloading portraits\u2026") { heroes, onProgress ->
+        portraitAssetManager.downloadAll(heroes) { p -> onProgress(p.processed, p.total) }
+    }
+
+    /** Converts already-downloaded originals into the `hero.pick.png` / `hero.ban.png` variants. */
+    fun optimizePortraits() = runPortraitTask("Optimizing portraits\u2026") { heroes, onProgress ->
+        portraitAssetManager.optimizeAll(heroes) { p -> onProgress(p.processed, p.total) }
+    }
+
+    /** Deletes every cached portrait asset, then redownloads and reoptimizes from scratch. */
+    fun refreshPortraits() = runPortraitTask("Refreshing portraits\u2026") { heroes, onProgress ->
+        portraitAssetManager.refreshAll(heroes) { p -> onProgress(p.processed, p.total) }
+    }
+
+    private fun runPortraitTask(
+        label: String,
+        block: suspend (heroes: List<Hero>, onProgress: (processed: Int, total: Int) -> Unit) -> Unit
+    ) = viewModelScope.launch {
+        if (_state.value.portraitTaskRunning) return@launch
+        _state.update { it.copy(portraitTaskRunning = true, portraitTaskLabel = label, portraitTaskProgress = 0f) }
+        runCatching {
+            val heroes = getHeroesUseCase().first()
+            block(heroes) { processed, total ->
+                val fraction = if (total > 0) processed.toFloat() / total else 0f
+                _state.update { it.copy(portraitTaskProgress = fraction) }
+            }
+        }
+        _state.update { it.copy(portraitTaskRunning = false, portraitTaskLabel = "") }
+        refreshPortraitCounts()
     }
 
     fun setMetaWeight(v: Float)    = save { it[KEY_META]    = v }

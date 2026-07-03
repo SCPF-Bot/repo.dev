@@ -216,6 +216,39 @@ object PhaseDetectionConfig {
      */
     const val SLOT_OCCUPIED_LUMINANCE_MIN: Float = 45f
 
+    // ── Slot-aware hash fusion (recommendations.md §3–5) ──────────────────────
+
+    /**
+     * Master switch for the [SlotAwareHasher] triple-hash fusion path.
+     * Mirrors recommendations.md §5.3's `BuildConfig.USE_SLOT_AWARE_HASH` migration
+     * gate — kept as a plain constant here since this project has no remote-config
+     * plumbing yet. Flip to `false` to fall back to the legacy dHash+histogram-only
+     * path if the fusion path regresses accuracy on a future MLBB client update.
+     */
+    const val USE_SLOT_AWARE_HASH: Boolean = true
+
+    /**
+     * Minimum fused similarity (0–1) from [SlotAwareHasher] for a result to be
+     * accepted without further confirmation. A lower "tentative" band below this
+     * ([HASH_FUSION_TENTATIVE_MIN]) still starts the consensus counter.
+     */
+    const val HASH_FUSION_ACCEPT_MIN: Float = 0.80f
+
+    /**
+     * Minimum fused similarity for a [SlotAwareHasher] result to be considered at
+     * all (below this, treat the slot as unmatched and fall through to the legacy
+     * dHash+histogram path per recommendations.md §5.3 step 3).
+     */
+    const val HASH_FUSION_TENTATIVE_MIN: Float = 0.55f
+
+    // ── Temporal consensus (recommendations.md §5.4) ──────────────────────────
+
+    /** Rolling window size (frames) used by [SlotConsensusManager]. */
+    const val CONSENSUS_WINDOW_SIZE: Int = 3
+
+    /** Minimum votes within the window required to confirm a slot's winning hero. */
+    const val CONSENSUS_MIN_AGREEMENT: Int = 2
+
     // ── Accessibility watchdog ────────────────────────────────────────────────
 
     /** How often the service checks that its accessibility permission is still active. */

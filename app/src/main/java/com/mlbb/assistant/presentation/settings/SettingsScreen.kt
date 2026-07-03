@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
@@ -59,6 +60,7 @@ import com.mlbb.assistant.presentation.settings.components.InfoRow
 import com.mlbb.assistant.presentation.settings.components.PermissionRow
 import com.mlbb.assistant.presentation.settings.components.ScreenMappingDialog
 import com.mlbb.assistant.presentation.settings.components.SectionDivider
+import com.mlbb.assistant.presentation.settings.components.PortraitAssetsSection
 import com.mlbb.assistant.presentation.settings.components.ScoringWeightsSection
 import com.mlbb.assistant.presentation.settings.components.SettingsSection
 import com.mlbb.assistant.presentation.settings.components.SliderRow
@@ -220,6 +222,20 @@ fun SettingsScreen(
                 TextButton(onClick = { viewModel.syncNow() }) {
                     Text("Sync now", color = MLBBGold, fontSize = 12.sp)
                 }
+            }
+
+            // ── Portrait assets ───────────────────────────────────────────
+            SettingsSection(
+                icon     = Icons.Rounded.Image,
+                title    = "PORTRAIT ASSETS",
+                subtitle = "hero.main / hero.pick / hero.ban — used for UI and slot detection"
+            ) {
+                PortraitAssetsSection(
+                    state      = state,
+                    onDownload = { viewModel.downloadPortraits() },
+                    onOptimize = { viewModel.optimizePortraits() },
+                    onRefresh  = { viewModel.refreshPortraits() }
+                )
             }
 
             // ── Logs ──────────────────────────────────────────────────────

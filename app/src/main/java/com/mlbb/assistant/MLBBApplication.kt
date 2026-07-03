@@ -5,12 +5,15 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.mlbb.assistant.data.local.crashlog.AppLogTree
 import com.mlbb.assistant.data.local.crashlog.installCrashHandler
 import com.mlbb.assistant.data.worker.HeroSyncWorker
+import com.mlbb.assistant.data.worker.PortraitPrefetchWorker
 import com.mlbb.assistant.presentation.overlay.DraftOverlayContent
 import com.mlbb.assistant.presentation.overlay.JetOverlay
 import com.mlbb.assistant.utils.DevModeManager
@@ -58,6 +61,7 @@ class MLBBApplication : Application(), Configuration.Provider {
         }
 
         scheduleHeroSync()
+        schedulePortraitPrefetch()
     }
 
     // ── WorkManager configuration ─────────────────────────────────────────────
@@ -93,6 +97,38 @@ class MLBBApplication : Application(), Configuration.Provider {
         wm.enqueueUniquePeriodicWork(
             HeroSyncWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    // ── First-launch hero portrait prefetch ───────────────────────────────────
+
+    /**
+     * Enqueues [PortraitPrefetchWorker] on every cold start. The worker itself checks
+     * [com.mlbb.assistant.data.local.preferences.PortraitPrefetchPreference] and no-ops
+     * immediately once the roster has been fully downloaded + optimized once, so this is
+     * cheap on all launches after the first successful one. [ExistingWorkPolicy.KEEP] avoids
+     * queuing a duplicate run if a previous attempt is still pending/retrying.
+     */
+    private fun schedulePortraitPrefetch() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val request = OneTimeWorkRequestBuilder<PortraitPrefetchWorker>()
+            .setConstraints(constraints)
+            .build()
+
+        val wm = try {
+            WorkManager.getInstance(this)
+        } catch (e: IllegalStateException) {
+            WorkManager.initialize(this, workManagerConfiguration)
+            WorkManager.getInstance(this)
+        }
+
+        wm.enqueueUniqueWork(
+            PortraitPrefetchWorker.WORK_NAME,
+            ExistingWorkPolicy.KEEP,
             request
         )
     }

@@ -114,10 +114,11 @@ Files: `app/schemas/`
 
 ---
 
-### A6 — Personal meta calibration UI
-**Effort:** M · **Blocked by:** `WeightCalibrator` (done); needs a minimum-sample gate
-`WeightCalibrator` exists but has no UI surface and no minimum-sample gate.
-Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
+### A6 — Personal meta calibration UI [COMPLETED — verified 2026-07-03]
+`CalibrationSection` is wired into `SettingsScreen` (rationale, confidence bar, suggested
+weights, Refresh/Apply actions). `WeightCalibrator.MIN_SESSIONS` (10) gates calibration —
+below that it surfaces "keep playing to refine" via `calibration_need_more`.
+Files: `presentation/settings/SettingsScreen.kt`, `presentation/settings/components/CalibrationSection.kt`, `domain/engine/WeightCalibrator.kt`
 
 ---
 
@@ -155,7 +156,7 @@ Files: `presentation/settings/`, `domain/engine/WeightCalibrator.kt`
 - [ ] **P1/M** Compose UI tests for Draft, HeroList, Settings, Permission Wizard
 - [ ] **P1/M** Instrumentation test for overlay foreground-service start/stop lifecycle
 - [x] **P2/M** Unit tests for `WeightCalibrator`, `EnemyIntentAnalyzer`, `WinConditionGenerator` — ✅ 2026-07-01 (5 test classes, 49 tests total)
-- [ ] **P2/M** Unit tests for `DraftPatternAnalyzer`, `BuildAdvisor`, `DraftScoreCalculator`
+- [x] **P2/M** Unit tests for `DraftPatternAnalyzer`, `BuildAdvisor`, `DraftScoreCalculator` — ✅ 2026-07-03
 - [ ] **P2/M** `FrameProcessor` slot-dedupe and throttle tests with synthetic bitmaps (Robolectric)
 - [ ] **P2/S** `DraftExporter` round-trip serialisation test
 - [ ] **P2/S** detekt baseline — run `./gradlew detektBaseline` and commit `config/detekt/baseline.xml`

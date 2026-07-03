@@ -292,9 +292,9 @@ class FrameProcessor(
         return mean > threshold
     }
 
-    fun matchSlotPortrait(frame: Bitmap, region: SlotRegionF): MatchResult {
+    fun matchSlotPortrait(frame: Bitmap, region: SlotRegionF, slotType: SlotType = SlotType.PICK): MatchResult {
         val crop   = SlotRegions.cropSlot(frame, region)
-        val result = portraitMatcher.match(crop, allHeroes)
+        val result = portraitMatcher.match(crop, allHeroes, slotType = slotType)
         crop.recycle()
         return result
     }

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.QuestionMark
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,7 +25,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import coil3.compose.SubcomposeAsyncImage
+import com.mlbb.assistant.data.portrait.PortraitAssetManager
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Tier
 import com.mlbb.assistant.presentation.common.theme.*
@@ -110,8 +113,18 @@ fun HeroPortrait(
                 }
                 else -> {
                     if (hero.imageUrl.isNotBlank()) {
+                        // Prefer the locally downloaded/optimized MAIN asset (hero.main.png)
+                        // when present — avoids a network round-trip and matches whatever
+                        // the Settings "Download"/"Optimize" actions last produced. Falls
+                        // back to the CDN URL (Coil-cached) if it hasn't been downloaded yet.
+                        val context = LocalContext.current
+                        val localMain = remember(hero.id) {
+                            PortraitAssetManager.resolveLocalFileOrNull(
+                                context, hero.id, PortraitAssetManager.Variant.MAIN
+                            )
+                        }
                         SubcomposeAsyncImage(
-                            model              = hero.imageUrl,
+                            model              = localMain ?: hero.imageUrl,
                             contentDescription = null,   // parent semantics covers hero name + tier
                             contentScale       = ContentScale.Crop,
                             modifier           = Modifier.fillMaxSize(),

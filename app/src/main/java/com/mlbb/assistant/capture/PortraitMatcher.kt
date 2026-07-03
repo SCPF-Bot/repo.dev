@@ -2,11 +2,13 @@ package com.mlbb.assistant.capture
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.LruCache
 import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.toBitmap
+import com.mlbb.assistant.data.portrait.PortraitAssetManager
 import com.mlbb.assistant.domain.model.Hero
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -58,6 +60,7 @@ data class MatchResult(
 class PortraitMatcher(
     private val context: Context,
     private val imageLoader: ImageLoader,
+    private val portraitAssetManager: PortraitAssetManager = PortraitAssetManager(context, imageLoader),
 ) {
 
     companion object {
@@ -76,6 +79,12 @@ class PortraitMatcher(
     // ── TFLite classifier (primary matching path) ──────────────────────────
 
     private val classifier = HeroClassifier(context)
+
+    // ── Slot-aware triple-hash fusion (recommendations.md §5) ──────────────
+
+    private val slotAwareHasher = SlotAwareHasher()
+    private val heroThresholds  = HeroThresholds(context)
+    private val consensusManager = SlotConsensusManager()
 
     // ── pHash / histogram caches (fallback path) ───────────────────────────
 
@@ -119,14 +128,51 @@ class PortraitMatcher(
                             histogramCache.put(hero.id, computeHistogram(bmp))
                             bmp.recycle()
                         }
+
+                        if (PhaseDetectionConfig.USE_SLOT_AWARE_HASH &&
+                            (!slotAwareHasher.hasCached(hero.id, SlotType.PICK) ||
+                                !slotAwareHasher.hasCached(hero.id, SlotType.BAN))
+                        ) {
+                            cacheSlotAwareHashes(hero)
+                        }
                     }
                 }
             }
         }
     }
 
+    /**
+     * Builds and caches the PICK/BAN reference hashes for [hero] from the
+     * [PortraitAssetManager]-managed, size-matched local assets (`hero.pick.png` /
+     * `hero.ban.png`), downloading/optimizing them on demand if not already cached
+     * on disk. Reference portraits carry no ban-slash/name-strip occlusion, so a
+     * CENTER-style normalization (no masking) is the correct baseline to hash
+     * against — the slot-side crop is normalized per its own SlotType at match time.
+     */
+    private suspend fun cacheSlotAwareHashes(hero: Hero) {
+        runCatching { portraitAssetManager.ensureVariants(hero) }
+            .onFailure { Timber.w(it, "$TAG: failed to prepare portrait assets for hero ${hero.id}") }
+
+        val variantsBySlot = listOf(
+            PortraitAssetManager.Variant.PICK to SlotType.PICK,
+            PortraitAssetManager.Variant.BAN to SlotType.BAN,
+        )
+        for ((variant, slotType) in variantsBySlot) {
+            if (slotAwareHasher.hasCached(hero.id, slotType)) continue
+            val file = portraitAssetManager.localFileOrNull(hero.id, variant) ?: continue
+            val bmp = runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull() ?: continue
+            val normalized = PortraitNormalizer.normalizeForSlot(bmp, SlotType.CENTER)
+            slotAwareHasher.cacheHero(hero.id, slotType, normalized)
+            normalized.recycle()
+            bmp.recycle()
+        }
+    }
+
     /** Reset per-slot confirmation counters (call at session start / phase change). */
-    fun resetConfirmation() = consecutiveHits.clear()
+    fun resetConfirmation() {
+        consecutiveHits.clear()
+        consensusManager.clearAll()
+    }
 
     // ── Matching ──────────────────────────────────────────────────────────
 
@@ -140,11 +186,17 @@ class PortraitMatcher(
      * @param availableHeroes Candidate hero list (all heroes, or filtered to available).
      * @param slotKey         Unique slot identifier (e.g. "enemyBan3", "ourPick1").
      *                        Used to namespace the consecutive-hit confirmation counter.
+     * @param slotType        Which UI region [slotBitmap] came from (recommendations.md §3).
+     *                        Drives [PortraitNormalizer] occlusion-masking and the
+     *                        [SlotAwareHasher] fusion weights. Defaults to [SlotType.PICK]
+     *                        for backward compatibility with call sites that don't (yet)
+     *                        distinguish slot regions.
      */
     fun match(
         slotBitmap: Bitmap,
         availableHeroes: List<Hero>,
         slotKey: String = "",
+        slotType: SlotType = SlotType.PICK,
     ): MatchResult {
         // ── 1. TFLite primary path ─────────────────────────────────────────
         if (classifier.isAvailable) {
@@ -192,7 +244,62 @@ class PortraitMatcher(
             }
         }
 
-        // ── 2. pHash + histogram fallback ─────────────────────────────────
+        // ── 2. Slot-aware triple-hash fusion (recommendations.md §5.2–5.3) ──
+        if (PhaseDetectionConfig.USE_SLOT_AWARE_HASH) {
+            val normalized = PortraitNormalizer.normalizeForSlot(slotBitmap, slotType)
+            val slotHash = try {
+                slotAwareHasher.computeTripleHash(normalized)
+            } finally {
+                normalized.recycle()
+            }
+
+            val candidateIds = availableHeroes.map { it.id }
+            val best = slotAwareHasher.bestMatch(slotHash, candidateIds, slotType)
+
+            if (best != null && best.second >= PhaseDetectionConfig.HASH_FUSION_TENTATIVE_MIN) {
+                val (bestHeroId, fusedSim) = best
+                val matchedHero = availableHeroes.firstOrNull { it.id == bestHeroId }
+
+                if (matchedHero != null) {
+                    Timber.v(
+                        "$TAG [HashFusion] slot=$slotKey slotType=$slotType hero=${matchedHero.name} " +
+                            "sim=%.3f".format(fusedSim)
+                    )
+
+                    val confirmed = applyConfirmation(slotKey, matchedHero.id, matchedHero)
+                    val acceptThreshold = heroThresholds.thresholdFor(matchedHero.id, slotType)
+                        ?: PhaseDetectionConfig.HASH_FUSION_ACCEPT_MIN
+                    val isHighConf = fusedSim >= acceptThreshold
+
+                    // Temporal consensus (recommendations.md §5.4): a plurality vote across
+                    // the last few frames, independent of applyConfirmation()'s stricter
+                    // "same heroId N times in a row" streak — one noisy frame won't reset it.
+                    if (slotKey.isNotEmpty()) consensusManager.update(slotKey, matchedHero.id, fusedSim)
+                    val consensus = if (slotKey.isNotEmpty()) consensusManager.confirm(slotKey) else null
+                    val consensusConfirmsHero = consensus?.first == matchedHero.id
+
+                    return when {
+                        isHighConf || consensusConfirmsHero -> {
+                            if (slotKey.isNotEmpty()) consensusManager.clear(slotKey)
+                            MatchResult(
+                                hero = confirmed ?: matchedHero,
+                                confidence = maxOf(fusedSim, consensus?.second ?: 0f),
+                                requiresConfirmation = confirmed == null && !consensusConfirmsHero,
+                            )
+                        }
+                        else -> MatchResult(
+                            hero = matchedHero,
+                            confidence = fusedSim,
+                            requiresConfirmation = true,
+                        )
+                    }
+                }
+            }
+
+            Timber.v("$TAG [HashFusion] no confident match for slot=$slotKey — falling through to legacy dHash+histogram")
+        }
+
+        // ── 3. pHash + histogram fallback (legacy path, kept per recommendations.md §5.3 step 3) ──
         val slotDHash     = PerceptualHash.compute(slotBitmap)
         val slotPHash     = PerceptualHash.computePHash(slotBitmap)
         val slotHistogram = computeHistogram(slotBitmap)
