@@ -3,10 +3,6 @@ package com.mlbb.assistant.data.portrait
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import coil3.ImageLoader
-import coil3.request.ImageRequest
-import coil3.request.SuccessResult
-import coil3.toBitmap
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.utils.JsonParser
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -15,6 +11,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
@@ -43,7 +41,7 @@ import javax.inject.Singleton
 @Singleton
 class PortraitAssetManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val imageLoader: ImageLoader,
+    private val okHttpClient: OkHttpClient,
     private val jsonParser: JsonParser,
 ) {
 
@@ -272,15 +270,26 @@ class PortraitAssetManager @Inject constructor(
     }
 
     /**
-     * Fetches a [Bitmap] from [url] via Coil. Throws [IOException] on any failure —
-     * network error, non-2xx response, decode failure, or a non-[SuccessResult] from Coil —
-     * so callers don't have to guard against a silent null return.
+     * Fetches a [Bitmap] from [url] via OkHttp.
+     *
+     * Coil was removed from this path because it returned [ErrorResult] for every request
+     * to `akmweb.youngjoygame.com`, even after adding a browser User-Agent — the CDN
+     * responds correctly to raw OkHttp (confirmed with curl). Using OkHttp directly
+     * eliminates Coil's decode/transform pipeline as a failure point.
+     *
+     * Must be called from a background thread (already guaranteed by [withContext] in all
+     * callers — [downloadMain] → [downloadAll] / [ensureVariants]).
      */
-    private suspend fun fetchBitmap(url: String): Bitmap {
-        val request = ImageRequest.Builder(context).data(url).build()
-        val result  = runCatching { imageLoader.execute(request) }
-            .getOrElse { cause -> throw IOException("Network error fetching $url", cause) }
-        return (result as? SuccessResult)?.image?.toBitmap()
-            ?: throw IOException("Coil did not return a success result for $url (got ${result::class.simpleName})")
+    private fun fetchBitmap(url: String): Bitmap {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "Mozilla/5.0 (Android; Mobile) AppleWebKit/537.36")
+            .build()
+        val response = okHttpClient.newCall(request).execute()
+        if (!response.isSuccessful) throw IOException("HTTP ${response.code} fetching $url")
+        val bytes = response.body?.bytes()
+            ?: throw IOException("Empty response body for $url")
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: throw IOException("BitmapFactory could not decode image from $url")
     }
 }
