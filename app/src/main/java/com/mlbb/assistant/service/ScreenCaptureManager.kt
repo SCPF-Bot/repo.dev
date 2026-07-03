@@ -89,7 +89,7 @@ class ScreenCaptureManager(private val context: Context) {
 
     fun startCapture(resultCode: Int, data: Intent) {
         val mpm = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        val projection = mpm.getMediaProjection(resultCode, data)
+        val projection = mpm.getMediaProjection(resultCode, data) ?: return
         mediaProjection = projection
         _captureRevoked.value = false
 
