@@ -108,9 +108,14 @@ class PortraitAssetManager @Inject constructor(
     /** Deletes every cached portrait asset, then redownloads + reoptimizes from scratch. */
     suspend fun refreshAll(heroes: List<Hero>, onProgress: (Progress) -> Unit = {}) =
         withContext(Dispatchers.IO) {
-            deleteAll(onProgress)
-            downloadAll(heroes, onProgress)
-            optimizeAll(heroes, onProgress)
+            val n = heroes.size
+            // Emit combined progress so callers see a single 0→total arc instead of three
+            // independent 0→n arcs that cause the progress indicator to reset twice.
+            // Each hero counts once per stage: total = n*3 (delete + download + optimize).
+            val combined = n * 3
+            deleteAll    { p -> onProgress(Progress(Stage.DELETING,    p.processed,           combined)) }
+            downloadAll(heroes) { p -> onProgress(Progress(Stage.DOWNLOADING, n + p.processed,     combined)) }
+            optimizeAll(heroes) { p -> onProgress(Progress(Stage.OPTIMIZING,  n * 2 + p.processed, combined)) }
         }
 
     suspend fun deleteAll(onProgress: (Progress) -> Unit = {}) = withContext(Dispatchers.IO) {
@@ -138,9 +143,14 @@ class PortraitAssetManager @Inject constructor(
     private fun optimizeOne(heroId: Int) {
         val mainFile = file(heroId, Variant.MAIN)
         if (!mainFile.exists()) return
+        // Skip early if both derived variants already exist — avoids unnecessary bitmap decode
+        // and re-write on repeated "Optimize" taps or PortraitPrefetchWorker re-runs.
+        val needPick = !exists(heroId, Variant.PICK)
+        val needBan  = !exists(heroId, Variant.BAN)
+        if (!needPick && !needBan) return
         val mainBitmap = BitmapFactory.decodeFile(mainFile.absolutePath) ?: return
-        saveScaled(mainBitmap, heroId, Variant.PICK)
-        saveScaled(mainBitmap, heroId, Variant.BAN)
+        if (needPick) saveScaled(mainBitmap, heroId, Variant.PICK)
+        if (needBan)  saveScaled(mainBitmap, heroId, Variant.BAN)
         mainBitmap.recycle()
     }
 
@@ -151,8 +161,18 @@ class PortraitAssetManager @Inject constructor(
         } else {
             Bitmap.createScaledBitmap(source, target, target, true)
         }
-        FileOutputStream(file(heroId, variant)).use { out ->
-            scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
+        // Write to a sibling temp file first, then rename atomically.
+        // A direct write to the destination leaves a partially-written PNG on crash/OOM —
+        // subsequent exists() checks treat it as valid but BitmapFactory.decodeFile returns null.
+        val destFile = file(heroId, variant)
+        val tmpFile  = File(destFile.parentFile, "${variant.fileName}.tmp")
+        try {
+            FileOutputStream(tmpFile).use { out ->
+                scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            tmpFile.renameTo(destFile)
+        } finally {
+            tmpFile.delete() // no-op if rename succeeded; cleans up on failure
         }
         if (scaled !== source) scaled.recycle()
     }

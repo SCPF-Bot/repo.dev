@@ -11,7 +11,6 @@ import androidx.compose.material.icons.rounded.QuestionMark
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -118,11 +117,13 @@ fun HeroPortrait(
                         // the Settings "Download"/"Optimize" actions last produced. Falls
                         // back to the CDN URL (Coil-cached) if it hasn't been downloaded yet.
                         val context = LocalContext.current
-                        val localMain = remember(hero.id) {
-                            PortraitAssetManager.resolveLocalFileOrNull(
-                                context, hero.id, PortraitAssetManager.Variant.MAIN
-                            )
-                        }
+                        // Do NOT cache with remember(hero.id): the file may not exist on first
+                        // composition but arrive on disk while this composable is still alive
+                        // (PortraitPrefetchWorker / manual Download). File.exists() is a fast
+                        // kernel stat call — safe to re-evaluate on every recomposition.
+                        val localMain = PortraitAssetManager.resolveLocalFileOrNull(
+                            context, hero.id, PortraitAssetManager.Variant.MAIN
+                        )
                         SubcomposeAsyncImage(
                             model              = localMain ?: hero.imageUrl,
                             contentDescription = null,   // parent semantics covers hero name + tier

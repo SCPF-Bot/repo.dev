@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -344,8 +345,10 @@ private fun QuickActionCard(
 ) {
     androidx.compose.material3.Card(
         onClick   = onClick,
+        // wrapContentHeight: let the card grow to fit icon + label — the old
+        // aspectRatio(1.5f) produced ~69 dp of height which clipped the label text.
         modifier  = modifier
-            .aspectRatio(1.5f)
+            .wrapContentHeight()
             .semantics { contentDescription = label },
         colors    = CardDefaults.cardColors(containerColor = SurfaceCard),
         border    = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.25f)),
@@ -354,7 +357,7 @@ private fun QuickActionCard(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
                         listOf(accentColor.copy(alpha = 0.08f), Color.Transparent)
@@ -362,20 +365,28 @@ private fun QuickActionCard(
                 )
         ) {
             Column(
-                Modifier.padding(12.dp).fillMaxSize(),
+                // fillMaxSize removed: card is now intrinsic-height, so fillMaxSize
+                // would collapse to zero before content is measured.
+                Modifier.padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
                     Modifier
-                        .size(30.dp)
+                        .size(32.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(accentColor.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(18.dp))
                 }
-                Text(label, color = TextPrimary, fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.labelMedium)
+                Text(
+                    label,
+                    color      = TextPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    style      = MaterialTheme.typography.labelMedium,
+                    maxLines   = 2,
+                    overflow   = TextOverflow.Ellipsis,
+                )
             }
         }
     }
@@ -390,13 +401,24 @@ private fun MetaHeroCard(hero: Hero) {
             .background(SurfaceCard)
             .border(1.dp, SurfaceElevated, RoundedCornerShape(12.dp))
             .padding(8.dp)
-            .width(68.dp)
+            .width(76.dp)
     ) {
         HeroPortrait(hero = hero, size = 52.dp, showTier = true)
         Spacer(Modifier.height(5.dp))
-        Text(hero.name, color = TextPrimary, style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold, maxLines = 1)
-        Text("%.0f%% win".format(hero.winRate * 100), color = TextSecondary, style = MaterialTheme.typography.labelSmall)
+        Text(
+            hero.name,
+            color      = TextPrimary,
+            style      = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines   = 1,
+            overflow   = TextOverflow.Ellipsis,
+        )
+        Text(
+            "%.0f%% win".format(hero.winRate * 100),
+            color    = TextSecondary,
+            style    = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+        )
     }
 }
 

@@ -42,7 +42,7 @@ class HeroRepositoryImpl @Inject constructor(
         private const val MAX_SYNC_RETRIES    = 3
         private const val RETRY_BASE_DELAY_MS = 500L
         /**
-         * Minimum number of heroes a valid [MetaSnapshotDto] must contain.
+         * Minimum number of heroes a valid meta response must contain.
          *
          * todo §2 / TD-15: reject-and-keep-existing on partial data.
          * MLBB has 120+ heroes. A snapshot with fewer than this threshold
@@ -110,21 +110,18 @@ class HeroRepositoryImpl @Inject constructor(
         repeat(MAX_SYNC_RETRIES) { attempt ->
             runCatching {
                 Timber.d("syncHeroes: fetching meta snapshot (attempt ${attempt + 1}/$MAX_SYNC_RETRIES)")
-                val snapshot = metaApi.getMetaSnapshot()
+                val heroes = metaApi.getMetaSnapshot()
 
                 // TD-15: Reject partial / malformed snapshots to avoid replacing a healthy
                 // DB with incomplete data. A valid snapshot always contains all MLBB heroes.
-                if (snapshot.heroes.size < MIN_HERO_COUNT) {
+                if (heroes.size < MIN_HERO_COUNT) {
                     throw IllegalStateException(
-                        "MetaSnapshot rejected: ${snapshot.heroes.size} heroes < min $MIN_HERO_COUNT — keeping existing DB"
+                        "MetaSnapshot rejected: ${heroes.size} heroes < min $MIN_HERO_COUNT — keeping existing DB"
                     )
                 }
 
-                heroDao.replaceAll(snapshot.heroes.map { it.toEntity() })
-                Timber.i(
-                    "syncHeroes: synced ${snapshot.heroes.size} heroes from network" +
-                    (snapshot.patchVersion?.let { " (patch $it)" } ?: "")
-                )
+                heroDao.replaceAll(heroes.map { it.toEntity() })
+                Timber.i("syncHeroes: synced ${heroes.size} heroes from GitHub raw content")
                 return@withContext   // success — exit early
             }.onFailure { e ->
                 lastError = e

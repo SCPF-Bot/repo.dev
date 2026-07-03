@@ -122,7 +122,13 @@ class PortraitMatcher(
                 batch.forEach { hero ->
                     launch {
                         if (pHashCache.get(hero.id) == null) {
-                            val bmp = fetchPortrait(hero.imageUrl) ?: return@launch
+                            // Prefer the already-downloaded local asset (hero.main.png) over a
+                            // network fetch — avoids redundant CDN traffic when PortraitAssetManager
+                            // has already cached the portrait on disk.
+                            val bmp = portraitAssetManager.localFileOrNull(hero.id, PortraitAssetManager.Variant.MAIN)
+                                ?.let { runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull() }
+                                ?: fetchPortrait(hero.imageUrl)
+                                ?: return@launch
                             dHashCache.put(hero.id, PerceptualHash.compute(bmp))
                             pHashCache.put(hero.id, PerceptualHash.computePHash(bmp))
                             histogramCache.put(hero.id, computeHistogram(bmp))

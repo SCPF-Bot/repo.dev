@@ -27,10 +27,12 @@ android {
 
         // BASE_URL sourced from BuildConfig so it can be overridden per build variant
         // without changing source code. Override in local.properties or CI env.
+        // Points to the GitHub raw content root of SCPF-Bot/repo.dev (main branch).
+        // MetaApi.@GET appends the file path relative to this base.
         buildConfigField(
             "String",
             "META_API_BASE_URL",
-            "\"https://api.mlbb-assistant.com/\""
+            "\"https://raw.githubusercontent.com/SCPF-Bot/repo.dev/main/\""
         )
     }
 
