@@ -24,7 +24,6 @@
 ### ✅ Action: Implement `SlotType`-Aware Normalization
 
 Add to `capture/PortraitNormalizer.kt`:
-
 ```kotlin
 enum class SlotType { BAN, PICK }
 
@@ -511,5 +510,248 @@ class SlotAwareHasherTest {
 ```
 
 > 📁 Test assets: Place in `src/test/assets/cv_test_corpus/`. Include ≥20 real device crops per hero (ban + pick variants). Generate synthetic augmented versions via script to reach 500+ total.
+
+---
+
+Here is **Part 3** of the updated `recommendations.md`. This final section covers the **automation, validation infrastructure, and migration safety nets** required to make the pure-perceptual detection engine sustainable long-term without TFLite.
+
+```markdown
+## 🤖 Phase 6: Automation & Calibration Infrastructure (P1)
+
+### ✅ 6.1 Automated Threshold Calibration Script
+Create `scripts/calibrate_thresholds.py` to eliminate manual threshold tuning. This script must be runnable locally and in CI after every MLBB patch.
+
+```python
+#!/usr/bin/env python3
+"""
+Calibrates per-hero, per-slot confidence thresholds from a labeled test corpus.
+Output: assets/hero_thresholds.json
+
+Usage: python calibrate_thresholds.py --corpus ./test_corpus_v2 --output ../app/src/main/assets/hero_thresholds.json
+"""
+import json, os, numpy as np
+from pathlib import Path
+from image_hash import ImageHasher  # Wrapper around JImageHash via JPype or subprocess
+
+def calibrate(corpus_dir: str, output_path: str):
+    hasher = ImageHasher()
+    results = {}  # { hero_id: { "BAN": float, "PICK": float } }
+    
+    for slot_type in ["BAN", "PICK"]:
+        crops_dir = Path(corpus_dir) / slot_type.lower()
+        hero_dists = {}  # { hero_id: [dist_to_self, ...] }
+        all_hashes = {}  # { hero_id: hash }
+        
+        # 1. Compute self-distances
+        for img_path in sorted(crops_dir.glob("*.png")):
+            hero_id = int(img_path.stem.split("_")[0])  # e.g., "87_mikmik_001.png"
+            crop_hash = hasher.compute_triple(img_path, slot_type)
+            
+            if hero_id not in all_hashes:
+                cdn_path = Path(corpus_dir) / "cdn" / f"{hero_id}.png"
+                all_hashes[hero_id] = hasher.compute_triple(cdn_path, slot_type)
+            
+            dist = hasher.fused_distance(crop_hash, all_hashes[hero_id], slot_type)
+            hero_dists.setdefault(hero_id, []).append(dist)
+        
+        # 2. Compute nearest-other distances (for FP cap)
+        hero_ids = list(all_hashes.keys())
+        for hid in hero_ids:
+            other_dists = [
+                hasher.fused_distance(all_hashes[hid], all_hashes[other], slot_type)
+                for other in hero_ids if other != hid
+            ]
+            min_other = min(other_dists) if other_dists else 1.0
+            
+            self_dists = hero_dists.get(hid, [])
+            if len(self_dists) < 5:
+                continue  # Skip heroes with insufficient samples
+            
+            mean_self = np.mean(self_dists)
+            std_self = np.std(self_dists)
+            raw_threshold = mean_self + 1.2 * std_self
+            capped_threshold = min(raw_threshold, 0.9 * min_other)
+            
+            results.setdefault(str(hid), {})[slot_type] = round(capped_threshold, 4)
+    
+    with open(output_path, "w") as f:
+        json.dump(results, f, indent=2, sort_keys=True)
+    print(f"✅ Calibrated {len(results)} heroes → {output_path}")
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--corpus", required=True)
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    calibrate(args.corpus, args.output)
+```
+
+> ⚙️ Integration: Add a Gradle task `calibrateHeroThresholds` that runs this script. Wire it into `assembleRelease` as an optional pre-step (gated by `-Pcalibrate=true`).
+
+---
+
+### ✅ 6.2 Test Corpus Collection Protocol
+Standardize how real-device crops are gathered and annotated to ensure calibration data is representative.
+
+#### Directory Structure
+```
+test_corpus_v2/
+├── ban/
+│   ├── 103_gloo_001.png      # {heroId}_{heroName}_{seq}.png
+│   ├── 103_gloo_002.png
+│   └── ...
+├── pick/
+│   ├── 87_mikmik_001.png
+│   └── ...
+├── negative/                  # Empty slots, UI elements, chat bubbles
+│   ├── empty_ban_001.png
+│   └── rank_badge_s_001.png
+├── cdn/                       # Official portraits at time of capture
+│   ├── 87.png
+│   └── 103.png
+└── manifest.json              # Metadata: device model, aspect ratio, MLBB version, brightness
+```
+
+#### Manifest Schema
+```json
+{
+  "version": "2.2.0",
+  "mlbb_patch": "1.8.42",
+  "captures": [
+    {
+      "file": "ban/103_gloo_001.png",
+      "device": "Samsung Galaxy S21",
+      "aspect_ratio": "20:9",
+      "brightness_pct": 60,
+      "ground_truth_hero_id": 103,
+      "slot_type": "BAN",
+      "occlusion_notes": "red slash centered, slight motion blur"
+    }
+  ]
+}
+```
+
+> 📏 Minimum corpus size: **20 crops per hero per slot type** (ban + pick) × 132 heroes = ~5,280 images. Prioritize top-40 meta heroes first (cover 80% of real drafts).
+
+---
+
+## 📉 Phase 7: Migration Safety & Rollback (P0)
+
+### ✅ 7.1 Feature Flag Gating
+Add to `BuildConfig.kt` or remote config:
+
+```kotlin
+object CvFeatureFlags {
+    const val USE_SLOT_AWARE_HASH = "cv_use_slot_aware_hash"
+    const val ENABLE_TEMPORAL_CONSENSUS = "cv_enable_temporal_consensus"
+    const val TFLITE_FALLBACK_ENABLED = "cv_tflite_fallback_enabled"
+}
+```
+
+Wire into `PortraitMatcher.match()`:
+```kotlin
+fun match(crop: Bitmap, slotType: SlotType): MatchResult? {
+    // New path (gated)
+    if (featureFlags.isEnabled(USE_SLOT_AWARE_HASH)) {
+        val hashResult = slotAwareHasher.match(crop, slotType)
+        if (hashResult != null) return hashResult
+        
+        // Fallback to TFLite only if flag allows
+        if (featureFlags.isEnabled(TFLITE_FALLBACK_ENABLED)) {
+            return heroClassifier.classify(crop)
+        }
+        return null
+    }
+    
+    // Legacy path (default until validated)
+    return legacyMatch(crop)
+}
+```
+
+> 🔒 Rollback: If FP rate spikes in production, disable `USE_SLOT_AWARE_HASH` via remote config within minutes — no app update needed.
+
+### ✅ 7.2 APK Size Impact Analysis
+
+| Component | Before (v2.1) | After (v2.2) | Delta |
+|-----------|---------------|--------------|-------|
+| TFLite model (`mlbb_hero_classifier.tflite`) | 1.8 MB | 0 MB | **−1.8 MB** |
+| TFLite interpreter (native libs) | 0.4 MB | 0 MB | **−0.4 MB** |
+| JImageHash JAR | 0.18 MB | 0.18 MB | ±0 |
+| `hero_thresholds.json` | 0 KB | 12 KB | +0.01 MB |
+| **Net change** | **2.38 MB** | **0.19 MB** | **−2.19 MB** |
+
+> 📊 Validation: Run `./gradlew assembleRelease` before/after and compare `app/build/outputs/apk/release/app-release.apk` size. Confirm ≥2.0 MB reduction.
+
+### ✅ 7.3 Telemetry for Post-Migration Monitoring
+Add structured logging to track new engine performance in production (privacy-safe, no PII):
+
+```kotlin
+// In SlotAwareHasher.match()
+Timber.tag("CV_MIGRATION").d(
+    "slot=%s hero=%d conf=%.3f algo=HASH_FUSION dist=%.3f threshold=%.3f",
+    slotType, result.heroId, result.confidence, minDist, threshold
+)
+
+// Aggregate weekly: avg confidence, FP rate proxy (confidence < threshold but matched), latency p95
+```
+
+> 📈 Success metric: After 2 weeks with `USE_SLOT_AWARE_HASH` enabled for 100% of users, confirm:
+> - Avg confidence ≥ 0.72 (ban) / ≥ 0.76 (pick)
+> - Crash rate unchanged vs baseline
+> - User-reported misidentification tickets ≤ baseline
+
+---
+
+## 📋 Phase 8: Updated Backlog Alignment
+
+### ✅ 8.1 New `todo.md` Entries (Replace Previous CV Items)
+
+```markdown
+[ ] P0/M Implement `SlotType`-aware normalization with occlusion masking (`PortraitNormalizer.kt`)
+[ ] P0/M Implement `SlotAwareHasher` with Wavelet+Color+Radial fusion (`capture/SlotAwareHasher.kt`)
+[ ] P0/M Create `scripts/calibrate_thresholds.py` + Gradle task integration
+[ ] P0/S Add `CvFeatureFlags` gating to `PortraitMatcher.match()`
+[ ] P1/M Integrate `SlotConsensusManager` into `FrameProcessor` frame loop
+[ ] P1/M Collect initial test corpus (top-40 heroes, 20 crops each, ban+pick)
+[ ] P1/S Run FP/TP benchmark against TFLite baseline on test corpus
+[ ] P2/M Add CV_MIGRATION telemetry + weekly aggregation dashboard
+[ ] P2/S Document test corpus collection protocol in `docs/cv_calibration_guide.md`
+[ ] P3/S Remove TFLite assets + `HeroClassifier.kt` after 4-week stable production run
+```
+
+### ✅ 8.2 Deprecated Items (Remove from `todo.md`)
+- ~~`[ ] P1/L Train SSD portrait-region detector (RA-05 backlog)`~~ → Replaced by slot-aware normalization + OCR context validation
+- ~~`[ ] P2/M Benchmark JImageHash FP rate (RA-04)`~~ → Absorbed into unified calibration script + test corpus protocol
+- ~~`[ ] TD-15 TFLite hero classifier integration`~~ → Marked done; superseded by perceptual engine migration
+
+### ✅ 8.3 `features.md` Updates (Post-Merge)
+After shipping v2.2.4, add:
+
+```markdown
+| # | Feature | Status | Source |
+|---|---------|--------|--------|
+| 10.1 | Slot-type-aware portrait normalization (ban/pick occlusion masking) | ✅ | capture/PortraitNormalizer.kt |
+| 10.2 | Triple-hash fusion engine (Wavelet + AverageColor + RadialGradient) | ✅ | capture/SlotAwareHasher.kt |
+| 10.3 | Per-hero adaptive thresholds (auto-calibrated from test corpus) | ✅ | scripts/calibrate_thresholds.py, assets/hero_thresholds.json |
+| 10.4 | Temporal consensus engine (2/3 frame confirmation) | ✅ | capture/SlotConsensusManager.kt |
+| 10.5 | TFLite-free hero detection (−2.2 MB APK) | ✅ | PortraitMatcher.kt, CvFeatureFlags |
+```
+
+---
+
+## 🔄 Perpetual Maintenance Cycle
+
+This recommendation set is not a one-time project. Embed this cycle into your release process:
+
+| Trigger | Action | Owner | SLA |
+|---------|--------|-------|-----|
+| New MLBB patch released | Run `calibrate_thresholds.py` on updated CDN portraits + 20 new device crops | Maintainer | <24h |
+| New hero added to MLBB | Add CDN portrait → regenerate thresholds → add to test corpus | Maintainer | <48h |
+| FP spike in telemetry (>3% above baseline) | Disable `USE_SLOT_AWARE_HASH` via remote config → investigate → recalibrate | On-call | <1h response |
+| Android OS major update | Re-run full test corpus on beta emulator → validate normalization/masking | QA | Before OS public release |
+| Quarterly review | Audit threshold drift → retrain weights if mean confidence dropped >0.05 | Tech Lead | Every 90 days |
+
+> 🎯 End state: A self-sustaining CV pipeline that adapts to MLBB patches autonomously, requires zero TFLite maintenance, and delivers consistent ≥95% accuracy across all devices — forever.
 
 ---
