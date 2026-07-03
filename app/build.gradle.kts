@@ -194,9 +194,8 @@ dependencies {
     // ML Kit Text Recognition: on-device OCR for PhaseOcrDetector
     implementation(libs.mlkit.text.recognition)
 
-    // ML Kit Object Detection (custom TFLite model) — guarded by asset existence check; see todo.md §5.9
-    // Alias is mlkit-objectdetection (not mlkit-object-detection) to avoid "object" Kotlin keyword in accessor
-    implementation(libs.mlkit.objectdetection)
+    // ML Kit Object Detection removed (2026-07-03): unused dependency — HeroPortraitObjectDetector
+    // is a stub with no trained model and never calls the ML Kit API. Re-add when RA-05 ships.
 
     // TFLite runtime — direct Interpreter for HeroClassifier portrait classification (misc.md §13)
     // Model: assets/mlbb_hero_classifier.tflite  Labels: assets/hero_classifier_labels.txt

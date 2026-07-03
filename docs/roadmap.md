@@ -127,7 +127,7 @@ Files: `presentation/settings/SettingsScreen.kt`, `presentation/settings/compone
 ### Autonomous awareness
 - [x] **TFLite hero portrait classifier** — `HeroClassifier` wraps `mlbb_hero_classifier.tflite` (MobileNetV3Small, [1,224,224,3]→[1,120]) and is the primary matching path in `PortraitMatcher` (TD-15, `misc.md` §13)
 - [ ] SSD/YOLO portrait *region* detector — train on 500+ annotated crops; integrate into `HeroPortraitObjectDetector` to replace coordinate-based `SlotRegions` (RA-05 — detection model, separate from classifier)
-- [ ] JImageHash FP benchmark against portrait test set; promote WaveletHash + AverageColorHash to primary in `PortraitMatcher` (RA-04)
+- [x] ~~JImageHash FP benchmark against portrait test set; promote WaveletHash + AverageColorHash to primary in `PortraitMatcher`~~ — superseded: `SlotAwareHasher`'s pure-Kotlin triple hash fills this role; JImageHash removed from Gradle 2026-07-03 (RA-04, `misc.md` §9)
 - [ ] Auto-recalibration of `SlotRegions` from a one-time guided capture
 - [ ] Patch-delta weighting from historical snapshots
 - [ ] Draft-phase-aware "power spike timing" advice
@@ -198,7 +198,7 @@ Items originally from `docs/temp/recommendations.md`.
 | RA-01 | JetOverlay overlay SDK | ✅ Completed — see `misc.md` §11 |
 | RA-02 | p3hndrx/MLBB-API hero/item data | 📋 Deferred — backend stability verification required |
 | RA-03 | ridwaanhall/api-mobilelegends | 📋 Deferred — API liveness confirmation first |
-| RA-04 | KilianB/JImageHash multi-algorithm hashing | ⚙️ In Gradle — FP benchmark pending (see `misc.md` §9) |
+| RA-04 | KilianB/JImageHash multi-algorithm hashing | 🗑️ Removed from Gradle 2026-07-03 — superseded by `SlotAwareHasher`'s pure-Kotlin triple hash (see `misc.md` §9) |
 | RA-05 | TFLite hero portrait classifier (`HeroClassifier`) | ✅ Completed — `mlbb_hero_classifier.tflite` integrated; see TD-15 and `misc.md` §13. SSD detection model (portrait *region* bounding boxes) remains as backlog. |
 | RA-06 | Balloon tooltip for hero suggestions | ✅ Completed — `RecommendationCard` long-press in `PickPhaseContent.kt` |
 | RA-07 | kotlinx.serialization full migration | ✅ Completed (partial) — all entry points migrated; Gson removal pending smoke test |

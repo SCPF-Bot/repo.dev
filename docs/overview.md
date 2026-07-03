@@ -427,7 +427,7 @@ These are non-obvious choices that are easy to accidentally reverse. Read before
 - **UI enhancement libraries:**
   ComposeCharts 0.2.5 (score pie chart), compose-shimmer 1.3.0 (loading skeletons), Lottie 6.7.1 (ban-warning, scanning, pick-success animations), Balloon 1.6.12 (overlay long-press tooltips).
 - **ML / CV libraries:**
-  ML Kit Text Recognition 16.0.1 (`PhaseOcrDetector` — fully wired), ML Kit Object Detection Custom 17.0.2 (in Gradle; model training pending), KilianB/JImageHash 3.0.0 (in Gradle; FP benchmark pending — see `misc.md` §9).
+  ML Kit Text Recognition 16.0.1 (`PhaseOcrDetector` — fully wired), TensorFlow Lite 2.16.1 (`HeroClassifier` — fully wired primary matcher, see `misc.md` §13). ML Kit Object Detection Custom and KilianB/JImageHash were removed from Gradle (2026-07-03) as unused dependencies — see `todo.md` §10.
 - **OEM/platform utilities:**
   AutoStarter 1.1.0 (`PermissionWizardScreen.openAutoStartSettings()` — fully wired), JetOverlay (overlay lifecycle SDK — fully wired, see `misc.md` §11).
 - **Serialization:**
@@ -438,7 +438,7 @@ These are non-obvious choices that are easy to accidentally reverse. Read before
 - **API base URL:** `BuildConfig.META_API_BASE_URL`, overridable per variant.
 - **CI:** `.github/workflows/ci.yml` runs lint + unit tests + debug assemble on every push/PR.
 - **Dependency updates:** `.github/dependabot.yml` — weekly Gradle + GHA updates.
-- **JitPack** added to `settings.gradle.kts` for Balloon, JImageHash, AutoStarter, JetOverlay.
+- **JitPack** added to `settings.gradle.kts` for Balloon, AutoStarter, JetOverlay. (JImageHash never actually resolved a usable artifact through JitPack — see `misc.md` §9 — and its version-catalog entry was removed 2026-07-03.)
 
 ---
 
@@ -456,7 +456,7 @@ markets — alongside default English (`values`, ~75 strings).
 - **Meta data freshness is silent.** `MetaApi` has no auth or response caching layer beyond the local DB fallback. No `lastUpdated` metadata is surfaced in the UI yet (see `todo.md` §8).
 - **Gson still present in Gradle.** All JSON parsing uses kotlinx.serialization, but Gson removal is blocked pending a minified-build smoke test (see `todo.md` §5).
 - **`DraftScorer.computeScore` is test-only.** The simplified linear formula is incompatible with production `HeroScore` values; annotated `@VisibleForTesting`. See `misc.md` §2.
-- **ML Kit Object Detection model not yet trained.** The library is in Gradle but the TFLite model training pipeline (`PortraitMatcher` upgrade) has not started. See `todo.md` §10.
+- **No portrait-region detection model.** `HeroPortraitObjectDetector` is a stub (`SlotRegions` coordinate-based scanning is the production path); the ML Kit Object Detection dependency was removed from Gradle (2026-07-03) since it was unused pending a trained SSD/YOLO model. See `todo.md` §10 and `roadmap.md` RA-05.
 - **`WeightCalibrator` has no UI surface.** The engine is fully implemented but is not exposed in Settings yet (see `todo.md` §3).
 - **detekt baseline not generated.** Run `./gradlew detektBaseline` and commit `config/detekt/baseline.xml` before enforcing detekt in CI.
 

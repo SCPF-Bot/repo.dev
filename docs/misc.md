@@ -188,8 +188,16 @@ building against.
 
 ## 9. JImageHash integration pattern for `PortraitMatcher` (RA-04)
 
-`KilianB/JImageHash` (`com.github.KilianB:JImageHash:3.0.0`) is in Gradle.
-When completing the integration into `PortraitMatcher.kt`:
+> **Status update (2026-07-03):** `KilianB/JImageHash` was removed from the version
+> catalog — it was never actually declared as a Gradle dependency (JitPack does not
+> publish a usable AAR, and the library depends on `java.awt`, which is unavailable on
+> ART). `SlotAwareHasher`'s pure-Kotlin triple-hash fusion (see `todo.md` TD-16) now
+> fills the role this section originally envisioned for JImageHash. The pattern below
+> is kept for historical context only — do **not** re-add the dependency without first
+> confirming a JVM-compatible, Android-safe fork exists.
+
+`KilianB/JImageHash` (`com.github.KilianB:JImageHash:3.0.0`) was never resolvable in Gradle.
+Historical plan for completing the integration into `PortraitMatcher.kt` (superseded):
 
 **Algorithm pairing:**
 - **Primary:** `WaveletHash` — perceptually robust to colour variation and compression

@@ -124,8 +124,8 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-19**
 
 | Library | Status | Next step |
 |---|---|---|
-| KilianB/JImageHash | ⚙️ In Gradle, unused | Cannot run on Android (`java.awt.image.BufferedImage` unavailable on ART, see `misc.md` §9). `SlotAwareHasher`'s pure-Kotlin triple hash replaces the role recommendations.md envisioned for it — remove the Gradle dep once confirmed unused elsewhere. |
-| ML Kit Object Detection | ⚙️ In Gradle | For portrait *region detection* (bounding boxes) — separate from `HeroClassifier`. Collect 500+ annotated crops → train SSD model → integrate into `HeroPortraitObjectDetector` (see `roadmap.md` RA-05) |
+| KilianB/JImageHash | 🗑️ Removed from Gradle (2026-07-03) | Was never declared as a dependency (`java.awt.image.BufferedImage` unavailable on ART, see `misc.md` §9); the orphaned `jImageHash` version-catalog entry with no library alias was deleted. `SlotAwareHasher`'s pure-Kotlin triple hash fills the role recommendations.md envisioned for it. Re-add only if a JVM-compatible fork appears. |
+| ML Kit Object Detection | 🗑️ Removed from Gradle (2026-07-03) | Was an unused dependency — `HeroPortraitObjectDetector` is a stub that returns `emptyList()` and never called the ML Kit API. Removed `mlkitObjectDetection` version + `mlkit-objectdetection` alias + the `implementation()` line. Re-add once 500+ annotated crops are collected and an SSD model is trained (see `roadmap.md` RA-05). |
 | TFLite Hero Classifier | ✅ Integrated | `HeroClassifier.kt` wraps `mlbb_hero_classifier.tflite`; wired as primary path in `PortraitMatcher`; `hero_classifier_labels.txt` maps output index→heroId; see `misc.md` §13 |
 | p3hndrx/MLBB-API | 📋 Deferred | Backend stability verification required |
 | ridwaanhall/api-mobilelegends | 📋 Deferred | API liveness confirmation first (blocks RA-03) |
