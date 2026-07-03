@@ -113,10 +113,16 @@ fun SettingsScreen(
 
     Column(Modifier.fillMaxSize().background(SurfaceDark)) {
 
-        // Header
-        Box(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(SurfaceMid, SurfaceDark)))) {
+        // Header with gradient
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color(0xFF1A1A2E), SurfaceMid))
+                )
+        ) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
@@ -126,11 +132,22 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(Icons.Rounded.Settings, contentDescription = null, tint = MLBBGold, modifier = Modifier.size(18.dp))
-                    Text("SETTINGS", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("SETTINGS", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp)
                 }
                 Spacer(Modifier.size(48.dp))
             }
         }
+        // Accent line
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(androidx.compose.ui.graphics.Color.Transparent, MLBBGold.copy(alpha = 0.5f), androidx.compose.ui.graphics.Color.Transparent)
+                    )
+                )
+        )
 
         Column(
             Modifier

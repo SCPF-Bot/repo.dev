@@ -6,6 +6,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -33,10 +36,6 @@ data class PermissionStep(
     val onAction: (android.content.Context) -> Unit
 )
 
-/**
- * Tries a list of candidate Intents in order, launching the first one that resolves.
- * Falls back to the last entry (which should always be a safe fallback like App Info).
- */
 private fun tryStartActivity(context: android.content.Context, vararg intents: Intent) {
     for (intent in intents) {
         try {
@@ -47,26 +46,7 @@ private fun tryStartActivity(context: android.content.Context, vararg intents: I
     }
 }
 
-/**
- * Opens the manufacturer-specific auto-start / background-launch manager, falling back to
- * the standard App Info screen when no known OEM screen is available.
- *
- * Covers: Xiaomi MIUI, OPPO ColorOS, Vivo FuntouchOS, Huawei EMUI, OnePlus OxygenOS,
- * Samsung One UI, Realme UI, Meizu Flyme.
- */
-/**
- * Opens the manufacturer-specific auto-start / background-launch manager.
- *
- * Rec. §2.4 (RA-05): Uses [AutoStartPermissionHelper] from judemanutd/autostarter
- * as the primary path — it handles OEM intent resolution for 20+ device families.
- * Falls back to our own curated intent list when the library returns false (device not
- * recognised), then to the universal App Info screen as a final safety net.
- *
- * [runCatching] guards the library call in case it throws on an unusual OEM ROM where
- * the helper itself crashes (e.g. restricted ClassLoaders on Asus ZenUI).
- */
 private fun openAutoStartSettings(ctx: android.content.Context) {
-    // Primary: AutoStartPermissionHelper (judemanutd/autostarter 1.1.0)
     val launchedByLibrary = runCatching {
         com.judemanutd.autostarter.AutoStartPermissionHelper
             .getInstance()
@@ -74,132 +54,31 @@ private fun openAutoStartSettings(ctx: android.content.Context) {
     }.getOrDefault(false)
     if (launchedByLibrary) return
 
-    // Fallback: manually curated OEM intent list for devices not covered by the library
     tryStartActivity(
         ctx,
-        // Xiaomi MIUI
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.miui.securitycenter",
-                "com.miui.permcenter.autostart.AutoStartManagementActivity"
-            )
-        ),
-        // OPPO ColorOS
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.coloros.safecenter",
-                "com.coloros.safecenter.permission.startup.StartupAppListActivity"
-            )
-        ),
-        // OPPO ColorOS (alternate)
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.oppo.safe",
-                "com.oppo.safe.permission.startup.StartupAppListActivity"
-            )
-        ),
-        // Vivo FuntouchOS
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.vivo.permissionmanager",
-                "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
-            )
-        ),
-        // Huawei EMUI
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"
-            )
-        ),
-        // Huawei EMUI (alternate)
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.optimize.process.ProtectActivity"
-            )
-        ),
-        // Samsung One UI (battery/sleep settings)
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.samsung.android.lool",
-                "com.samsung.android.sm.ui.battery.BatteryActivity"
-            )
-        ),
-        // OnePlus OxygenOS
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.oneplus.security",
-                "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity"
-            )
-        ),
-        // Realme UI
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.coloros.safecenter",
-                "com.coloros.safecenter.systemfloatwindow.FloatWindowListActivity"
-            )
-        ),
-        // Meizu Flyme
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.meizu.safe",
-                "com.meizu.safe.permission.SmartPermissionActivity"
-            )
-        ),
-        // Universal fallback: App Info
-        Intent(
-            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.parse("package:${ctx.packageName}")
-        )
+        Intent().setComponent(android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+        Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")),
+        Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+        Intent().setComponent(android.content.ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")),
+        Intent().setComponent(android.content.ComponentName("com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.systemfloatwindow.FloatWindowListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.meizu.safe", "com.meizu.safe.permission.SmartPermissionActivity")),
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
     )
 }
 
-/**
- * Opens the manufacturer-specific "background running" or "unrestricted background activity"
- * panel, falling back to App Info when no OEM screen is found.
- */
 private fun openBackgroundRunningSettings(ctx: android.content.Context) {
     tryStartActivity(
         ctx,
-        // Xiaomi MIUI — background activity
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.miui.powerkeeper",
-                "com.miui.powerkeeper.ui.HiddenAppsContainerManagementActivity"
-            )
-        ),
-        // Huawei EMUI — protected apps
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.optimize.process.ProtectActivity"
-            )
-        ),
-        // Samsung — device care
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.samsung.android.lool",
-                "com.samsung.android.sm.ui.battery.BatteryActivity"
-            )
-        ),
-        // Asus ROG / ZenFone
-        Intent().setComponent(
-            android.content.ComponentName(
-                "com.asus.mobilemanager",
-                "com.asus.mobilemanager.entry.FunctionActivity"
-            )
-        ),
-        // Generic: Battery optimisation details (all Android)
-        Intent(
-            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-            Uri.parse("package:${ctx.packageName}")
-        ),
-        // Universal fallback: App Info
-        Intent(
-            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.parse("package:${ctx.packageName}")
-        )
+        Intent().setComponent(android.content.ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsContainerManagementActivity")),
+        Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+        Intent().setComponent(android.content.ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")),
+        Intent().setComponent(android.content.ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.entry.FunctionActivity")),
+        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")),
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
     )
 }
 
@@ -217,17 +96,8 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
 
     var currentStep by remember { mutableIntStateOf(0) }
 
-    /**
-     * Steps are built once at composition time.
-     * The "Restricted Settings" step is only inserted on Android 13+ (API 33) because
-     * that is the first version where Android blocks accessibility services for
-     * sideloaded apps until the user explicitly enables "Allow restricted settings"
-     * in App Info.  On earlier Android versions this step would do nothing useful
-     * and would only confuse users.
-     */
     val steps = remember {
         buildList {
-            // ── Step 1: Overlay (Draw Over Other Apps) ────────────────────────
             add(PermissionStep(
                 icon        = "🖼️",
                 title       = "Draw Over Other Apps",
@@ -236,81 +106,65 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                 actionLabel = "Grant Permission",
                 onAction    = { ctx ->
                     ctx.startActivity(
-                        Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:${ctx.packageName}")
-                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }
             ))
 
-            // ── Step 2: Open New Windows While Running in Background ──────────
             add(PermissionStep(
                 icon        = "⚙️",
                 title       = "Open New Windows in Background",
                 description = "Keeps the draft assistant active while MLBB is in the foreground.",
-                why         = "Without this, the overlay is suspended by the OS as soon as you switch to the game, defeating its purpose.",
+                why         = "Without this, the overlay is suspended by the OS as soon as you switch to the game.",
                 actionLabel = "Open Background Settings",
                 skipLabel   = "Skip for now",
                 onAction    = { ctx -> openBackgroundRunningSettings(ctx) }
             ))
 
-            // ── Step 3: Background Start Activity (AppOps OP_BACKGROUND_START_ACTIVITY, code 10021) ──
             add(PermissionStep(
                 icon        = "⚡",
                 title       = "Background Start Activity",
-                description = "Grants the app permission to open overlay windows while MLBB is in the foreground (AppOps OP_BACKGROUND_START_ACTIVITY, code 10021).",
-                why         = "Without this AppOps grant, Android silently blocks the overlay from launching its UI. In App Info go to Battery → select \"Unrestricted\".",
+                description = "Grants the app permission to open overlay windows while MLBB is in the foreground.",
+                why         = "Without this AppOps grant, Android silently blocks the overlay. In App Info go to Battery → select \"Unrestricted\".",
                 actionLabel = "Open App Info → Battery",
                 skipLabel   = "Skip (overlay may not open in-game)",
                 onAction    = { ctx ->
                     tryStartActivity(
                         ctx,
-                        // Direct App battery settings (API 33+)
-                        Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${ctx.packageName}")
-                        ),
-                        // Fallback: generic settings
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")),
                         Intent(Settings.ACTION_SETTINGS)
                     )
                 }
             ))
 
-            // ── Step 4: App Auto-Start ────────────────────────────────────────
             add(PermissionStep(
                 icon        = "🚀",
                 title       = "App Auto-Start",
                 description = "Lets the overlay restart automatically if Android kills it.",
-                why         = "On Xiaomi, OPPO, Vivo, Huawei and similar phones, apps without auto-start cannot relaunch their services — the bubble disappears and never comes back.",
+                why         = "On Xiaomi, OPPO, Vivo, Huawei and similar phones, apps without auto-start cannot relaunch their services.",
                 actionLabel = "Open Auto-Start Settings",
                 skipLabel   = "My phone doesn't have this",
                 onAction    = { ctx -> openAutoStartSettings(ctx) }
             ))
 
-            // ── Step 5: Restricted Settings — only on Android 13+ (API 33) ───
-            // Prior to API 33 there is no "Allow restricted settings" toggle in App Info,
-            // so showing this step on older devices would mislead users.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(PermissionStep(
                     icon        = "🔓",
                     title       = "Restricted Settings",
-                    description = "On Android 13 and newer, sideloaded apps need explicit permission to use certain protected features (overlay, accessibility).",
-                    why         = "If you installed this app outside the Play Store, Android may block the permissions above until you tap 'Allow restricted settings' in App Info.",
+                    description = "On Android 13 and newer, sideloaded apps need explicit permission to use certain protected features.",
+                    why         = "If you installed this app outside the Play Store, Android may block permissions until you tap 'Allow restricted settings' in App Info.",
                     actionLabel = "Open App Info",
                     skipLabel   = "Installed from Play Store",
                     onAction    = { ctx ->
                         ctx.startActivity(
-                            Intent(
-                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                Uri.parse("package:${ctx.packageName}")
-                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
                     }
                 ))
             }
 
-            // ── Step 6: Accessibility Service ─────────────────────────────────
             add(PermissionStep(
                 icon        = "♿",
                 title       = "Accessibility Service",
@@ -319,119 +173,179 @@ fun PermissionWizardScreen(onComplete: () -> Unit) {
                 actionLabel = "Open Accessibility Settings",
                 onAction    = { ctx ->
                     ctx.startActivity(
-                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }
             ))
         }
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color    = SurfaceDark
+    // ── Full screen background ─────────────────────────────────────────────────
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF0A0A18), SurfaceDark, Color(0xFF0D1018))
+                )
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Card(
-                modifier  = Modifier.fillMaxWidth(0.90f),
-                colors    = CardDefaults.cardColors(containerColor = SurfaceCard),
-                shape     = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        Card(
+            modifier  = Modifier
+                .fillMaxWidth(0.92f)
+                .border(1.dp, MLBBGold.copy(alpha = 0.20f), RoundedCornerShape(20.dp)),
+            colors    = CardDefaults.cardColors(containerColor = SurfaceCard),
+            shape     = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            // Gold accent strip at top of card
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                MLBBGold.copy(alpha = 0.8f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Column(
+                Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                Column(
-                    Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                // ── Progress dots ──────────────────────────────────────────
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.semantics(mergeDescendants = true) {
+                        contentDescription = "Step ${currentStep + 1} of ${steps.size}"
+                    }
                 ) {
-                    // Step progress dots
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.semantics(mergeDescendants = true) {
-                            contentDescription = "Step ${currentStep + 1} of ${steps.size}"
-                        }
-                    ) {
-                        steps.indices.forEach { i ->
-                            Box(
-                                Modifier
-                                    .size(if (i == currentStep) 10.dp else 7.dp)
-                                    .clip(CircleShape)
-                                    .then(
-                                        if (i == currentStep)
-                                            Modifier.background(MLBBGold)
-                                        else
-                                            Modifier.background(SurfaceElevated)
-                                    )
-                            )
-                        }
-                    }
-
-                    AnimatedContent(
-                        targetState  = currentStep,
-                        transitionSpec = {
-                            if (reduceMotion) {
-                                fadeIn() togetherWith fadeOut()
-                            } else {
-                                slideInHorizontally { it } + fadeIn() togetherWith
-                                slideOutHorizontally { -it } + fadeOut()
-                            }
-                        },
-                        label = "wizard_step"
-                    ) { step ->
-                        val s = steps[step]
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(s.icon, fontSize = 48.sp)
-                            Text(
-                                s.title, color = TextPrimary, fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp, textAlign = TextAlign.Center
-                            )
-                            Text(
-                                s.description, color = TextSecondary, fontSize = 14.sp,
-                                textAlign = TextAlign.Center
-                            )
-                            Surface(
-                                modifier       = Modifier.fillMaxWidth(),
-                                color          = InfoBlue.copy(alpha = 0.10f),
-                                shape          = RoundedCornerShape(8.dp),
-                                tonalElevation = 0.dp
-                            ) {
-                                Text(
-                                    "Why: ${s.why}",
-                                    color    = InfoBlue,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(10.dp)
+                    steps.indices.forEach { i ->
+                        val isActive = i == currentStep
+                        val isDone   = i < currentStep
+                        Box(
+                            Modifier
+                                .height(6.dp)
+                                .width(if (isActive) 24.dp else 6.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        isActive -> MLBBGold
+                                        isDone   -> MLBBGold.copy(alpha = 0.45f)
+                                        else     -> SurfaceElevated
+                                    }
                                 )
-                            }
+                        )
+                    }
+                }
+
+                // ── Step content ───────────────────────────────────────────
+                AnimatedContent(
+                    targetState  = currentStep,
+                    transitionSpec = {
+                        if (reduceMotion) {
+                            fadeIn() togetherWith fadeOut()
+                        } else {
+                            slideInHorizontally { it } + fadeIn() togetherWith
+                            slideOutHorizontally { -it } + fadeOut()
+                        }
+                    },
+                    label = "wizard_step"
+                ) { step ->
+                    val s = steps[step]
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Icon in branded circle
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape)
+                                .background(MLBBGold.copy(alpha = 0.10f))
+                                .border(1.dp, MLBBGold.copy(alpha = 0.30f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(s.icon, fontSize = 32.sp)
+                        }
+
+                        Text(
+                            s.title,
+                            color      = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = 20.sp,
+                            textAlign  = TextAlign.Center
+                        )
+                        Text(
+                            s.description,
+                            color     = TextSecondary,
+                            fontSize  = 14.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+
+                        // "Why" info box
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(InfoBlue.copy(alpha = 0.08f))
+                                .border(1.dp, InfoBlue.copy(alpha = 0.20f), RoundedCornerShape(10.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                "Why: ${s.why}",
+                                color    = InfoBlue,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp
+                            )
                         }
                     }
+                }
 
-                    val step = steps[currentStep]
-                    Button(
-                        onClick = {
-                            step.onAction(context)
-                            if (currentStep < steps.lastIndex) currentStep++ else onComplete()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors   = ButtonDefaults.buttonColors(containerColor = MLBBGold)
-                    ) {
-                        Text(step.actionLabel, color = SurfaceDark)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            if (currentStep < steps.lastIndex) currentStep++ else onComplete()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(step.skipLabel)
-                    }
-
+                // ── Action buttons ─────────────────────────────────────────
+                val step = steps[currentStep]
+                Button(
+                    onClick = {
+                        step.onAction(context)
+                        if (currentStep < steps.lastIndex) currentStep++ else onComplete()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MLBBGold),
+                    shape  = RoundedCornerShape(12.dp)
+                ) {
                     Text(
-                        "${currentStep + 1} of ${steps.size}",
-                        color = TextDisabled, fontSize = 11.sp
+                        step.actionLabel,
+                        color      = SurfaceDark,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 14.sp,
+                        letterSpacing = 0.3.sp
                     )
                 }
+                OutlinedButton(
+                    onClick = {
+                        if (currentStep < steps.lastIndex) currentStep++ else onComplete()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape    = RoundedCornerShape(12.dp)
+                ) {
+                    Text(step.skipLabel, color = TextSecondary)
+                }
+
+                Text(
+                    "${currentStep + 1} of ${steps.size}",
+                    color = TextDisabled,
+                    fontSize = 11.sp
+                )
             }
         }
     }

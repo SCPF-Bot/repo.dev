@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import com.mlbb.assistant.presentation.common.theme.MLBBGold
 
 @Composable
 fun BackButton(
@@ -20,7 +21,8 @@ fun BackButton(
     ) {
         Icon(
             imageVector        = Icons.AutoMirrored.Rounded.ArrowBack,
-            contentDescription = null
+            contentDescription = null,
+            tint               = MLBBGold.copy(alpha = 0.90f)
         )
     }
 }

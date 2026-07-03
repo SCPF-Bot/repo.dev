@@ -32,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,20 +60,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** How many skeleton cards to show during the initial load delay. */
 private const val SHIMMER_CARD_COUNT = 5
-
-/**
- * Shimmer loading delay (ms).
- *
- * The sessions StateFlow emits [emptyList] synchronously on subscription
- * (the Room query has not yet resolved). Showing a short shimmer hides the
- * flash of the empty-state icon that would otherwise appear before data
- * arrives. 400 ms is deliberately short — on-device Room queries typically
- * resolve in <100 ms, so the shimmer is invisible on fast devices and only
- * appears on cold-start when IO is busy.
- */
-private const val LOADING_DELAY_MS = 400L
+private const val LOADING_DELAY_MS   = 400L
 
 @Composable
 fun DraftHistoryScreen(
@@ -81,7 +71,6 @@ fun DraftHistoryScreen(
 ) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
 
-    // Show shimmer for a brief window to avoid empty-state flash.
     var isLoading by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) {
         delay(LOADING_DELAY_MS)
@@ -89,22 +78,55 @@ fun DraftHistoryScreen(
     }
 
     Column(Modifier.fillMaxSize().background(SurfaceDark)) {
-        Row(
+        // ── Header with gradient ──────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(listOf(Color(0xFF1A1A2E), SurfaceMid))
+                )
+        ) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                BackButton(onBack = onBack)
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.History,
+                        contentDescription = null,
+                        tint     = MLBBGold,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        "DRAFT HISTORY",
+                        color         = MLBBGold,
+                        fontWeight    = FontWeight.Bold,
+                        fontSize      = 16.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+                Spacer(Modifier.size(48.dp))
+            }
+        }
+
+        // ── Gold accent line ──────────────────────────────────────────────────
+        Box(
             Modifier
                 .fillMaxWidth()
-                .background(SurfaceMid)
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            BackButton(onBack = onBack)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Rounded.History, contentDescription = null,
-                    tint = MLBBGold, modifier = Modifier.size(18.dp))
-                Text("DRAFT HISTORY", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-            Spacer(Modifier.size(48.dp))
-        }
+                .height(1.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, MLBBGold.copy(alpha = 0.5f), Color.Transparent)
+                    )
+                )
+        )
 
         when {
             isLoading -> HistoryLoadingSkeleton()
@@ -115,8 +137,8 @@ fun DraftHistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Rounded.ListAlt, contentDescription = null,
-                        tint = TextDisabled, modifier = Modifier.size(48.dp))
-                    Text("No drafts saved yet", color = TextSecondary, fontSize = 14.sp)
+                        tint = TextDisabled, modifier = Modifier.size(52.dp))
+                    Text("No drafts saved yet", color = TextSecondary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Text("Complete a draft to see it here", color = TextDisabled, fontSize = 12.sp)
                 }
             }
@@ -133,12 +155,6 @@ fun DraftHistoryScreen(
     }
 }
 
-/**
- * Shimmer skeleton shown for [LOADING_DELAY_MS] ms before real content renders.
- *
- * Cards mimic the height and structure of real [DraftHistoryCard] entries so
- * the transition is seamless.
- */
 @Composable
 private fun HistoryLoadingSkeleton() {
     LazyColumn(
@@ -159,28 +175,28 @@ private fun HistorySkeletonCard() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .height(100.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(SurfaceCard)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(Modifier.size(width = 80.dp, height = 12.dp).clip(RoundedCornerShape(4.dp)).background(SurfaceMid))
-                    Box(Modifier.size(width = 60.dp, height = 9.dp).clip(RoundedCornerShape(4.dp)).background(SurfaceMid))
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Box(Modifier.size(width = 90.dp, height = 12.dp).clip(RoundedCornerShape(4.dp)).background(SurfaceMid))
+                    Box(Modifier.size(width = 65.dp, height = 9.dp).clip(RoundedCornerShape(4.dp)).background(SurfaceMid))
                 }
-                Box(Modifier.size(width = 64.dp, height = 26.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceMid))
+                Box(Modifier.size(width = 64.dp, height = 26.dp).clip(RoundedCornerShape(8.dp)).background(SurfaceMid))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(3) {
-                    Box(Modifier.size(width = 72.dp, height = 22.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceMid))
+                    Box(Modifier.size(width = 76.dp, height = 22.dp).clip(RoundedCornerShape(8.dp)).background(SurfaceMid))
                 }
             }
         }
@@ -207,45 +223,73 @@ private fun DraftHistoryCard(session: DraftHistoryItem) {
     androidx.compose.material3.Card(
         modifier = Modifier.fillMaxWidth(),
         colors   = CardDefaults.cardColors(containerColor = SurfaceCard),
-        shape    = RoundedCornerShape(10.dp)
+        shape    = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically
+        // Left-side score accent bar
+        Row(Modifier.fillMaxWidth()) {
+            Box(
+                Modifier
+                    .width(4.dp)
+                    .height(100.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(scoreColor.copy(alpha = 0.9f), scoreColor.copy(alpha = 0.2f))
+                        )
+                    )
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column {
-                    Text("Draft #${session.id}", color = TextPrimary,
-                        fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Text(dateStr, color = TextSecondary, fontSize = 10.sp)
-                }
-                Box(
-                    Modifier
-                        .background(scoreColor.copy(0.15f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment     = Alignment.CenterVertically
                 ) {
-                    Text("${session.draftScore}/100", color = scoreColor,
-                        fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Column {
+                        Text(
+                            "Draft #${session.id}",
+                            color      = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = 13.sp
+                        )
+                        Text(dateStr, color = TextSecondary, fontSize = 10.sp)
+                    }
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(scoreColor.copy(alpha = 0.15f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            "${session.draftScore}/100",
+                            color      = scoreColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = 13.sp
+                        )
+                    }
                 }
-            }
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                StatBadge("Meta",    "${session.metaScore}%",    MLBBGold)
-                StatBadge("Counter", "${session.counterScore}%", MLBBBlue)
-                StatBadge("Synergy", "${session.synergyScore}%", MLBBTeal)
-            }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StatBadge("Meta",    "${session.metaScore}%",    MLBBGold)
+                    StatBadge("Counter", "${session.counterScore}%", MLBBBlue)
+                    StatBadge("Synergy", "${session.synergyScore}%", MLBBTeal)
+                }
 
-            val recPct = if (session.totalRecommendations > 0)
-                "${session.followedRecommendations}/${session.totalRecommendations} recs followed"
-            else "No recommendations tracked"
-            Text(recPct, color = TextDisabled, fontSize = 10.sp)
+                val recPct = if (session.totalRecommendations > 0)
+                    "${session.followedRecommendations}/${session.totalRecommendations} recs followed"
+                else "No recommendations tracked"
+                Text(recPct, color = TextDisabled, fontSize = 10.sp)
+            }
         }
     }
 }
 
 @Composable
-private fun StatBadge(label: String, value: String, color: androidx.compose.ui.graphics.Color) {
+private fun StatBadge(label: String, value: String, color: Color) {
     SuggestionChip(
         onClick = {},
         label   = { Text("$label: $value", style = MaterialTheme.typography.labelMedium) },
