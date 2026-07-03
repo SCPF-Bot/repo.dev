@@ -8,9 +8,14 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.toBitmap
 import com.mlbb.assistant.domain.model.Hero
+import com.mlbb.assistant.utils.JsonParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -39,6 +44,7 @@ import javax.inject.Singleton
 class PortraitAssetManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val imageLoader: ImageLoader,
+    private val jsonParser: JsonParser,
 ) {
 
     enum class Variant(val fileName: String, val maxDimensionPx: Int) {
@@ -52,6 +58,9 @@ class PortraitAssetManager @Inject constructor(
     data class Progress(val stage: Stage, val processed: Int, val total: Int)
 
     companion object {
+        /** Number of portraits downloaded concurrently in each batch. */
+        private const val DOWNLOAD_BATCH_SIZE = 7
+
         /**
          * Pure path resolver — lets callers that only need a read-only file
          * reference (e.g. [com.mlbb.assistant.presentation.common.components.HeroPortrait])
@@ -88,18 +97,46 @@ class PortraitAssetManager @Inject constructor(
 
     /**
      * Downloads [Variant.MAIN] for every hero that doesn't already have it cached.
-     * Per-hero failures are collected rather than aborting the entire batch; a single
-     * [IOException] summarising all failed heroes is thrown at the end if any failed.
+     *
+     * URL resolution order (most-authoritative first):
+     *  1. [default_heroes.json][com.mlbb.assistant.R.raw.default_heroes] portrait URL index —
+     *     always reflects the official CDN URLs regardless of DB state.
+     *  2. [Hero.imageUrl] from the Room DB — used only as a fallback when the JSON index
+     *     has no entry for a given hero (e.g. a brand-new hero not yet in the bundled JSON).
+     *
+     * Downloads run [DOWNLOAD_BATCH_SIZE] heroes concurrently. Each batch completes before
+     * the next starts so progress increments smoothly and memory pressure stays bounded.
+     *
+     * Per-hero failures are collected; a single [IOException] summary is thrown after all
+     * batches complete so the caller sees the full failure set, not just the first error.
      */
     suspend fun downloadAll(heroes: List<Hero>, onProgress: (Progress) -> Unit = {}) =
         withContext(Dispatchers.IO) {
+            // Build the URL index once up-front — O(heroes) parse, amortised across all downloads.
+            val urlIndex = jsonParser.buildPortraitUrlIndex()
+
             val total    = heroes.size
             val failures = mutableListOf<String>()
-            heroes.forEachIndexed { index, hero ->
-                runCatching { downloadMain(hero) }
-                    .onFailure { failures += hero.name }
-                onProgress(Progress(Stage.DOWNLOADING, index + 1, total))
+            var processed = 0
+
+            heroes.chunked(DOWNLOAD_BATCH_SIZE).forEach { batch ->
+                coroutineScope {
+                    batch.map { hero ->
+                        async {
+                            val url = urlIndex[hero.id]?.takeIf { it.isNotBlank() }
+                                ?: hero.imageUrl
+                            runCatching { downloadMain(hero, url) }
+                                .onFailure { e ->
+                                    Timber.w(e, "Portrait download failed: ${hero.name} (id=${hero.id}) url=$url")
+                                    synchronized(failures) { failures += hero.name }
+                                }
+                        }
+                    }.awaitAll()
+                }
+                processed += batch.size
+                onProgress(Progress(Stage.DOWNLOADING, processed, total))
             }
+
             if (failures.isNotEmpty()) throw IOException(
                 "${failures.size} hero(es) failed to download: ${failures.joinToString()}"
             )
@@ -115,7 +152,10 @@ class PortraitAssetManager @Inject constructor(
             val failures = mutableListOf<String>()
             heroes.forEachIndexed { index, hero ->
                 runCatching { optimizeOne(hero.id) }
-                    .onFailure { failures += hero.name }
+                    .onFailure { e ->
+                        Timber.w(e, "Portrait optimize failed: ${hero.name} (id=${hero.id})")
+                        failures += hero.name
+                    }
                 onProgress(Progress(Stage.OPTIMIZING, index + 1, total))
             }
             if (failures.isNotEmpty()) throw IOException(
@@ -147,14 +187,25 @@ class PortraitAssetManager @Inject constructor(
 
     /** Ensures both slot-detection variants exist for a single hero, downloading/optimizing on demand. */
     suspend fun ensureVariants(hero: Hero) = withContext(Dispatchers.IO) {
-        if (!exists(hero.id, Variant.MAIN)) downloadMain(hero)
+        if (!exists(hero.id, Variant.MAIN)) {
+            val urlIndex = jsonParser.buildPortraitUrlIndex()
+            val url = urlIndex[hero.id]?.takeIf { it.isNotBlank() } ?: hero.imageUrl
+            downloadMain(hero, url)
+        }
         if (exists(hero.id, Variant.MAIN) && !isFullyOptimized(hero.id)) optimizeOne(hero.id)
     }
 
-    private suspend fun downloadMain(hero: Hero) {
+    /**
+     * Downloads the [Variant.MAIN] portrait for [hero] from [url].
+     *
+     * [url] is supplied by the caller (resolved from the JSON index by [downloadAll] /
+     * [ensureVariants]) so this method never has to touch [Hero.imageUrl] directly —
+     * keeping the authoritative-URL logic in one place.
+     */
+    private suspend fun downloadMain(hero: Hero, url: String) {
         if (exists(hero.id, Variant.MAIN)) return
-        if (hero.imageUrl.isBlank()) throw IOException("Hero ${hero.name} (id=${hero.id}) has no image URL")
-        val bitmap = fetchBitmap(hero.imageUrl)
+        if (url.isBlank()) throw IOException("Hero ${hero.name} (id=${hero.id}) has no image URL in JSON index or DB")
+        val bitmap = fetchBitmap(url)
         saveScaled(bitmap, hero.id, Variant.MAIN)
         bitmap.recycle()
     }
