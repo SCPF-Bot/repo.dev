@@ -32,7 +32,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class HeroArchetypeService @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     // ── Data model ────────────────────────────────────────────────────────────
