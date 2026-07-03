@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mlbb.assistant.presentation.common.theme.ErrorRed
 import com.mlbb.assistant.presentation.common.theme.MLBBGold
 import com.mlbb.assistant.presentation.common.theme.TextDisabled
 import com.mlbb.assistant.presentation.settings.SettingsState
@@ -25,10 +26,11 @@ import com.mlbb.assistant.presentation.settings.SettingsState
  */
 @Composable
 internal fun PortraitAssetsSection(
-    state:       SettingsState,
-    onDownload:  () -> Unit,
-    onOptimize:  () -> Unit,
-    onRefresh:   () -> Unit
+    state:          SettingsState,
+    onDownload:     () -> Unit,
+    onOptimize:     () -> Unit,
+    onRefresh:      () -> Unit,
+    onClearError:   () -> Unit = {}
 ) {
     InfoRow("Downloaded", "${state.portraitDownloadedCount} / ${state.portraitTotalHeroes}")
     InfoRow("Optimized (pick + ban)", "${state.portraitOptimizedCount} / ${state.portraitTotalHeroes}")
@@ -41,6 +43,21 @@ internal fun PortraitAssetsSection(
             color    = MLBBGold,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+
+    // Show the last task error (if any) as a dismissible banner.
+    // Cleared automatically when the next task starts; also dismissible by tap.
+    state.portraitTaskError?.let { errorMsg ->
+        SectionDivider()
+        Text(
+            text     = "Error: $errorMsg",
+            color    = ErrorRed,
+            fontSize = 11.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        TextButton(onClick = onClearError) {
+            Text("Dismiss", color = ErrorRed, fontSize = 11.sp)
+        }
     }
 
     SectionDivider()

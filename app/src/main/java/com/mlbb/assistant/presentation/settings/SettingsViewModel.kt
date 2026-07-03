@@ -125,17 +125,27 @@ class SettingsViewModel @Inject constructor(
         block: suspend (heroes: List<Hero>, onProgress: (processed: Int, total: Int) -> Unit) -> Unit
     ) = viewModelScope.launch {
         if (_state.value.portraitTaskRunning) return@launch
-        _state.update { it.copy(portraitTaskRunning = true, portraitTaskLabel = label, portraitTaskProgress = 0f) }
-        runCatching {
+        _state.update {
+            it.copy(
+                portraitTaskRunning = true,
+                portraitTaskLabel   = label,
+                portraitTaskProgress = 0f,
+                portraitTaskError   = null   // clear any previous error on new task start
+            )
+        }
+        val error: String? = runCatching {
             val heroes = getHeroesUseCase().first()
             block(heroes) { processed, total ->
                 val fraction = if (total > 0) processed.toFloat() / total else 0f
                 _state.update { it.copy(portraitTaskProgress = fraction) }
             }
-        }
-        _state.update { it.copy(portraitTaskRunning = false, portraitTaskLabel = "") }
+        }.exceptionOrNull()?.localizedMessage
+        _state.update { it.copy(portraitTaskRunning = false, portraitTaskLabel = "", portraitTaskError = error) }
         refreshPortraitCounts()
     }
+
+    /** Clears the portrait task error banner after the user has acknowledged it. */
+    fun clearPortraitTaskError() = _state.update { it.copy(portraitTaskError = null) }
 
     fun setMetaWeight(v: Float)    = save { it[KEY_META]    = v }
     fun setCounterWeight(v: Float) = save { it[KEY_COUNTER] = v }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -85,24 +86,41 @@ class PortraitAssetManager @Inject constructor(
     fun downloadedCount(heroes: List<Hero>): Int = heroes.count { exists(it.id, Variant.MAIN) }
     fun optimizedCount(heroes: List<Hero>): Int = heroes.count { isFullyOptimized(it.id) }
 
-    /** Downloads [Variant.MAIN] for every hero that doesn't already have it cached. */
+    /**
+     * Downloads [Variant.MAIN] for every hero that doesn't already have it cached.
+     * Per-hero failures are collected rather than aborting the entire batch; a single
+     * [IOException] summarising all failed heroes is thrown at the end if any failed.
+     */
     suspend fun downloadAll(heroes: List<Hero>, onProgress: (Progress) -> Unit = {}) =
         withContext(Dispatchers.IO) {
-            val total = heroes.size
+            val total    = heroes.size
+            val failures = mutableListOf<String>()
             heroes.forEachIndexed { index, hero ->
-                downloadMain(hero)
+                runCatching { downloadMain(hero) }
+                    .onFailure { failures += hero.name }
                 onProgress(Progress(Stage.DOWNLOADING, index + 1, total))
             }
+            if (failures.isNotEmpty()) throw IOException(
+                "${failures.size} hero(es) failed to download: ${failures.joinToString()}"
+            )
         }
 
-    /** Derives [Variant.PICK] and [Variant.BAN] from each hero's already-downloaded [Variant.MAIN]. */
+    /**
+     * Derives [Variant.PICK] and [Variant.BAN] from each hero's already-downloaded [Variant.MAIN].
+     * Per-hero failures are collected; a single [IOException] summary is thrown at the end if any failed.
+     */
     suspend fun optimizeAll(heroes: List<Hero>, onProgress: (Progress) -> Unit = {}) =
         withContext(Dispatchers.IO) {
-            val total = heroes.size
+            val total    = heroes.size
+            val failures = mutableListOf<String>()
             heroes.forEachIndexed { index, hero ->
-                optimizeOne(hero.id)
+                runCatching { optimizeOne(hero.id) }
+                    .onFailure { failures += hero.name }
                 onProgress(Progress(Stage.OPTIMIZING, index + 1, total))
             }
+            if (failures.isNotEmpty()) throw IOException(
+                "${failures.size} hero(es) failed to optimize: ${failures.joinToString()}"
+            )
         }
 
     /** Deletes every cached portrait asset, then redownloads + reoptimizes from scratch. */
@@ -134,32 +152,46 @@ class PortraitAssetManager @Inject constructor(
     }
 
     private suspend fun downloadMain(hero: Hero) {
-        if (hero.imageUrl.isBlank() || exists(hero.id, Variant.MAIN)) return
-        val bitmap = fetchBitmap(hero.imageUrl) ?: return
+        if (exists(hero.id, Variant.MAIN)) return
+        if (hero.imageUrl.isBlank()) throw IOException("Hero ${hero.name} (id=${hero.id}) has no image URL")
+        val bitmap = fetchBitmap(hero.imageUrl)
         saveScaled(bitmap, hero.id, Variant.MAIN)
         bitmap.recycle()
     }
 
     private fun optimizeOne(heroId: Int) {
         val mainFile = file(heroId, Variant.MAIN)
-        if (!mainFile.exists()) return
+        if (!mainFile.exists()) throw IOException(
+            "Cannot optimize hero $heroId: hero.main.png not found — run Download first"
+        )
         // Skip early if both derived variants already exist — avoids unnecessary bitmap decode
         // and re-write on repeated "Optimize" taps or PortraitPrefetchWorker re-runs.
         val needPick = !exists(heroId, Variant.PICK)
         val needBan  = !exists(heroId, Variant.BAN)
         if (!needPick && !needBan) return
-        val mainBitmap = BitmapFactory.decodeFile(mainFile.absolutePath) ?: return
-        if (needPick) saveScaled(mainBitmap, heroId, Variant.PICK)
-        if (needBan)  saveScaled(mainBitmap, heroId, Variant.BAN)
-        mainBitmap.recycle()
+        val mainBitmap = BitmapFactory.decodeFile(mainFile.absolutePath)
+            ?: throw IOException("Failed to decode hero.main.png for hero $heroId — file may be corrupt")
+        try {
+            if (needPick) saveScaled(mainBitmap, heroId, Variant.PICK)
+            if (needBan)  saveScaled(mainBitmap, heroId, Variant.BAN)
+        } finally {
+            mainBitmap.recycle()
+        }
     }
 
     private fun saveScaled(source: Bitmap, heroId: Int, variant: Variant) {
         val target = variant.maxDimensionPx
-        val scaled = if (source.width == target && source.height == target) {
-            source
+        // Scale to fit within `target` on the longest side, preserving aspect ratio.
+        // The previous square-forced path (createScaledBitmap(source, target, target))
+        // distorted non-square CDN portraits on both axes, degrading display quality
+        // and skewing the reference hashes used by PortraitMatcher.
+        val scaled = if (source.width <= target && source.height <= target) {
+            source // already small enough — no scale needed
         } else {
-            Bitmap.createScaledBitmap(source, target, target, true)
+            val ratio = minOf(target.toFloat() / source.width, target.toFloat() / source.height)
+            val w = (source.width  * ratio).toInt().coerceAtLeast(1)
+            val h = (source.height * ratio).toInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(source, w, h, true)
         }
         // Write to a sibling temp file first, then rename atomically.
         // A direct write to the destination leaves a partially-written PNG on crash/OOM —
@@ -168,18 +200,36 @@ class PortraitAssetManager @Inject constructor(
         val tmpFile  = File(destFile.parentFile, "${variant.fileName}.tmp")
         try {
             FileOutputStream(tmpFile).use { out ->
-                scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
+                // compress() returns false on failure (e.g. OOM during encoding).
+                // Previously the return value was ignored, leaving a zero-byte or
+                // truncated PNG that passed the exists() && length() > 0 guard.
+                val ok = scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
+                if (!ok) throw IOException(
+                    "Bitmap.compress failed for hero $heroId variant ${variant.fileName}"
+                )
             }
-            tmpFile.renameTo(destFile)
+            // renameTo() returns false without throwing when it cannot move the file.
+            // Previously a false return silently deleted the tmp file in the finally
+            // block, discarding the written data with no error surfaced to the caller.
+            if (!tmpFile.renameTo(destFile)) throw IOException(
+                "Atomic rename failed for hero $heroId variant ${variant.fileName}"
+            )
         } finally {
             tmpFile.delete() // no-op if rename succeeded; cleans up on failure
         }
         if (scaled !== source) scaled.recycle()
     }
 
-    private suspend fun fetchBitmap(url: String): Bitmap? = runCatching {
+    /**
+     * Fetches a [Bitmap] from [url] via Coil. Throws [IOException] on any failure —
+     * network error, non-2xx response, decode failure, or a non-[SuccessResult] from Coil —
+     * so callers don't have to guard against a silent null return.
+     */
+    private suspend fun fetchBitmap(url: String): Bitmap {
         val request = ImageRequest.Builder(context).data(url).build()
-        val result = imageLoader.execute(request)
-        (result as? SuccessResult)?.image?.toBitmap()
-    }.getOrNull()
+        val result  = runCatching { imageLoader.execute(request) }
+            .getOrElse { cause -> throw IOException("Network error fetching $url", cause) }
+        return (result as? SuccessResult)?.image?.toBitmap()
+            ?: throw IOException("Coil did not return a success result for $url (got ${result::class.simpleName})")
+    }
 }

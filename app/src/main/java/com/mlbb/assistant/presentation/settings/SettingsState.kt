@@ -40,5 +40,7 @@ data class SettingsState(
     val portraitOptimizedCount: Int   = 0,
     val portraitTaskRunning: Boolean  = false,
     val portraitTaskLabel: String     = "",
-    val portraitTaskProgress: Float   = 0f // 0f..1f, only meaningful while portraitTaskRunning
+    val portraitTaskProgress: Float   = 0f, // 0f..1f, only meaningful while portraitTaskRunning
+    /** Non-null when the last portrait task failed; cleared when a new task starts. */
+    val portraitTaskError: String?    = null
 )

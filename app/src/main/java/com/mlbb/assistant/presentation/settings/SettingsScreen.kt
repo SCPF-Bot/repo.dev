@@ -231,10 +231,11 @@ fun SettingsScreen(
                 subtitle = "hero.main / hero.pick / hero.ban — used for UI and slot detection"
             ) {
                 PortraitAssetsSection(
-                    state      = state,
-                    onDownload = { viewModel.downloadPortraits() },
-                    onOptimize = { viewModel.optimizePortraits() },
-                    onRefresh  = { viewModel.refreshPortraits() }
+                    state         = state,
+                    onDownload    = { viewModel.downloadPortraits() },
+                    onOptimize    = { viewModel.optimizePortraits() },
+                    onRefresh     = { viewModel.refreshPortraits() },
+                    onClearError  = { viewModel.clearPortraitTaskError() }
                 )
             }
 
