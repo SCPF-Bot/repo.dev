@@ -73,6 +73,14 @@ class OverlayStateHolder @Inject constructor(
     val isExpanded      = mutableStateOf(false)
     val isBanTurn       = mutableStateOf(false)
 
+    // ── Self-status banners (todo.md §7) ──────────────────────────────────────
+    // Written by OverlayCaptureCoordinator (captureUnavailable) and the
+    // accessibility watchdog (accessibilityOff); metaStale is derived locally
+    // from GetHeroesUseCase's last-sync timestamp.
+    val captureUnavailable = mutableStateOf(false)
+    val accessibilityOff   = mutableStateOf(false)
+    val metaStaleDays      = mutableStateOf<Int?>(null)
+
     // ── Scoring configuration (kept in sync with Settings/Room) ──────────────
     @Volatile var currentWeights: ScoreWeights = ScoreWeights.DEFAULT
         private set
@@ -382,4 +390,21 @@ class OverlayStateHolder @Inject constructor(
 
     // Expose session flow for the coordinator
     fun sessionValue(): DraftSession = draftSessionManager.session.value
+
+    // ── Self-status banner setters (todo.md §7) ───────────────────────────────
+
+    /** Called by [OverlayCaptureCoordinator] when [com.mlbb.assistant.service.ScreenCaptureManager] reports revocation. */
+    fun setCaptureUnavailable(unavailable: Boolean) {
+        captureUnavailable.value = unavailable
+    }
+
+    /** Called by the accessibility watchdog (see [com.mlbb.assistant.capture.PhaseDetectionConfig.WATCHDOG_INTERVAL_MS]). */
+    fun setAccessibilityOff(off: Boolean) {
+        accessibilityOff.value = off
+    }
+
+    /** Called once hero data has loaded, from the timestamp used by [com.mlbb.assistant.data.sync.HeroSyncWorker]. */
+    fun setMetaStaleDays(days: Int?) {
+        metaStaleDays.value = days
+    }
 }

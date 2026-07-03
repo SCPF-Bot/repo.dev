@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mlbb.assistant.domain.advisor.BanSuggestion
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.engine.DraftSession
@@ -58,7 +59,10 @@ fun MiniWidget(
     onRestartDraft:   () -> Unit,
     onHeroSelected:   (Hero) -> Unit,
     onStartDraft:     (ourTeamFirst: Boolean) -> Unit,
-    onNextPhase:      () -> Unit = {}
+    onNextPhase:      () -> Unit = {},
+    captureUnavailable: Boolean = false,
+    accessibilityOff:   Boolean = false,
+    metaStaleDays:      Int?    = null
 ) {
     var showScorePanel by remember { mutableStateOf(false) }
 
@@ -92,6 +96,12 @@ fun MiniWidget(
             )
 
             HRule(alpha = 0.15f)
+
+            StatusBanners(
+                captureUnavailable = captureUnavailable,
+                accessibilityOff   = accessibilityOff,
+                metaStaleDays      = metaStaleDays
+            )
 
             Column(
                 modifier = Modifier
@@ -156,4 +166,47 @@ fun MiniWidget(
 @Composable
 internal fun HRule(alpha: Float = 0.15f) {
     Box(Modifier.fillMaxWidth().height(1.dp).background(MLBBGold.copy(alpha = alpha)))
+}
+
+/**
+ * todo.md §7 — Self-status banners: "capture unavailable", "meta data stale
+ * (N days)", "accessibility service off". Stacked so more than one condition
+ * can be surfaced at once (e.g. capture revoked AND accessibility off).
+ * Backed by [OverlayStateHolder.captureUnavailable] / `.accessibilityOff` /
+ * `.metaStaleDays`, written by [OverlayCaptureCoordinator] and the
+ * accessibility watchdog respectively.
+ */
+@Composable
+internal fun StatusBanners(
+    captureUnavailable: Boolean,
+    accessibilityOff:   Boolean,
+    metaStaleDays:      Int?
+) {
+    val staleThresholdDays = 7
+    val messages = buildList {
+        if (captureUnavailable) add("⚠ Capture unavailable — re-open the app to resume detection")
+        if (accessibilityOff) add("⚠ Accessibility service off — manual entry only")
+        if (metaStaleDays != null && metaStaleDays >= staleThresholdDays) {
+            add("ℹ Meta data stale ($metaStaleDays days)")
+        }
+    }
+    if (messages.isEmpty()) return
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        messages.forEach { msg ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MLBBGold.copy(alpha = 0.12f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                androidx.compose.material3.Text(
+                    text     = msg,
+                    color    = MLBBGold,
+                    fontSize = 11.sp
+                )
+            }
+        }
+        HRule(alpha = 0.12f)
+    }
 }

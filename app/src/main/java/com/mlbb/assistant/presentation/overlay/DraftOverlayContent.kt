@@ -50,7 +50,10 @@ fun DraftOverlayContent() {
                 onRestartDraft  = { holder.handleRestartDraft() },
                 onHeroSelected  = { hero -> holder.handleManualHeroSelection(hero) },
                 onStartDraft    = { ourTeamFirst -> holder.handleManualDraftStart(ourTeamFirst) },
-                onNextPhase     = { holder.handleManualPhaseAdvance() }
+                onNextPhase     = { holder.handleManualPhaseAdvance() },
+                captureUnavailable = holder.captureUnavailable.value,
+                accessibilityOff   = holder.accessibilityOff.value,
+                metaStaleDays      = holder.metaStaleDays.value
             )
         } else {
             FloatingBubble(

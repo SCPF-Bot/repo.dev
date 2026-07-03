@@ -135,7 +135,7 @@ class PortraitMatcher(
                             bmp.recycle()
                         }
 
-                        if (PhaseDetectionConfig.USE_SLOT_AWARE_HASH &&
+                        if (CvFeatureFlags.useSlotAwareHash &&
                             (!slotAwareHasher.hasCached(hero.id, SlotType.PICK) ||
                                 !slotAwareHasher.hasCached(hero.id, SlotType.BAN))
                         ) {
@@ -251,7 +251,7 @@ class PortraitMatcher(
         }
 
         // ── 2. Slot-aware triple-hash fusion (recommendations.md §5.2–5.3) ──
-        if (PhaseDetectionConfig.USE_SLOT_AWARE_HASH) {
+        if (CvFeatureFlags.useSlotAwareHash) {
             val normalized = PortraitNormalizer.normalizeForSlot(slotBitmap, slotType)
             val slotHash = try {
                 slotAwareHasher.computeTripleHash(normalized)
@@ -280,9 +280,20 @@ class PortraitMatcher(
                     // Temporal consensus (recommendations.md §5.4): a plurality vote across
                     // the last few frames, independent of applyConfirmation()'s stricter
                     // "same heroId N times in a row" streak — one noisy frame won't reset it.
-                    if (slotKey.isNotEmpty()) consensusManager.update(slotKey, matchedHero.id, fusedSim)
-                    val consensus = if (slotKey.isNotEmpty()) consensusManager.confirm(slotKey) else null
+                    // §5 kill-switch: CvFeatureFlags.enableTemporalConsensus allows disabling
+                    // this tier independently if it regresses accuracy in production.
+                    val consensusEnabled = CvFeatureFlags.enableTemporalConsensus
+                    if (consensusEnabled && slotKey.isNotEmpty()) consensusManager.update(slotKey, matchedHero.id, fusedSim)
+                    val consensus = if (consensusEnabled && slotKey.isNotEmpty()) consensusManager.confirm(slotKey) else null
                     val consensusConfirmsHero = consensus?.first == matchedHero.id
+
+                    // §6 P3-observability: structured event for detection-accuracy tuning
+                    // (todo.md §6, tag CV_MIGRATION). Logs the calibrated threshold used so
+                    // hero_thresholds.json recalibrations can be validated in production logs.
+                    Timber.tag("CV_MIGRATION").d(
+                        "slot=%s heroId=%d confidence=%.3f matchedDistance=%.3f threshold=%.3f",
+                        slotKey, matchedHero.id, fusedSim, 1f - fusedSim, acceptThreshold
+                    )
 
                     return when {
                         isHighConf || consensusConfirmsHero -> {
@@ -306,6 +317,10 @@ class PortraitMatcher(
         }
 
         // ── 3. pHash + histogram fallback (legacy path, kept per recommendations.md §5.3 step 3) ──
+        if (!CvFeatureFlags.tfliteFallbackEnabled) {
+            val confirmedHero = applyConfirmation(slotKey, -1, null)
+            return MatchResult(confirmedHero, 0f, requiresConfirmation = true)
+        }
         val slotDHash     = PerceptualHash.compute(slotBitmap)
         val slotPHash     = PerceptualHash.computePHash(slotBitmap)
         val slotHistogram = computeHistogram(slotBitmap)

@@ -173,6 +173,16 @@ class OverlayCaptureCoordinator @Inject constructor(
         frameCounter.set(0)
         PhaseDetector.resetHistory()
         if (::portraitMatcher.isInitialized) portraitMatcher.resetConfirmation()
+        stateHolder.setCaptureUnavailable(false)
+
+        // todo.md §2/§7: surface MediaProjection revocation as an overlay banner
+        // instead of silently freezing the last frame. captureRevoked flips true
+        // exactly once, from ScreenCaptureManager.MediaProjection.Callback.onStop.
+        scope.launch {
+            screenCaptureManager.captureRevoked.collect { revoked ->
+                stateHolder.setCaptureUnavailable(revoked)
+            }
+        }
 
         // TD-16: Observe the user-selected AspectRatioPreset and recompute the
         // horizontal content-inset whenever the preference changes.  The inset is
@@ -204,6 +214,7 @@ class OverlayCaptureCoordinator @Inject constructor(
         if (::screenCaptureManager.isInitialized) {
             screenCaptureManager.stopCapture()
         }
+        stateHolder.setCaptureUnavailable(false)
     }
 
     // ── Capture loop ──────────────────────────────────────────────────────────

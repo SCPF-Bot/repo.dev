@@ -96,10 +96,19 @@ object DraftScorer {
      * This is the **canonical production scoring path**. Use this function —
      * not [computeScore] — in all non-test callers. See [computeScore] KDoc.
      *
+     * §3 P2-03: [simplified] unifies the previously-separate [computeScore] entry
+     * point. When `true`, this returns a [HeroScore] built from the simplified
+     * three-term linear formula (see [simplifiedScore]) instead of the full
+     * adaptive/positional/proficiency pipeline. [computeScore] is now a thin
+     * wrapper delegating to [simplifiedScore] and is kept only for existing
+     * test call sites — new callers should prefer `score(..., simplified = true)`.
+     *
      * @param pickIndex     0-based index of the current pick in the sequence.
      * @param maxPickIndex  Total picks in the draft (default 10 for 5v5).
      * @param poolMap       Personal hero pool proficiency map (TD-02).
      * @param bounds        Dataset-derived normalisation bounds (TD-05).
+     * @param simplified    When true, skip adaptive weighting/positional modifiers/
+     *                      proficiency multiplier and score using [simplifiedScore].
      */
     fun score(
         candidate: Hero,
@@ -112,8 +121,24 @@ object DraftScorer {
         pickIndex: Int = 0,
         maxPickIndex: Int = 10,
         poolMap: Map<Int, Proficiency> = emptyMap(),
-        bounds: ScoreBounds = ScoreBounds.DEFAULT
+        bounds: ScoreBounds = ScoreBounds.DEFAULT,
+        simplified: Boolean = false
     ): HeroScore {
+
+        if (simplified) {
+            val simple = simplifiedScore(candidate, alliedPicks, enemyPicks, weights)
+            val reason = buildReason(candidate, alliedPicks, enemyPicks, missingLanes)
+            return HeroScore(
+                hero        = candidate,
+                totalScore  = simple.toFloat().coerceIn(0f, 1f),
+                metaScore   = 0f,
+                synergyScore = 0f,
+                counterScore = 0f,
+                roleScore   = 0f,
+                badgeLabel  = "◎ BALANCED",
+                reason      = reason
+            )
+        }
 
         // Adaptive weights: shift from meta-heavy → synergy+counter-heavy.
         val adaptedWeights = adaptiveWeights(weights, pickIndex, maxPickIndex)
@@ -174,12 +199,25 @@ object DraftScorer {
      * from [score]/[rankAll] and MUST NOT be used in the production recommendation
      * path or compared against [HeroScore.totalScore] values from [rankAll].
      *
-     * P2-03 fix: annotated with [@VisibleForTesting] and expanded KDoc to make
-     * the dual-entry-point risk explicit. The correct fix long-term is to replace
-     * this with a `simplified = true` parameter on [score], tracked in todo.md §3.
+     * §3 P2-03: [score] and [computeScore] are now unified behind a single
+     * implementation — [simplifiedScore]. This function is a thin
+     * [@VisibleForTesting] wrapper kept for existing test call sites that assert
+     * on a raw [Double]; new callers should use `score(..., simplified = true)`.
      */
     @VisibleForTesting
     fun computeScore(
+        hero: Hero,
+        allies: List<Hero>,
+        enemies: List<Hero>,
+        weights: ScoreWeights
+    ): Double = simplifiedScore(hero, allies, enemies, weights)
+
+    /**
+     * Shared implementation backing both [computeScore] and
+     * `score(..., simplified = true)`. See [computeScore] KDoc for the formula's
+     * limitations and intended usage.
+     */
+    private fun simplifiedScore(
         hero: Hero,
         allies: List<Hero>,
         enemies: List<Hero>,

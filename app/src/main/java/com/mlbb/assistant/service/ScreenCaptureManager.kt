@@ -44,9 +44,21 @@ class ScreenCaptureManager(private val context: Context) {
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
+    private var projectionCallback: MediaProjection.Callback? = null
 
     private val _isCapturing = MutableStateFlow(false)
     val isCapturing: StateFlow<Boolean> = _isCapturing.asStateFlow()
+
+    /**
+     * §2 — Surfaces MediaProjection revocation to callers so the overlay can show
+     * a "capture unavailable" status banner instead of silently freezing the
+     * last-seen frame. Set to `true` exactly when [_isCapturing] transitions to
+     * `false` via [MediaProjection.Callback.onStop] (system-revoked token —
+     * screen-record notification dismissed, other app started, etc.) rather than
+     * via an explicit [stopCapture] call.
+     */
+    private val _captureRevoked = MutableStateFlow(false)
+    val captureRevoked: StateFlow<Boolean> = _captureRevoked.asStateFlow()
 
     var screenWidth:  Int = 0
         private set
@@ -77,7 +89,29 @@ class ScreenCaptureManager(private val context: Context) {
 
     fun startCapture(resultCode: Int, data: Intent) {
         val mpm = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = mpm.getMediaProjection(resultCode, data)
+        val projection = mpm.getMediaProjection(resultCode, data)
+        mediaProjection = projection
+        _captureRevoked.value = false
+
+        // §2 — Register a Callback so we notice when the platform (not us) tears
+        // down the projection: user dismissed the "screen is being recorded"
+        // notification, another app requested a new projection, or (Android 15+)
+        // any backgrounding of the owning process. Without this, captureFrame()
+        // would just start silently returning null/stale frames with no signal
+        // to the UI. Callback fires on the main thread per MediaProjection docs.
+        val callback = object : MediaProjection.Callback() {
+            override fun onStop() {
+                virtualDisplay?.release()
+                imageReader?.close()
+                virtualDisplay = null
+                imageReader    = null
+                mediaProjection = null
+                _isCapturing.value    = false
+                _captureRevoked.value = true
+            }
+        }
+        projectionCallback = callback
+        projection.registerCallback(callback, null)
 
         // P0-01 fix: capture imageReader into a local val immediately after construction.
         // The field `imageReader` is a mutable var; if stopCapture() is called on another
@@ -95,6 +129,11 @@ class ScreenCaptureManager(private val context: Context) {
         )
 
         _isCapturing.value = true
+    }
+
+    /** Clears the revoked-capture flag once the overlay has re-acquired a token and resumed. */
+    fun clearRevokedFlag() {
+        _captureRevoked.value = false
     }
 
     /** Grab the latest frame. Returns null if no frame available yet. */
@@ -121,6 +160,8 @@ class ScreenCaptureManager(private val context: Context) {
     }
 
     fun stopCapture() {
+        projectionCallback?.let { mediaProjection?.unregisterCallback(it) }
+        projectionCallback = null
         virtualDisplay?.release()
         imageReader?.close()
         mediaProjection?.stop()
@@ -128,5 +169,8 @@ class ScreenCaptureManager(private val context: Context) {
         imageReader      = null
         mediaProjection  = null
         _isCapturing.value = false
+        // Explicit stopCapture() is a normal lifecycle event (service onDestroy,
+        // manual toggle) — not a revocation, so don't flag it as one.
+        _captureRevoked.value = false
     }
 }
