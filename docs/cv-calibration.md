@@ -1,4 +1,4 @@
-# Misc CV Calibration
+# CV Calibration Workflow
 
 > Companion to [`todo.md`](./todo.md) §9 and §10. Read [`overview.md`](./overview.md)
 > first for the overall CV pipeline architecture (`PhaseDetector` → `PortraitMatcher`
