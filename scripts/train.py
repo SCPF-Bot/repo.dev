@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 """
-MLBB Unified Training Pipeline (All-in-One)
-===========================================
+MLBB Unified Training Pipeline (Focused)
+========================================
 1. Downloads CDN hero portraits.
-2. Generates YOLO dataset (UI elements + pasted heroes) in scripts/temp/.
-3. Trains YOLOv8-Nano for UI Detection and exports to TFLite.
-4. Generates MobileNet dataset (hero variants) in memory.
-5. Trains MobileNetV3Small for Hero Classification and exports to TFLite.
+2. Generates YOLO dataset focused ONLY on detecting heroes in:
+   - Banned slots (Top)
+   - Ally pick slots (Left)
+   - Enemy pick slots (Right)
+3. Trains YOLOv8-Nano and exports to TFLite.
+4. Generates MobileNet dataset and trains Hero Classifier.
 """
 
-# ==============================================================================
-# CRITICAL CI/CD FIXES: Prevent thread oversubscription and CUDA segfaults
-# Must be set BEFORE importing torch, tensorflow, or ultralytics
-# ==============================================================================
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"       # Hide GPUs to prevent CUDA stub segfaults
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -31,46 +29,34 @@ from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 from pathlib import Path
 from tqdm import tqdm
 
-# TensorFlow / Keras (MobileNet)
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, applications
 from tensorflow.keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
-
-# Ultralytics (YOLO)
 from ultralytics import YOLO
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
 CONFIG = {
     'json_path': 'app/src/main/res/raw/default_heroes.json',
     'output_dir': 'app/src/main/assets',
     'portraits_dir': 'app/src/main/assets/portraits',
     'yolo_temp_dir': 'scripts/temp',
     
-    # MobileNet Config (Reduced to prevent OOM on 7GB CI runners)
     'size_main': 224,
-    'epochs_mobilenet': 30,       # Reduced from 60
-    'batch_size_mobilenet': 8,    # Reduced from 16
+    'epochs_mobilenet': 30,
+    'batch_size_mobilenet': 8,
     'lr_mobilenet': 0.0005,
     'augmentation_factor': 20,
     
-    # YOLO Config (Reduced to strictly prevent OOM segfaults)
     'num_yolo_images': 2000,
-    'epochs_yolo': 50,            # Reduced from 100
-    'imgsz_yolo': 416,            # Reduced from 640 to 416
+    'epochs_yolo': 50,
+    'imgsz_yolo': 416,
     
-    # TFLite Outputs
     'mobilenet_tflite': 'mlbb_hero_classifier.tflite',
     'mobilenet_labels': 'hero_classifier_labels.txt',
     'yolo_tflite': 'mlbb_ui_detector.tflite',
 }
 
-# ==========================================
-# 1. DATA ACQUISITION
-# ==========================================
 def load_heroes():
     print(f"\n[1/6] Loading hero data...")
     with open(CONFIG['json_path'], 'r', encoding='utf-8') as f:
@@ -99,14 +85,11 @@ def download_portraits(heroes):
                 img.save(main_path)
             valid_heroes.append({'id': hero_id, 'name': hero_name})
         except Exception as e:
-            print(f"\n✗ Failed {hero_name}: {e}")
+            print(f"\n Failed {hero_name}: {e}")
             
     print(f"✓ Prepared {len(valid_heroes)} heroes")
     return valid_heroes
 
-# ==========================================
-# 2. SHARED UTILITIES
-# ==========================================
 def apply_screen_capture_artifacts(img):
     img = img.copy()
     quality = random.randint(70, 95)
@@ -126,109 +109,86 @@ def apply_screen_capture_artifacts(img):
         img = Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
     return img
 
-# ==========================================
-# 3. YOLO PIPELINE (UI DETECTION)
-# ==========================================
 def generate_and_train_yolo(valid_heroes):
-    print(f"\n[3/6] Generating YOLO Dataset & Training UI Detector...")
+    print(f"\n[3/6] Generating Focused YOLO Dataset & Training...")
     
     yolo_dir = Path(CONFIG['yolo_temp_dir'])
     img_dir, lbl_dir = yolo_dir / 'images', yolo_dir / 'labels'
     img_dir.mkdir(parents=True, exist_ok=True)
     lbl_dir.mkdir(parents=True, exist_ok=True)
     
-    CLASSES = ['ban_slot', 'pick_slot', 'timer', 'phase_banner', 'enemy_hero', 'ally_hero']
+    # ONLY the 3 classes we care about
+    CLASSES = ['banned_hero', 'ally_hero', 'enemy_hero']
     main_dir = Path(CONFIG['portraits_dir']) / 'main'
     
-    # Load hero images to paste into YOLO frames
+    # Load a subset of hero portraits to paste
     hero_imgs = [Image.open(main_dir / f"{h['id']}.png").convert('RGB') for h in valid_heroes[:20]]
     
-    # UI Layout Definitions (cx, cy, w, h) for 1280x720
-    STATIC_UI = [
-        ('ban_slot', 640, 60, 40, 40), ('ban_slot', 690, 60, 40, 40), ('ban_slot', 740, 60, 40, 40),
-        ('phase_banner', 640, 30, 200, 40), ('timer', 1200, 60, 60, 40),
-    ]
-    ALLY_SLOTS = [(100, y, 80, 80) for y in range(200, 700, 100)]
-    ENEMY_SLOTS = [(1180, y, 80, 80) for y in range(200, 700, 100)]
+    # Coordinates for 1280x720 canvas (cx, cy, w, h)
+    BAN_SLOTS = [(540, 50, 45, 45), (595, 50, 45, 45), (640, 50, 45, 45), (685, 50, 45, 45), (740, 50, 45, 45)]
+    ALLY_SLOTS = [(80, 150, 90, 90), (80, 270, 90, 90), (80, 390, 90, 90), (80, 510, 90, 90), (80, 630, 90, 90)]
+    ENEMY_SLOTS = [(1200, 150, 90, 90), (1200, 270, 90, 90), (1200, 390, 90, 90), (1200, 510, 90, 90), (1200, 630, 90, 90)]
 
     for i in tqdm(range(CONFIG['num_yolo_images']), desc="YOLO Data"):
+        # Dark draft background
         bg = (random.randint(10, 30), random.randint(10, 30), random.randint(20, 40))
         img = Image.new('RGB', (1280, 720), color=bg)
-        draw = ImageDraw.Draw(img)
         labels = []
         
-        # Draw static UI
-        for cls, cx, cy, w, h in STATIC_UI:
-            jx, jy = random.randint(-15, 15), random.randint(-15, 15)
-            cx, cy = cx + jx, cy + jy
-            if cls == 'ban_slot':
-                draw.ellipse([cx-w//2, cy-h//2, cx+w//2, cy+h//2], fill=(50,50,50), outline=(100,100,100), width=3)
-            elif cls == 'timer':
-                draw.rectangle([cx-w//2, cy-h//2, cx+w//2, cy+h//2], fill=(0,0,0))
-            elif cls == 'phase_banner':
-                draw.rectangle([cx-w//2, cy-h//2, cx+w//2, cy+h//2], fill=(30,60,90))
-            labels.append(f"{CLASSES.index(cls)} {cx/1280:.4f} {cy/720:.4f} {w/1280:.4f} {h/720:.4f}")
-            
-        # Draw empty slots
-        for slot in ALLY_SLOTS + ENEMY_SLOTS:
-            cx, cy, w, h = slot
-            draw.ellipse([cx-w//2, cy-h//2, cx+w//2, cy+h//2], fill=(40,40,40), outline=(80,80,80), width=2)
-            
-        # Paste Heroes
-        for slot, cls_name in [(ALLY_SLOTS, 'ally_hero'), (ENEMY_SLOTS, 'enemy_hero')]:
-            for cx, cy, w, h in slot:
-                jx, jy = random.randint(-10, 10), random.randint(-10, 10)
-                cx, cy = cx + jx, cy + jy
-                if hero_imgs:
-                    hero_img = random.choice(hero_imgs).resize((w, h), Image.LANCZOS)
-                    hero_img = apply_screen_capture_artifacts(hero_img)
-                    img.paste(hero_img, (cx - w//2, cy - h//2))
-                labels.append(f"{CLASSES.index(cls_name)} {cx/1280:.4f} {cy/720:.4f} {w/1280:.4f} {h/720:.4f}")
+        # Helper to process a list of slots for a specific class
+        def process_slots(slots, class_name):
+            for cx, cy, w, h in slots:
+                # Randomly decide if this slot is active (has a hero) in this frame
+                if random.random() > 0.4: 
+                    jx = random.randint(-8, 8)
+                    jy = random.randint(-8, 8)
+                    final_cx, final_cy = cx + jx, cy + jy
+                    
+                    if hero_imgs:
+                        hero_img = random.choice(hero_imgs).resize((w, h), Image.LANCZOS)
+                        hero_img = apply_screen_capture_artifacts(hero_img)
+                        img.paste(hero_img, (final_cx - w//2, final_cy - h//2))
+                    
+                    class_id = CLASSES.index(class_name)
+                    labels.append(f"{class_id} {final_cx/1280:.4f} {final_cy/720:.4f} {w/1280:.4f} {h/720:.4f}")
+
+        process_slots(BAN_SLOTS, 'banned_hero')
+        process_slots(ALLY_SLOTS, 'ally_hero')
+        process_slots(ENEMY_SLOTS, 'enemy_hero')
                 
         img.save(img_dir / f"syn_{i:04d}.jpg")
         with open(lbl_dir / f"syn_{i:04d}.txt", 'w') as f:
             f.write('\n'.join(labels))
 
-    # Create dataset.yaml for YOLO
     dataset_yaml = yolo_dir / 'dataset.yaml'
     with open(dataset_yaml, 'w') as f:
         yaml.dump({'path': str(yolo_dir.absolute()), 'train': 'images', 'val': 'images', 'nc': len(CLASSES), 'names': CLASSES}, f)
 
-    # Train YOLO
-    print("Training YOLOv8-Nano...")
+    print("Training YOLOv8-Nano (Focused)...")
     yolo_model = YOLO('yolov8n.pt')
     
-    # CRITICAL FIXES FOR GITHUB ACTIONS:
-    # workers=0 -> Disables multiprocessing to prevent /dev/shm segfaults
-    # device='cpu' -> Explicitly force CPU to avoid CUDA fallback warnings/errors
-    # batch=4 -> Reduced batch size to strictly prevent RAM OOM on 7GB CI runners
     yolo_model.train(
         data=str(dataset_yaml),
         epochs=CONFIG['epochs_yolo'],
         imgsz=CONFIG['imgsz_yolo'],
-        batch=4,       
-        workers=0,     
-        device='cpu',  
+        batch=4,
+        workers=0,
+        device='cpu',
         project=str(yolo_dir),
         name='yolo_train',
         exist_ok=True,
         verbose=False
     )
     
-    # Export YOLO to TFLite
     best_pt = yolo_dir / 'yolo_train' / 'weights' / 'best.pt'
     yolo_model = YOLO(str(best_pt))
     yolo_model.export(format='tflite', int8=True)
     
-    # Move to assets
     generated_tflite = best_pt.with_suffix('.tflite')
     final_yolo_path = Path(CONFIG['output_dir']) / CONFIG['yolo_tflite']
     generated_tflite.rename(final_yolo_path)
     print(f"✓ YOLO TFLite saved to {final_yolo_path}")
 
-# ==========================================
-# 4. MOBILENET PIPELINE (HERO CLASSIFICATION)
-# ==========================================
 def create_ban_overlay(img):
     img = img.copy()
     draw = ImageDraw.Draw(img)
@@ -308,12 +268,9 @@ def train_mobilenet(valid_heroes):
         f.write("\n".join(labels))
     print(f"✓ Labels saved to {labels_path}")
 
-# ==========================================
-# MAIN EXECUTION
-# ==========================================
 def main():
     print("=" * 60)
-    print("MLBB UNIFIED TRAINING PIPELINE (YOLO + MOBILENET)")
+    print("MLBB FOCUSED TRAINING PIPELINE")
     print("=" * 60)
     
     heroes = load_heroes()
