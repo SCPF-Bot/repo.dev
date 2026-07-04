@@ -1,9 +1,14 @@
 package com.mlbb.assistant.data.worker
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.mlbb.assistant.R
 import com.mlbb.assistant.data.local.preferences.PortraitPrefetchPreference
 import com.mlbb.assistant.data.portrait.PortraitAssetManager
 import com.mlbb.assistant.domain.model.Hero
@@ -45,10 +50,39 @@ class PortraitPrefetchWorker @AssistedInject constructor(
     private val portraitAssetManager: PortraitAssetManager,
 ) : CoroutineWorker(context, params) {
 
+    /**
+     * Promotes this worker to a foreground service so Android grants it full network
+     * access. Plain background workers are killed or network-restricted on many vendor
+     * ROMs (MIUI, HyperOS, ColorOS, OxygenOS) — exactly the devices MLBB players use.
+     * Running as a foreground service matches the same network priority the old version
+     * relied on via [com.mlbb.assistant.presentation.overlay.OverlayService].
+     */
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
+                as NotificationManager
+        if (nm.getNotificationChannel(NOTIF_CHANNEL) == null) {
+            nm.createNotificationChannel(
+                NotificationChannel(NOTIF_CHANNEL, "Portrait Download",
+                    NotificationManager.IMPORTANCE_LOW)
+            )
+        }
+        val notif = NotificationCompat.Builder(applicationContext, NOTIF_CHANNEL)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Downloading hero portraits…")
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+        return ForegroundInfo(NOTIF_ID, notif)
+    }
+
     override suspend fun doWork(): Result {
         if (PortraitPrefetchPreference.isDone(applicationContext)) {
             return Result.success()
         }
+
+        // Elevate to foreground service before any network calls so Android grants
+        // full network access regardless of battery optimisation / vendor ROM policy.
+        setForeground(getForegroundInfo())
 
         Timber.d("PortraitPrefetchWorker: starting first-launch portrait prefetch (attempt ${runAttemptCount + 1})")
         return try {
@@ -88,5 +122,8 @@ class PortraitPrefetchWorker @AssistedInject constructor(
 
         /** Maximum retry attempts before marking the work as permanently failed for this launch. */
         private const val MAX_RETRY_ATTEMPTS = 3
+
+        private const val NOTIF_CHANNEL = "portrait_prefetch_channel"
+        private const val NOTIF_ID      = 2
     }
 }
