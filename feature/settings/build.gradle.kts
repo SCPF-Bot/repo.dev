@@ -54,6 +54,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel)
 
+    // DataStore — SettingsViewModel injects DataStore<Preferences> directly
+    implementation(libs.datastore.preferences)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
