@@ -124,6 +124,14 @@
                 tools:node="remove" />
         </provider>
 
+        <!-- WorkManager's SystemForegroundService must declare an explicit type on
+             targetSdk 34+ — "type none" is banned. We override via manifest merger
+             to add dataSync so ForegroundInfo(DATA_SYNC) is accepted at runtime. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
     </application>
 
 </manifest>

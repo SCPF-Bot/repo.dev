@@ -3,6 +3,7 @@ package com.mlbb.assistant.data.worker
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -72,7 +73,7 @@ class PortraitPrefetchWorker @AssistedInject constructor(
             .setOngoing(true)
             .setSilent(true)
             .build()
-        return ForegroundInfo(NOTIF_ID, notif)
+        return ForegroundInfo(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 
     override suspend fun doWork(): Result {
