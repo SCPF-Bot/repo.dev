@@ -3,23 +3,23 @@ import yaml
 from ultralytics import YOLO
 from pathlib import Path
 
-# --- Configuration based on Master Plan V2.0 (Phase 2) ---
-TEMP_DIR = "./temp"
-IMAGES_DIR = os.path.join(TEMP_DIR, "images")
-LABELS_DIR = os.path.join(TEMP_DIR, "labels")
+# --- Configuration ---
+# Pointing to the scripts/temp directory as requested
+DATASET_DIR = "./scripts/temp" 
+IMAGES_DIR = os.path.join(DATASET_DIR, "images")
+LABELS_DIR = os.path.join(DATASET_DIR, "labels")
 DATASET_YAML = "dataset.yaml"
 OUTPUT_DIR = "./runs/detect/mlbb_yolo_v2"
 
 # Classes defined in Phase 2: The CV Revolution
-# 0: ban_slot, 1: pick_slot, 2: timer, 3: phase_banner, 4: enemy_hero, 5: ally_hero
 CLASSES = ['ban_slot', 'pick_slot', 'timer', 'phase_banner', 'enemy_hero', 'ally_hero']
 
 def setup_dataset():
     """Creates the dataset.yaml file required by YOLO."""
     data = {
-        'path': os.path.abspath(TEMP_DIR), # Root directory
-        'train': 'images', # Relative path to train images
-        'val': 'images',   # Using same images for validation for this demo
+        'path': os.path.abspath(DATASET_DIR), # Root directory for the dataset
+        'train': 'images', 
+        'val': 'images',   
         'nc': len(CLASSES),
         'names': CLASSES
     }
