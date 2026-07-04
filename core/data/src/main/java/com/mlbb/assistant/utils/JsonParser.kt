@@ -1,7 +1,7 @@
 package com.mlbb.assistant.utils
 
 import android.content.Context
-import com.mlbb.assistant.R
+import com.mlbb.assistant.core.data.R
 import com.mlbb.assistant.data.local.database.HeroEntity
 import com.mlbb.assistant.data.remote.dto.HeroDto
 import dagger.hilt.android.qualifiers.ApplicationContext
