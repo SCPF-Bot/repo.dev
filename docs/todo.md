@@ -12,7 +12,7 @@
 
 ## 1. Technical-debt register (TD-xx)
 
-Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-21**.
+Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-22**.
 
 | ID | Item | State | Where |
 |---|---|---|---|
@@ -36,6 +36,7 @@ Inline `TD-xx` tags mark resolved debt at the fix site. Next new item: **TD-21**
 | TD-18 | Local hero portrait asset pipeline: download official CDN portraits once (`hero.main.png`), derive slot-fidelity-matched `hero.pick.png` (128px) / `hero.ban.png` (64px) variants, use them to build per-slot-type reference hashes in `SlotAwareHasher` instead of one shared CENTER hash, and prefer the local MAIN asset over the network URL in the hero-grid UI. Settings screen exposes Download / Optimize / Refresh actions with progress. | done | `data/portrait/PortraitAssetManager.kt`, `capture/SlotAwareHasher.kt`, `capture/PortraitMatcher.kt`, `presentation/common/components/HeroPortrait.kt`, `presentation/settings/components/PortraitAssetsSection.kt`, `presentation/settings/SettingsViewModel.kt` |
 | TD-19 | Local CV feature-flag kill-switch (`useSlotAwareHash` / `enableTemporalConsensus` / `tfliteFallbackEnabled`) between the TFLite / slot-aware-hash / temporal-consensus / legacy pHash tiers, so a bad calibration can be rolled back without a rebuild — see §5 | done | `capture/CvFeatureFlags.kt`, `capture/PortraitMatcher.kt` |
 | TD-20 | Full-offline audit: verified portraits/classifier/meta-sync/crash-log/DB were already offline-safe; evaluated declaring the ML Kit OCR model as an install-time dependency, then **reverted** it — on-demand/lazy is the lower-total-network option since it only downloads for devices that actually trigger OCR fallback, and the app already degrades gracefully without it; added a `CvFeatureFlags.enableOcr` kill-switch wired to a Settings toggle so users can opt out of that one-time download entirely; corrected stale docs (features.md §9.9 network-image claim, todo.md §8.1 dead API URL); flagged the `HeroSyncWorker` doc/code mismatch (see misc.md §14) | done | `docs/misc.md` §14, `docs/features.md` §9.9, `docs/todo.md` §8, `capture/CvFeatureFlags.kt`, `presentation/overlay/OverlayCaptureCoordinator.kt`, `presentation/settings/SettingsViewModel.kt`, `SettingsState.kt`, `SettingsScreen.kt` |
+| TD-21 | Removed the manual "BAN PHASE REFERENCE" screenshot-mapping feature from Settings entirely — confirmed via grep it had no consumers outside its own dialog (not used by the automated capture pipeline) | done | `docs/misc.md` §15, `docs/features.md` §6 (removed row 6.13), `presentation/settings/SettingsScreen.kt`, `SettingsState.kt`, `SettingsViewModel.kt` (deleted `BanPhaseScreenshotSection.kt`, `ScreenMappingDialog.kt`, `MappingSlotModel.kt`) |
 
 ---
 

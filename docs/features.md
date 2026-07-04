@@ -162,7 +162,6 @@ Version: `2.0.0` (versionCode 2) · Last updated: 2026-06-28 (aspect ratio setti
 | 6.11 | Meta board (tier list / meta snapshot) | ✅ | `metaboard/MetaBoardScreen.kt` |
 | 6.12 | Settings (weights, presets, toggles) | ✅ | `settings/SettingsScreen.kt`, `SettingsViewModel.kt`, `SettingsState.kt` |
 | 6.12a | Aspect-ratio picker in Settings — Auto / Standard (16:9) / Widescreen (21:9); plain-language labels + hint text; stored in DataStore | ✅ | `capture/AspectRatioPreset.kt`, `settings/components/AspectRatioSection.kt`, `SettingsState.kt`, `SettingsViewModel.kt` |
-| 6.13 | Screen-region mapping dialog (CV calibration) | ✅ | `settings/components/ScreenMappingDialog.kt` |
 | 6.14 | Permission wizard onboarding | ✅ | `welcome/PermissionWizardScreen.kt` |
 | 6.15 | Crash/debug log viewer | ✅ | `log/LogScreen.kt`, `LogViewModel.kt` |
 

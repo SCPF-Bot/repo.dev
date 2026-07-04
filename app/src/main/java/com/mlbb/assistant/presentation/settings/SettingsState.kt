@@ -20,8 +20,6 @@ data class SettingsState(
     val isCalibrating: Boolean        = false,
 
     val aspectRatioPreset: AspectRatioPreset = AspectRatioPreset.AUTO,
-    val banPhaseScreenshotUri: String = "",
-    val screenMappingJson: String     = "",
 
     /**
      * Whether the ML Kit OCR phase-detection cross-check ([com.mlbb.assistant.capture.PhaseOcrDetector])

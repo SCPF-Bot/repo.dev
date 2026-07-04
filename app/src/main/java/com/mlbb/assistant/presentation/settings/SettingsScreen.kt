@@ -52,11 +52,9 @@ import com.mlbb.assistant.presentation.common.theme.TextSecondary
 import com.mlbb.assistant.presentation.logviewer.LogViewerActivity
 import com.mlbb.assistant.presentation.settings.components.AspectRatioSection
 import com.mlbb.assistant.presentation.settings.components.BanCountRow
-import com.mlbb.assistant.presentation.settings.components.BanPhaseScreenshotSection
 import com.mlbb.assistant.presentation.settings.components.CalibrationSection
 import com.mlbb.assistant.presentation.settings.components.InfoRow
 import com.mlbb.assistant.presentation.settings.components.PermissionRow
-import com.mlbb.assistant.presentation.settings.components.ScreenMappingDialog
 import com.mlbb.assistant.presentation.settings.components.SectionDivider
 import com.mlbb.assistant.presentation.settings.components.ScoringWeightsSection
 import com.mlbb.assistant.presentation.settings.components.SettingsSection
@@ -76,7 +74,6 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showResetDialog   by remember { mutableStateOf(false) }
-    var showMappingDialog by remember { mutableStateOf(false) }
 
     // ── Dialogs ───────────────────────────────────────────────────────────────
 
@@ -96,15 +93,6 @@ fun SettingsScreen(
                     Text("Cancel", color = TextSecondary)
                 }
             }
-        )
-    }
-
-    if (showMappingDialog && state.banPhaseScreenshotUri.isNotBlank()) {
-        ScreenMappingDialog(
-            screenshotUri  = state.banPhaseScreenshotUri,
-            initialMapping = state.screenMappingJson,
-            onDismiss      = { showMappingDialog = false },
-            onSave         = { json -> viewModel.setScreenMapping(json); showMappingDialog = false }
         )
     }
 
@@ -206,16 +194,6 @@ fun SettingsScreen(
             ) {
                 BanCountRow(current = state.defaultRank, onSelected = { viewModel.setDefaultRank(it) })
             }
-
-            // ── Ban phase screenshot ──────────────────────────────────────
-            BanPhaseScreenshotSection(
-                currentUri        = state.banPhaseScreenshotUri,
-                screenMappingJson = state.screenMappingJson,
-                onUriSelected     = { viewModel.setBanPhaseScreenshotUri(it) },
-                onClearUri        = { viewModel.setBanPhaseScreenshotUri("") },
-                onOpenMapping     = { showMappingDialog = true },
-                onClearMapping    = { viewModel.setScreenMapping("") }
-            )
 
             // ── Logs ──────────────────────────────────────────────────────
             SettingsSection(

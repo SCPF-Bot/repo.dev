@@ -25,6 +25,7 @@
 12. [`PickPhaseContent` pick-success animation](#12-pickphasecontent-pick-success-animation)
 13. [TFLite hero classifier integration (TD-15)](#13-tflite-hero-classifier-integration-td-15)
 14. [Full-offline audit (TD-20)](#14-full-offline-audit-td-20)
+15. [Manual screenshot-mapping feature removal (TD-21)](#15-manual-screenshot-mapping-feature-removal-td-21)
 
 ---
 
@@ -435,3 +436,45 @@ delivery timing).
 - `ConnectivityBanner` / `NetworkMonitor` are kept as-is — informing the user "no
   internet — showing cached data" is correct behaviour for an app that is offline
   *capable*, not offline-*only*.
+
+---
+
+## 15. Manual screenshot-mapping feature removal (TD-21)
+
+### What changed
+Removed the manual "BAN PHASE REFERENCE" screenshot feature from Settings in its
+entirety: users could pick a screenshot of the ban phase and manually tap-map
+portrait slot positions on it via a dialog, stored as a JSON blob and consumed
+only by that same dialog to show a "mapped positions" count. Deleted:
+- `presentation/settings/components/BanPhaseScreenshotSection.kt`
+- `presentation/settings/components/ScreenMappingDialog.kt`
+- `presentation/settings/components/MappingSlotModel.kt`
+
+And stripped all wiring: the `BanPhaseScreenshotSection` usage, `showMappingDialog`
+state, and `ScreenMappingDialog` invocation in `SettingsScreen.kt`; the
+`banPhaseScreenshotUri` / `screenMappingJson` fields in `SettingsState.kt`; and the
+`KEY_BAN_SCREENSHOT_URI` / `KEY_SCREEN_MAPPING` DataStore keys plus
+`setBanPhaseScreenshotUri` / `setScreenMapping` setters in `SettingsViewModel.kt`.
+Also removed the corresponding row (§6.13) from `features.md`.
+
+### Why
+Confirmed via grep across `app/src/main/java` that `screenMappingJson` /
+`parseMappedPoints` / `ScreenMappingDialog` / `MappingSlotModel` had **no**
+consumers outside this Settings UI — the automated capture pipeline
+(`FrameProcessor`, `SlotRegions`, `PortraitMatcher`, etc.) does not read this
+JSON at all, so the feature was purely a manual reference/debugging aid, not a
+dependency of ban-slot detection. User explicitly requested full removal.
+
+### Trade-offs accepted
+- Users lose the ability to manually eyeball-map ban-slot coordinates against a
+  reference screenshot. Automated calibration (`WeightCalibrator`,
+  `hero_thresholds.json` via `scripts/calibrate_thresholds.py`, see TD-17) is
+  the supported path for slot-position accuracy going forward.
+
+### Verification caveat
+No Gradle/Kotlin toolchain is available in this checkout — this removal was
+verified by exhaustive grep for every symbol name (`BanPhaseScreenshot*`,
+`banPhaseScreenshotUri`, `screenMappingJson`, `ScreenMappingDialog`,
+`MappingSlotModel`, `KEY_BAN_SCREENSHOT_URI`, `KEY_SCREEN_MAPPING`,
+`setScreenMapping`, `setBanPhaseScreenshotUri`) across
+`app/src/main/java`, confirming zero remaining references, not by a build.

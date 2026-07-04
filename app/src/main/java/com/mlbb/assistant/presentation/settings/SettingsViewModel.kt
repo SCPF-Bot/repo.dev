@@ -42,8 +42,6 @@ class SettingsViewModel @Inject constructor(
         val KEY_AUTO_SHOW     = booleanPreferencesKey("auto_show_overlay")
         val KEY_VOICE         = booleanPreferencesKey("voice_alerts")
         val KEY_DEFAULT_RANK  = stringPreferencesKey("default_rank")
-        val KEY_BAN_SCREENSHOT_URI = stringPreferencesKey("ban_screenshot_uri")
-        val KEY_SCREEN_MAPPING     = stringPreferencesKey("screen_mapping")
         val KEY_ASPECT_RATIO       = stringPreferencesKey("aspect_ratio")
         val KEY_ENABLE_OCR         = booleanPreferencesKey("enable_ocr_phase_detection")
     }
@@ -72,8 +70,6 @@ class SettingsViewModel @Inject constructor(
                         aspectRatioPreset     = AspectRatioPreset.fromKey(
                             prefs[KEY_ASPECT_RATIO] ?: AspectRatioPreset.AUTO.key
                         ),
-                        banPhaseScreenshotUri = prefs[KEY_BAN_SCREENSHOT_URI] ?: "",
-                        screenMappingJson     = prefs[KEY_SCREEN_MAPPING]     ?: "",
                         enableOcrPhaseDetection = (prefs[KEY_ENABLE_OCR] ?: true).also {
                             // CvFeatureFlags is the single source of truth read by the
                             // capture pipeline (OverlayCaptureCoordinator); keep it in
@@ -152,8 +148,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setDefaultRank(rank: String)          = save { it[KEY_DEFAULT_RANK]       = rank }
-    fun setBanPhaseScreenshotUri(uri: String) = save { it[KEY_BAN_SCREENSHOT_URI] = uri  }
-    fun setScreenMapping(json: String)        = save { it[KEY_SCREEN_MAPPING]     = json }
     fun setAspectRatioPreset(preset: AspectRatioPreset) =
         save { it[KEY_ASPECT_RATIO] = preset.key }
 
