@@ -173,6 +173,12 @@ fun SettingsScreen(
                 ToggleRow("Auto-show when MLBB is detected", state.autoShowOverlay) { viewModel.setAutoShow(it) }
                 SectionDivider()
                 ToggleRow("Voice alerts", state.voiceAlertsEnabled) { viewModel.setVoiceAlerts(it) }
+                SectionDivider()
+                ToggleRow(
+                    label    = "OCR phase detection",
+                    checked  = state.enableOcrPhaseDetection,
+                    subtitle = "One-time ~4 MB model download on first use, then fully offline"
+                ) { viewModel.setEnableOcrPhaseDetection(it) }
             }
 
             // ── Scoring weights ───────────────────────────────────────────

@@ -24,6 +24,15 @@ data class SettingsState(
     val screenMappingJson: String     = "",
 
     /**
+     * Whether the ML Kit OCR phase-detection cross-check ([com.mlbb.assistant.capture.PhaseOcrDetector])
+     * runs alongside the colour-based [com.mlbb.assistant.capture.PhaseDetector].
+     * Defaults to `true`. Disabling it avoids ML Kit's one-time on-device model
+     * download (see `docs/misc.md` §14) at the cost of losing OCR's edge-case
+     * disambiguation — the colour detector remains fully functional either way.
+     */
+    val enableOcrPhaseDetection: Boolean = true,
+
+    /**
      * Whether Developer mode is enabled.
      * Controls the [DevLogAlias] launcher icon visibility via
      * [com.mlbb.assistant.utils.DevModeManager].

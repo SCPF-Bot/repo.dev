@@ -45,11 +45,25 @@ object CvFeatureFlags {
     var tfliteFallbackEnabled: Boolean = true
         private set
 
+    /**
+     * Enables the [PhaseOcrDetector] cross-check inside [com.mlbb.assistant.presentation.overlay.OverlayCaptureCoordinator].
+     * When disabled, phase detection relies solely on [PhaseDetector]'s colour
+     * heuristics. This is a network/battery trade-off, not a correctness one:
+     * ML Kit's on-device Text Recognition model downloads lazily on first use
+     * (see `docs/misc.md` §14), so a user on a metered/limited connection can
+     * opt out of that one-time download entirely by disabling this flag.
+     * Wired to the "OCR phase detection" toggle in Settings.
+     */
+    @Volatile
+    var enableOcr: Boolean = true
+        private set
+
     /** Resets every flag to its default (all cascade tiers enabled). */
     fun resetToDefaults() {
         useSlotAwareHash = PhaseDetectionConfig.USE_SLOT_AWARE_HASH
         enableTemporalConsensus = true
         tfliteFallbackEnabled = true
+        enableOcr = true
     }
 
     fun setUseSlotAwareHash(enabled: Boolean) {
@@ -62,5 +76,9 @@ object CvFeatureFlags {
 
     fun setTfliteFallbackEnabled(enabled: Boolean) {
         tfliteFallbackEnabled = enabled
+    }
+
+    fun setEnableOcr(enabled: Boolean) {
+        enableOcr = enabled
     }
 }

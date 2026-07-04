@@ -139,13 +139,23 @@ internal fun SliderRow(
 }
 
 @Composable
-internal fun ToggleRow(label: String, checked: Boolean, onToggle: (Boolean) -> Unit) {
+internal fun ToggleRow(
+    label:    String,
+    checked:  Boolean,
+    subtitle: String? = null,
+    onToggle: (Boolean) -> Unit
+) {
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment     = Alignment.CenterVertically
     ) {
-        Text(label, color = TextPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(label, color = TextPrimary, fontSize = 13.sp)
+            if (subtitle != null) {
+                Text(subtitle, color = TextDisabled, fontSize = 10.sp)
+            }
+        }
         Switch(
             checked         = checked,
             onCheckedChange = onToggle,

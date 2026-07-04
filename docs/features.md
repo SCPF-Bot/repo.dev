@@ -212,7 +212,7 @@ Version: `2.0.0` (versionCode 2) · Last updated: 2026-06-28 (aspect ratio setti
 | 9.6 | Timber structured logging | ✅ | throughout |
 | 9.7 | Thread-safe date formatting (`java.time` only) | ✅ | `utils/DateFormatter.kt` |
 | 9.8 | `NetworkResult` sealed class with functional fold helpers | ✅ | `utils/NetworkResult.kt` |
-| 9.9 | Image loading via Coil 3 + OkHttp network backend | ✅ | `common/components/HeroPortrait.kt`, `HeroGrid.kt` |
+| 9.9 | Image loading via Coil 3, fully offline — portraits are bundled assets (`file:///android_asset/portraits/`), not fetched over the network | ✅ | `common/components/HeroPortrait.kt`, `HeroGrid.kt` |
 | 9.10 | Localization: EN, FIL, ID, MS, TH, VI | ✅ | `res/values-*` |
 | 9.11 | FileProvider for debug screenshot sharing | ✅ | `AndroidManifest.xml`, `res/xml/file_paths.xml` |
 | 9.12 | R8/ProGuard release hardening | ✅ | `app/build.gradle.kts`, `proguard-rules.pro` |

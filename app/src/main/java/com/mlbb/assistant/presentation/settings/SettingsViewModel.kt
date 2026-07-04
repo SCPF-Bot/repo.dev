@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mlbb.assistant.capture.AspectRatioPreset
+import com.mlbb.assistant.capture.CvFeatureFlags
 import com.mlbb.assistant.domain.engine.WeightCalibrator
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetDraftHistoryUseCase
@@ -44,6 +45,7 @@ class SettingsViewModel @Inject constructor(
         val KEY_BAN_SCREENSHOT_URI = stringPreferencesKey("ban_screenshot_uri")
         val KEY_SCREEN_MAPPING     = stringPreferencesKey("screen_mapping")
         val KEY_ASPECT_RATIO       = stringPreferencesKey("aspect_ratio")
+        val KEY_ENABLE_OCR         = booleanPreferencesKey("enable_ocr_phase_detection")
     }
 
     private val _state = MutableStateFlow(
@@ -71,7 +73,14 @@ class SettingsViewModel @Inject constructor(
                             prefs[KEY_ASPECT_RATIO] ?: AspectRatioPreset.AUTO.key
                         ),
                         banPhaseScreenshotUri = prefs[KEY_BAN_SCREENSHOT_URI] ?: "",
-                        screenMappingJson     = prefs[KEY_SCREEN_MAPPING]     ?: ""
+                        screenMappingJson     = prefs[KEY_SCREEN_MAPPING]     ?: "",
+                        enableOcrPhaseDetection = (prefs[KEY_ENABLE_OCR] ?: true).also {
+                            // CvFeatureFlags is the single source of truth read by the
+                            // capture pipeline (OverlayCaptureCoordinator); keep it in
+                            // sync with the persisted preference on every emission,
+                            // including the very first one at process start.
+                            CvFeatureFlags.setEnableOcr(it)
+                        }
                     )
                 }
             }
@@ -85,6 +94,17 @@ class SettingsViewModel @Inject constructor(
     fun setOpacity(v: Float)       = save { it[KEY_OPACITY] = v }
     fun setAutoShow(v: Boolean)    = save { it[KEY_AUTO_SHOW] = v }
     fun setVoiceAlerts(v: Boolean) = save { it[KEY_VOICE]    = v }
+
+    /**
+     * Toggles the ML Kit OCR phase-detection cross-check (see [CvFeatureFlags.enableOcr]).
+     * Persisted to DataStore and mirrored into [CvFeatureFlags] immediately so the
+     * change takes effect on the very next captured frame, without waiting for the
+     * DataStore write to round-trip back through [dataStore.data].
+     */
+    fun setEnableOcrPhaseDetection(v: Boolean) {
+        CvFeatureFlags.setEnableOcr(v)
+        save { it[KEY_ENABLE_OCR] = v }
+    }
 
     fun resetWeights() = viewModelScope.launch {
         dataStore.edit {

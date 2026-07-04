@@ -258,7 +258,11 @@ class OverlayCaptureCoordinator @Inject constructor(
         val count = frameCounter.incrementAndGet()
 
         // ── OCR phase detection (every OCR_FRAME_STRIDE frames, async) ────────
-        if (count % PhaseDetectionConfig.OCR_FRAME_STRIDE == 0) {
+        // Gated by CvFeatureFlags.enableOcr (Settings toggle) — when disabled,
+        // lastOcrResult simply stays at its UNKNOWN/0f sentinel and every
+        // downstream OCR-derived check below (override, ban-round-2 advance,
+        // pick-animation skip) is a no-op, so no extra guards are needed there.
+        if (CvFeatureFlags.enableOcr && count % PhaseDetectionConfig.OCR_FRAME_STRIDE == 0) {
             // Crop the top-centre band where MLBB prints "First Ban Phase",
             // "Ally Team Pick", "The match is starting soon", etc.
             // Use the wider TEXT_REGION inside PhaseOcrDetector (not phaseBanner,

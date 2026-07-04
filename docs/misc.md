@@ -24,6 +24,7 @@
 11. [JetOverlay adoption and `OverlayService` decomposition](#11-jetoverlay-adoption-and-overlayservice-decomposition-ra-01)
 12. [`PickPhaseContent` pick-success animation](#12-pickphasecontent-pick-success-animation)
 13. [TFLite hero classifier integration (TD-15)](#13-tflite-hero-classifier-integration-td-15)
+14. [Full-offline audit (TD-20)](#14-full-offline-audit-td-20)
 
 ---
 
@@ -401,3 +402,36 @@ the same `PortraitMatcher` instance without external synchronisation.
 - `Bitmap.createScaledBitmap` uses bilinear interpolation — sufficient for the
   MobileNetV3Small receptive field but not as accurate as bicubic. This is an acceptable
   trade-off for inference speed on mid-range devices.
+
+---
+
+## 14. Full-offline audit (TD-20)
+
+### What changed
+An end-to-end audit of every network touch-point, done from a read-only checkout with
+no Gradle/JVM/Android toolchain and no network egress available. Findings:
+
+| Touch-point | Verdict | Notes |
+|---|---|---|
+| Hero portraits (`HeroPortrait.kt`, `HeroGrid.kt`) | ✅ already offline | Both load `file:///android_asset/portraits/{id}.webp` via Coil's `AssetUriFetcher` — no network. `features.md` §9.9 previously claimed "Coil 3 + OkHttp network backend"; that line was stale documentation, not actual behaviour, and has been corrected. |
+| Hero portrait *classification* (`HeroClassifier`, `mlbb_hero_classifier.tflite`) | ✅ already offline | Bundled asset, runs entirely on-device. |
+| Hero meta sync (`MetaApi`, `HeroRepositoryImpl.syncHeroes`) | ✅ already offline-safe | Retries 3× then falls back to the existing Room DB, and seeds from bundled `res/raw/default_heroes.json` if the DB is empty. Never blocks the UI — `HeroListViewModel.init` fires it with `runCatching` and does not await it before rendering cached/seed data. |
+| OCR phase disambiguation (`PhaseOcrDetector`, ML Kit Text Recognition) | ✅ kept, lazy download, user-toggleable | Disambiguates edge-case frames (dark loading screens vs. ban phase, double-pick animation, ally/enemy pick turn, end-of-draft) that the colour-based `PhaseDetector` alone misreads — see the file header in `PhaseOcrDetector.kt` for the full list. It is a confidence-boosting cross-check, not a required dependency: on any failure (or when disabled) it stays at `UNKNOWN`/confidence 0 and callers fall back to `PhaseDetector`, per the "manual is the dependable fallback" principle in `mission.md` §2. An install-time model dependency (`com.google.mlkit.vision.DEPENDENCIES`) was evaluated and **rejected** — it would force every install to download the model even for users who never trigger OCR fallback, which is *more* total network use than the default. Kept as ML Kit's default lazy/on-demand download (fetched at most once per device, then cached and reused fully offline), and additionally gated behind a new `CvFeatureFlags.enableOcr` flag wired to an "OCR phase detection" toggle in Settings → OVERLAY, so a user who wants zero chance of that one-time download can opt out entirely without losing the app's core (colour-based) functionality. |
+| Background hero sync worker | ℹ️ doc/code mismatch | `roadmap.md`, `features.md` §7.10 and `todo.md` TD-13 describe a `HeroSyncWorker` (WorkManager + HiltWorker, 24 h periodic). No such class, and no WorkManager usage at all, exists anywhere in `app/src/main/java` in this checkout. Treat those doc references as aspirational/stale until the worker is actually implemented — do not assume periodic background sync is running. |
+| Crash handling, DataStore, Room, TFLite, portraits, counter/archetype JSON | ✅ already offline | All local-first; none require network at any point. |
+
+### Why
+`mission.md` §3 already states the product is "not permanently coupled to any specific
+backend" and the hero data model is independent of where data originates — the
+architecture was already offline-first by design. This audit exists to verify that
+design intent actually holds in the current source (docs elsewhere had drifted from
+code — see the worker mismatch above), and to close the one real gap found (OCR model
+delivery timing).
+
+### What's intentionally unchanged
+- `INTERNET` / `ACCESS_NETWORK_STATE` permissions are kept — meta sync and future OCR
+  model updates are opportunistic enhancements, not requirements. Removing them would
+  regress the "sync when available" feature for no offline benefit.
+- `ConnectivityBanner` / `NetworkMonitor` are kept as-is — informing the user "no
+  internet — showing cached data" is correct behaviour for an app that is offline
+  *capable*, not offline-*only*.
