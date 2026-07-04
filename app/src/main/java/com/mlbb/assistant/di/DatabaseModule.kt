@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.mlbb.assistant.data.local.database.AppDatabase
+import com.mlbb.assistant.data.local.database.CounterLookupDao
 import com.mlbb.assistant.data.local.database.DraftSessionDao
 import com.mlbb.assistant.data.local.database.HeroDao
 import com.mlbb.assistant.data.local.database.HeroPoolDao
@@ -22,7 +23,6 @@ object DatabaseModule {
     /** v1→v2: adds draft_sessions table and new hero columns */
     private val MIGRATION_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            // New hero columns
             db.execSQL("ALTER TABLE heroes ADD COLUMN secondaryRole TEXT")
             db.execSQL("ALTER TABLE heroes ADD COLUMN lane TEXT NOT NULL DEFAULT 'GOLD'")
             db.execSQL("ALTER TABLE heroes ADD COLUMN tier TEXT NOT NULL DEFAULT 'B'")
@@ -34,7 +34,6 @@ object DatabaseModule {
             db.execSQL("ALTER TABLE heroes ADD COLUMN isToxicMechanic INTEGER NOT NULL DEFAULT 0")
             db.execSQL("ALTER TABLE heroes ADD COLUMN isOP INTEGER NOT NULL DEFAULT 0")
 
-            // New draft_sessions table
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS draft_sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -65,14 +64,9 @@ object DatabaseModule {
      */
     private val MIGRATION_2_3 = object : Migration(2, 3) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            // heroes: CC ult flag
             db.execSQL("ALTER TABLE heroes ADD COLUMN hasCCUlt INTEGER NOT NULL DEFAULT 0")
-
-            // draft_sessions: match outcome + simulation flag
             db.execSQL("ALTER TABLE draft_sessions ADD COLUMN outcome TEXT NOT NULL DEFAULT 'UNKNOWN'")
             db.execSQL("ALTER TABLE draft_sessions ADD COLUMN isSimulation INTEGER NOT NULL DEFAULT 0")
-
-            // hero_pool: personal pool with proficiency level
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS hero_pool (
                     heroId INTEGER PRIMARY KEY NOT NULL,
@@ -82,28 +76,45 @@ object DatabaseModule {
         }
     }
 
+    /**
+     * v3→v4: Adds counter_lookup table for confidence-scored counter relationships.
+     * Seeded from counter_lookup.json (community dataset, credit: bipash25/mlbb-assistant).
+     * The table uses a composite primary key (hero_name, counters_hero) so upserts are safe.
+     */
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS counter_lookup (
+                    hero_name TEXT NOT NULL,
+                    counters_hero TEXT NOT NULL,
+                    confidence REAL NOT NULL,
+                    direction TEXT NOT NULL DEFAULT 'counters',
+                    PRIMARY KEY (hero_name, counters_hero)
+                )
+            """.trimIndent())
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
         return Room.databaseBuilder(context, AppDatabase::class.java, "mlbb_assistant.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             // P1 fix: fallbackToDestructiveMigration() covers upgrade paths whose starting
-            // version is not in the migration chain (e.g. v0 → v3 on an old beta install).
-            // Without this, Room throws IllegalStateException: "A migration from X to Y
-            // cannot be found" and the app crashes before any UI is shown.
-            // fallbackToDestructiveMigrationOnDowngrade is still kept for downgrades.
+            // version is not in the migration chain (e.g. v0 → v4 on an old beta install).
             .fallbackToDestructiveMigration(dropAllTables = true)
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
     }
 
-    // P2 fix: all DAO providers are now @Singleton so Hilt returns the same proxy
-    // instance on every injection rather than constructing a new one each time.
-    // The underlying database is already a singleton; the DAO proxy itself is
-    // stateless, so a single shared instance is both safe and more efficient.
+    // P2 fix: all DAO providers are @Singleton — DAO proxy is stateless, single
+    // shared instance is both safe and more efficient than constructing a new one
+    // per injection.
     @Provides @Singleton fun provideHeroDao(db: AppDatabase): HeroDao = db.heroDao()
 
     @Provides @Singleton fun provideDraftSessionDao(db: AppDatabase): DraftSessionDao = db.draftSessionDao()
 
     @Provides @Singleton fun provideHeroPoolDao(db: AppDatabase): HeroPoolDao = db.heroPoolDao()
+
+    @Provides @Singleton fun provideCounterLookupDao(db: AppDatabase): CounterLookupDao = db.counterLookupDao()
 }

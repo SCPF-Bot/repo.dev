@@ -47,14 +47,13 @@ balloon                      = "1.6.12"
 
 # ── ML / CV ───────────────────────────────────────────────────────────────
 mlkitTextRec                 = "16.0.1"
-# ML Kit Object Detection (custom TFLite model) — training pipeline in todo.md §5.9
-mlkitObjectDetection         = "17.0.0"
+# ML Kit Object Detection removed (2026-07-03): HeroPortraitObjectDetector is a stub
+# that returns emptyList() and never calls the ML Kit API — no trained SSD/YOLO model
+# exists yet (see roadmap.md RA-05). Re-add mlkitObjectDetection = "17.0.0" and the
+# mlkit-objectdetection library entry below when that model is trained and wired in.
 # TFLite runtime — powers HeroClassifier (MobileNetV3Small hero portrait classifier)
 # assets/mlbb_hero_classifier.tflite is a trained [1,224,224,3]→[1,120] softmax model
 tensorflowLite               = "2.16.1"
-# KilianB/JImageHash: multi-algorithm perceptual hashing — JVM-only with dHash fallback
-# JitPack: com.github.KilianB:JImageHash:3.0.0
-jImageHash                   = "3.0.0"
 
 # ── OEM / platform utilities ──────────────────────────────────────────────
 # judemanutd/AutoStarter: OEM auto-start settings deep-link (rec. §2.4)
@@ -141,9 +140,6 @@ balloon                            = { group = "com.github.skydoves",        nam
 
 # ── ML / CV ───────────────────────────────────────────────────────────────
 mlkit-text-recognition             = { group = "com.google.mlkit",           name = "text-recognition",               version.ref = "mlkitTextRec" }
-# ML Kit Object Detection (custom TFLite model) — integration guarded by asset existence check
-# Alias avoids "object" keyword in the Kotlin accessor (mlkit-object-detection → libs.mlkit.`object`.detection fails)
-mlkit-objectdetection              = { group = "com.google.mlkit",           name = "object-detection-custom",        version.ref = "mlkitObjectDetection" }
 # TFLite runtime — direct Interpreter API for HeroClassifier (MobileNetV3Small portrait classifier)
 # Model asset: assets/mlbb_hero_classifier.tflite  Labels: assets/hero_classifier_labels.txt
 tensorflow-lite                    = { group = "org.tensorflow",              name = "tensorflow-lite",                version.ref = "tensorflowLite" }
@@ -193,6 +189,7 @@ robolectric                        = { group = "org.robolectric",            nam
 
 [plugins]
 android-application      = { id = "com.android.application",                    version.ref = "agp" }
+android-library          = { id = "com.android.library",                        version.ref = "agp" }
 kotlin-android           = { id = "org.jetbrains.kotlin.android",               version.ref = "kotlin" }
 kotlin-compose           = { id = "org.jetbrains.kotlin.plugin.compose",        version.ref = "kotlin" }
 kotlin-serialization     = { id = "org.jetbrains.kotlin.plugin.serialization",  version.ref = "kotlin" }

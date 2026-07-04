@@ -114,8 +114,11 @@ class HeroListViewModel @Inject constructor(
      * then emits to [searchQueryFlow] which is debounced before filtering.
      */
     fun onSearchQuery(query: String) {
-        _state.update { it.copy(searchQuery = query) }
+        // Update the flow first so debounce starts timing from the same moment
+        // the UI state is updated. If state is updated first, there is a brief
+        // window where the displayed query doesn't match the active filter flow.
         searchQueryFlow.value = query
+        _state.update { it.copy(searchQuery = query) }
     }
 
     /**

@@ -27,15 +27,19 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -52,14 +56,16 @@ import coil3.compose.AsyncImage
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.presentation.common.components.BackButton
 import com.mlbb.assistant.presentation.common.theme.MLBBGold
+import com.mlbb.assistant.presentation.common.theme.SurfaceCard
 import com.mlbb.assistant.presentation.common.theme.SurfaceDark
 import com.mlbb.assistant.presentation.common.theme.SurfaceMid
 import com.mlbb.assistant.presentation.common.theme.TextDisabled
+import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
 import com.valentinilk.shimmer.shimmer
 
 private const val SHIMMER_TILE_COUNT = 18
-private const val SHIMMER_TILE_SIZE_DP = 72
+private const val SHIMMER_TILE_SIZE_DP = 80
 
 private val HERO_ROLES = listOf<String?>(null, "Tank", "Fighter", "Mage", "Marksman", "Support", "Assassin")
 
@@ -70,65 +76,104 @@ fun HeroListScreen(
     viewModel: HeroListViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    // TD-10: Collect as paged items — lifecycle-aware, cancels on composition exit.
     val pagedHeroes = viewModel.pagedHeroes.collectAsLazyPagingItems()
 
     Column(Modifier.fillMaxSize().background(SurfaceDark)) {
-        // Header
-        Row(
-            Modifier
+        // ── Header with gradient ────────────────────────────────────────────
+        Box(
+            modifier = Modifier
                 .fillMaxWidth()
-                .background(SurfaceMid)
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF1A1A2E), SurfaceMid)
+                    )
+                )
         ) {
-            BackButton(onBack = onBack)
             Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Person, contentDescription = null,
-                    tint = MLBBGold, modifier = Modifier.size(18.dp))
-                Text("HERO EXPLORER", color = MLBBGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                BackButton(onBack = onBack)
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Person,
+                        contentDescription = null,
+                        tint     = MLBBGold,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        "HERO EXPLORER",
+                        color         = MLBBGold,
+                        fontWeight    = FontWeight.Bold,
+                        fontSize      = 16.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+                Spacer(Modifier.size(48.dp))
             }
-            Spacer(Modifier.size(48.dp))
         }
 
-        // Search bar — drives ViewModel's searchQueryFlow → pagedHeroes refreshes
+        // ── Search bar ──────────────────────────────────────────────────────
         OutlinedTextField(
             value         = state.searchQuery,
             onValueChange = viewModel::onSearchQuery,
-            placeholder   = { Text("Search heroes…") },
-            leadingIcon   = { Icon(Icons.Rounded.Search, contentDescription = null) },
+            placeholder   = { Text("Search heroes…", color = TextDisabled) },
+            leadingIcon   = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MLBBGold.copy(alpha = 0.7f)) },
             trailingIcon  = if (state.searchQuery.isNotEmpty()) {
                 { IconButton(onClick = { viewModel.onSearchQuery("") }) {
-                    Icon(Icons.Rounded.Clear, contentDescription = "Clear search")
+                    Icon(Icons.Rounded.Clear, contentDescription = "Clear search", tint = TextSecondary)
                 }}
             } else null,
             singleLine      = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            modifier        = Modifier
+            colors          = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor   = MLBBGold.copy(alpha = 0.7f),
+                unfocusedBorderColor = TextDisabled.copy(alpha = 0.4f),
+                focusedTextColor     = TextPrimary,
+                unfocusedTextColor   = TextPrimary,
+                cursorColor          = MLBBGold
+            ),
+            shape    = RoundedCornerShape(12.dp),
+            modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         )
 
-        // Role filter chips — drives ViewModel's selectedRoleFlow → pagedHeroes refreshes
+        // ── Role filter chips ───────────────────────────────────────────────
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding        = PaddingValues(horizontal = 10.dp),
-            modifier              = Modifier.fillMaxWidth()
+            contentPadding        = PaddingValues(horizontal = 12.dp),
+            modifier              = Modifier.fillMaxWidth().padding(bottom = 6.dp)
         ) {
             items(HERO_ROLES, key = { it ?: "__all__" }) { role ->
                 FilterChip(
                     selected = state.selectedRole == role,
                     onClick  = { viewModel.onRoleFilter(role) },
-                    label    = { Text(role ?: "All") }
+                    label    = { Text(role ?: "All", fontWeight = if (state.selectedRole == role) FontWeight.Bold else FontWeight.Normal) },
+                    colors   = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor    = MLBBGold.copy(alpha = 0.20f),
+                        selectedLabelColor        = MLBBGold,
+                        selectedLeadingIconColor  = MLBBGold
+                    ),
+                    border   = FilterChipDefaults.filterChipBorder(
+                        enabled          = true,
+                        selected         = state.selectedRole == role,
+                        selectedBorderColor   = MLBBGold.copy(alpha = 0.6f),
+                        disabledBorderColor   = TextDisabled.copy(alpha = 0.3f),
+                        disabledSelectedBorderColor = TextDisabled.copy(alpha = 0.3f),
+                        borderColor       = TextDisabled.copy(alpha = 0.3f)
+                    )
                 )
             }
         }
 
-        // Content area
+        // ── Content area ────────────────────────────────────────────────────
         when {
             state.isLoading -> HeroLoadingSkeleton()
 
@@ -140,8 +185,8 @@ fun HeroListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(Icons.Rounded.Person, contentDescription = null,
-                            tint = TextDisabled, modifier = Modifier.size(48.dp))
-                        Text("No heroes loaded", color = TextSecondary)
+                            tint = TextDisabled, modifier = Modifier.size(52.dp))
+                        Text("No heroes found", color = TextSecondary, fontWeight = FontWeight.SemiBold)
                         Text("Pull to refresh or check connection", color = TextDisabled, fontSize = 12.sp)
                     }
                 }
@@ -155,16 +200,6 @@ fun HeroListScreen(
     }
 }
 
-/**
- * TD-10: Paged hero grid using [LazyPagingItems].
- *
- * Items are fetched in pages from Room's PagingSource via [HeroListViewModel.pagedHeroes].
- * The grid adapts cell width to screen size using [GridCells.Adaptive]. A loading footer
- * (gold spinner) is appended while the next page fetches, providing smooth infinite-scroll.
- *
- * Placeholder cells (null items during prefetch) render as grey skeleton boxes matching
- * the real cell size so there is no layout shift when data arrives.
- */
 @Composable
 private fun PagedHeroGrid(
     pagedHeroes: LazyPagingItems<Hero>,
@@ -172,9 +207,9 @@ private fun PagedHeroGrid(
 ) {
     LazyVerticalGrid(
         columns               = GridCells.Adaptive(SHIMMER_TILE_SIZE_DP.dp),
-        verticalArrangement   = Arrangement.spacedBy(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding        = PaddingValues(10.dp),
+        verticalArrangement   = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding        = PaddingValues(12.dp),
         modifier              = Modifier.fillMaxSize()
     ) {
         items(count = pagedHeroes.itemCount) { index ->
@@ -185,19 +220,18 @@ private fun PagedHeroGrid(
                 Box(
                     Modifier
                         .size(SHIMMER_TILE_SIZE_DP.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(SurfaceMid)
                 )
             }
         }
 
-        // Append loading footer — shows while the next page is being fetched
         if (pagedHeroes.loadState.append is LoadState.Loading) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
@@ -216,18 +250,18 @@ private fun HeroPagedCell(hero: Hero, onTap: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(SurfaceMid)
+            .clip(RoundedCornerShape(10.dp))
+            .background(SurfaceCard)
             .clickable(onClick = onTap)
-            .padding(3.dp)
+            .padding(4.dp)
     ) {
         Box(
             Modifier
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(5.dp))
+                .clip(RoundedCornerShape(8.dp))
         ) {
             AsyncImage(
-                model              = hero.imageUrl,
+                model              = android.net.Uri.parse("file:///android_asset/portraits/${hero.id}.webp"),
                 contentDescription = hero.name,
                 contentScale       = ContentScale.Crop,
                 modifier           = Modifier.fillMaxSize()
@@ -238,26 +272,21 @@ private fun HeroPagedCell(hero: Hero, onTap: () -> Unit) {
             maxLines  = 1,
             overflow  = TextOverflow.Ellipsis,
             color     = TextSecondary,
-            fontSize  = 8.sp,
+            fontSize  = 9.sp,
+            fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
-            modifier  = Modifier.fillMaxWidth()
+            modifier  = Modifier.fillMaxWidth().padding(top = 3.dp)
         )
     }
 }
 
-/**
- * Shimmer skeleton grid shown while the hero list is loading.
- *
- * Renders [SHIMMER_TILE_COUNT] placeholder tiles in the same grid geometry
- * as the paged grid so the transition from skeleton → real content is smooth.
- */
 @Composable
 private fun HeroLoadingSkeleton() {
     LazyVerticalGrid(
         columns               = GridCells.Adaptive(SHIMMER_TILE_SIZE_DP.dp),
         modifier              = Modifier
             .fillMaxSize()
-            .padding(10.dp)
+            .padding(12.dp)
             .shimmer(),
         verticalArrangement   = Arrangement.spacedBy(8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -266,7 +295,7 @@ private fun HeroLoadingSkeleton() {
             Box(
                 modifier = Modifier
                     .size(SHIMMER_TILE_SIZE_DP.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(SurfaceMid)
             )
         }

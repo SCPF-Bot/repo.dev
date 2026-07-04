@@ -2,7 +2,6 @@ package com.mlbb.assistant.di
 
 import android.content.Context
 import android.provider.Settings
-import coil3.ImageLoader
 import com.mlbb.assistant.domain.OverlayController
 import com.mlbb.assistant.presentation.overlay.OverlayService
 import dagger.Module
@@ -33,18 +32,4 @@ object OverlayModule {
             OverlayService.stop(context)
         }
     }
-
-    /**
-     * Provides a singleton [ImageLoader] for portrait hash preloading in
-     * [com.mlbb.assistant.presentation.overlay.OverlayCaptureCoordinator].
-     *
-     * Coil's default [ImageLoader] is fine here — it is disk-cached and
-     * lifecycle-aware. Injected rather than constructed inline in the service
-     * so tests can substitute a no-op loader.
-     */
-    @Provides
-    @Singleton
-    fun provideImageLoader(
-        @ApplicationContext context: Context
-    ): ImageLoader = ImageLoader.Builder(context).build()
 }

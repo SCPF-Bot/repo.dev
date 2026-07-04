@@ -1,36 +1,45 @@
 # Latest Changes Log
 
-> This file have to be always overwritten with the latest changes. This markdown file will always have a description of the latest changes. This file should be always fresh and should only contain any changes made in current session. Freely edit and overwrite the contents below.
+> This file must always be overwritten with the latest session's changes only.
 
 ---
 
-## Session changes
+## Session changes (2026-07-03 — merged `docs/temp/recommendations.md` into permanent docs)
 
-### 1. Crash fix — overlay service crash on open (Problem 1)
+### Overview
+`docs/temp/recommendations.md` (the CV/hero-detection "pure perceptual matching" proposal,
+v2.2.0) was audited against the current codebase. Its core proposals — `SlotType`-aware
+normalization, `SlotAwareHasher` triple-hash fusion, per-hero/per-slot calibrated
+thresholds, and temporal consensus — were found **already implemented** (`TD-16`, `TD-17`,
+`TD-18` in `todo.md`; `misc.md` §9/§13; `roadmap.md` RA-04/RA-05). The remaining
+not-yet-implemented recommendations were extracted and merged into permanent docs; the
+source file was then deleted.
 
-**Root cause:** `OverlayService.onCreate()` called `JetOverlay.show()` unconditionally. `show()` calls `WindowManager.addView()`, which throws `WindowManager.BadTokenException` when `SYSTEM_ALERT_WINDOW` is not granted. Because `onCreate()` runs before `onStartCommand()`, the permission guard in `onStartCommand()` never had a chance to stop the service, causing a fatal crash on app open for new installs or after permission revocation.
+### What was merged
 
-**Fixes applied:**
-- `OverlayService.kt`: Added `Settings.canDrawOverlays(this)` guard before `JetOverlay.show()` in `onCreate()`. The service still starts (to run the permission watchdog), but the overlay window is only inflated when permission is present.
-- `JetOverlay.kt`: Wrapped `wm.addView(view, params)` in `runCatching` with full state reset on failure (`composeView`, `windowManager`, `lifecycleOwner` all set to `null`). This ensures a subsequent `show()` call after permission is granted can succeed cleanly.
+| Recommendation | Destination | Status |
+|---|---|---|
+| `CvFeatureFlags` remote-config kill-switch for the CV matching cascade | `todo.md` §5 | new backlog item (not implemented) |
+| `CV_MIGRATION`-tagged structured telemetry for match confidence/threshold | `todo.md` §6 (existing item, annotated) | not implemented |
+| `test_corpus/` collection protocol (per-hero ban/pick crops + manifest) for `scripts/calibrate_thresholds.py` | `todo.md` §9 | new backlog item (not implemented) |
+| Perpetual CV pipeline maintenance cycle (patch/new-hero/FP-spike/quarterly triggers) | `misc.md` new §9a | documented as standing process |
 
-**Files changed:** `OverlayService.kt`, `JetOverlay.kt`
+Everything else in the source file (slot-aware normalization, triple-hash fusion,
+per-hero thresholds, consensus manager, APK-size rationale for dropping TFLite) was
+already accurately reflected in existing docs and required no further changes.
+
+### Result
+`docs/temp/recommendations.md` deleted — fully absorbed into `todo.md` and `misc.md`.
 
 ---
 
-### 2. Developer toggle in Settings › Logs (Problems 2, 3 & 4)
+### Open items (unchanged)
 
-**New feature:** A **LOGS** section has been added to the Settings screen containing a **Developer** toggle.
-
-**Behaviour:**
-- **Toggle ON**: persists the preference and immediately opens the Play Store listing for **Logcat Reader** (`com.dp.logcatapp`) if the app is not already installed.
-  - If already installed, an "Open logger app" button replaces "Install logger app".
-- **Toggle OFF**: disables the developer mode; the companion logger section collapses.
-- **Fresh install default**: `developerModeEnabled` defaults to `true` in both `SettingsState` and the DataStore read path. Combined with the `MainActivity.onCreate()` install check, the companion logger install is prompted automatically on first launch without the user needing to open Settings.
-
-**Files changed / created:**
-- `utils/DevLoggerManager.kt` *(new)* — singleton managing install-check, Play Store redirect, launch, and the SharedPreferences "already prompted" flag.
-- `SettingsState.kt` — added `developerModeEnabled: Boolean = true`.
-- `SettingsViewModel.kt` — added `KEY_DEVELOPER_MODE`, DataStore read (default `true`), and `setDeveloperMode(Boolean)`.
-- `SettingsScreen.kt` — added **LOGS** section with Developer toggle, logger status row, and install / open button. Calls `DevLoggerManager.promptInstallIfNeeded(context, force = true)` when toggled ON.
-- `MainActivity.kt` — calls `DevLoggerManager.promptInstallIfNeeded(context)` in `onCreate()` to trigger the auto-install on a fresh install where developer mode is ON by default.
+| Item | Source |
+|------|--------|
+| JImageHash FP benchmark / promotion in `PortraitMatcher` | `misc.md` §9, `todo.md` §10 |
+| CV feature-flag rollback gate (`USE_SLOT_AWARE_HASH` etc.) | `todo.md` §5 |
+| Test corpus collection for threshold calibration | `todo.md` §9 |
+| `DraftExporter` round-trip serialization test | `todo.md` §4 |
+| Gson removal after full kotlinx.serialization migration | `todo.md` §5 / `misc.md` §10 |
+| Overlay self-status banners (capture unavailable / meta stale / accessibility off) | `todo.md` §7 |

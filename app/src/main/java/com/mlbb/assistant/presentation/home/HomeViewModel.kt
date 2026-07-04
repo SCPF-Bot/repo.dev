@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 /**
  * Section 5.1.2 — "Your Insights" card data.
@@ -92,11 +93,13 @@ class HomeViewModel @Inject constructor(
         }
 
         val wins = withOutcome.count { it.outcome == DraftOutcome.WIN }
-        val winPct = wins * 100 / withOutcome.size
+        // Use floating-point division before rounding to avoid truncation bias.
+        // e.g. 7 wins / 11 games = 63.6 % should round to 64, not truncate to 63.
+        val winPct = (wins * 100.0 / withOutcome.size).roundToInt()
 
         val totalRec    = withOutcome.sumOf { it.totalRecommendations }
         val followedRec = withOutcome.sumOf { it.followedRecommendations }
-        val followPct   = if (totalRec > 0) followedRec * 100 / totalRec else 0
+        val followPct   = if (totalRec > 0) (followedRec * 100.0 / totalRec).roundToInt() else 0
 
         // Top-picked hero by frequency across all of our pick slots.
         val pickFreq = mutableMapOf<Int, Int>()

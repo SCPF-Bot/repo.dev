@@ -7,6 +7,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -112,6 +114,7 @@ private fun LogViewerScreen(
 ) {
     val state   by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope   = rememberCoroutineScope()
     var showClearDialog by remember { mutableStateOf(false) }
 
     if (showClearDialog) {
@@ -163,19 +166,21 @@ private fun LogViewerScreen(
                         Icon(Icons.Rounded.Refresh, contentDescription = "Refresh")
                     }
                     IconButton(onClick = {
-                        val text = state.entries.joinToString("\n\n") { e ->
-                            "[${e.formattedTime}] ${e.level.label}/${e.tag}\n${e.message}" +
-                                if (e.stackTrace.isNotBlank()) "\n${e.stackTrace}" else ""
+                        scope.launch {
+                            // §6: share via FileProvider so long logs aren't truncated by
+                            // the Binder transaction size limit that EXTRA_TEXT hits.
+                            val uri = vm.shareLogs()
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_SUBJECT, "MLBB Assistant Log")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(
+                                Intent.createChooser(intent, "Share log")
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
                         }
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, text)
-                            putExtra(Intent.EXTRA_SUBJECT, "MLBB Assistant Log")
-                        }
-                        context.startActivity(
-                            Intent.createChooser(intent, "Share log")
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        )
                     }) {
                         Icon(Icons.Rounded.Share, contentDescription = "Export log")
                     }
