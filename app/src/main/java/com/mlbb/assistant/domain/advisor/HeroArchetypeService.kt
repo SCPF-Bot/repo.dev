@@ -49,6 +49,24 @@ class HeroArchetypeService @Inject constructor(
     private var heroTraits: Map<String, Set<String>> = emptyMap()          // hero → traits
     private var matchupRules: Map<String, ArchetypeMatchupRules> = emptyMap()
     private var loaded = false
+    private var loadFailed = false
+
+    /**
+     * UX-04: True once [hero_archetypes.json] has been parsed successfully.
+     * False while unloaded *or* after a failed load — callers (e.g. the
+     * overlay) can check this to surface a "gap detection unavailable"
+     * banner instead of silently rendering empty archetype/trait results.
+     */
+    val isLoaded: Boolean
+        get() = loaded
+
+    /**
+     * UX-04: True if the most recent [ensureLoaded] attempt threw. Distinct
+     * from [isLoaded] so callers can tell "not loaded yet" apart from
+     * "loading failed and will not be retried this session".
+     */
+    val loadFailedFlag: Boolean
+        get() = loadFailed
 
     // Magic-damage archetypes (ported from AlanNobita scoring.py)
     private val magicArchetypes = setOf(
@@ -212,7 +230,7 @@ class HeroArchetypeService @Inject constructor(
     // ── Loader ────────────────────────────────────────────────────────────────
 
     private fun ensureLoaded() {
-        if (loaded) return
+        if (loaded || loadFailed) return
         try {
             val json = context.assets.open("hero_archetypes.json").bufferedReader().readText()
             val root = Json.parseToJsonElement(json).jsonObject
@@ -222,6 +240,11 @@ class HeroArchetypeService @Inject constructor(
             loaded = true
             Timber.d("HeroArchetypeService loaded — ${heroArchetypes.size} heroes, ${archetypeHeroes.size} archetypes")
         } catch (e: Exception) {
+            // UX-04: surface the failure via loadFailedFlag so callers (overlay banners,
+            // ViewModels) can react instead of silently treating "not yet loaded" and
+            // "will never load" as the same state. loadFailed also short-circuits
+            // future ensureLoaded() calls so we don't retry a doomed asset read every frame.
+            loadFailed = true
             Timber.e(e, "HeroArchetypeService: failed to load hero_archetypes.json — gap detection disabled")
         }
     }

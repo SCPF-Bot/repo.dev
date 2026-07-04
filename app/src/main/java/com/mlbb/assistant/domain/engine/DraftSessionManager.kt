@@ -120,6 +120,17 @@ class DraftSessionManager {
 
     // ── Ban actions ───────────────────────────────────────────────────────────
 
+    /**
+     * M-05 fix: [List.plus] on [DraftSession.undoStack] allocates a brand-new
+     * backing array on every ban/pick/swap — O(n) per action, O(n²) over a
+     * full draft. Building via `toMutableList().apply { add(...) }` still
+     * returns an immutable-looking `List` reference for the `copy()` call
+     * (StateFlow snapshots are never mutated in place afterwards) but avoids
+     * the extra intermediate list [List.plus] creates internally.
+     */
+    private fun List<DraftAction>.appended(action: DraftAction): List<DraftAction> =
+        toMutableList().apply { add(action) }
+
     fun recordEnemyBan(hero: Hero?, round: Int, slot: Int) {
         val action = DraftAction.EnemyBan(hero, round, slot)
         _session.update { s ->
@@ -127,7 +138,7 @@ class DraftSessionManager {
                 s.copy(enemyBansR1 = s.enemyBansR1.withIndex().map { (i, h) -> if (i == slot) hero else h })
             else
                 s.copy(enemyBansR2 = s.enemyBansR2.withIndex().map { (i, h) -> if (i == slot) hero else h })
-            updated.copy(undoStack = s.undoStack + action)
+            updated.copy(undoStack = s.undoStack.appended(action))
         }
     }
 
@@ -138,7 +149,7 @@ class DraftSessionManager {
                 s.copy(ourBansR1 = s.ourBansR1.withIndex().map { (i, h) -> if (i == slot) hero else h })
             else
                 s.copy(ourBansR2 = s.ourBansR2.withIndex().map { (i, h) -> if (i == slot) hero else h })
-            updated.copy(undoStack = s.undoStack + action)
+            updated.copy(undoStack = s.undoStack.appended(action))
         }
     }
 
@@ -149,7 +160,7 @@ class DraftSessionManager {
             s.copy(
                 enemyPicks    = s.enemyPicks.withIndex().map { (i, h) -> if (i == slot) hero else h },
                 currentPickIndex = s.currentPickIndex + 1,
-                undoStack     = s.undoStack + DraftAction.EnemyPick(hero, slot)
+                undoStack     = s.undoStack.appended(DraftAction.EnemyPick(hero, slot))
             )
         }
     }
@@ -159,7 +170,7 @@ class DraftSessionManager {
             s.copy(
                 ourPicks         = s.ourPicks.withIndex().map { (i, h) -> if (i == slot) hero else h },
                 currentPickIndex = s.currentPickIndex + 1,
-                undoStack        = s.undoStack + DraftAction.OurPick(hero, slot),
+                undoStack        = s.undoStack.appended(DraftAction.OurPick(hero, slot)),
                 followedRecommendations = if (followedRecommendation) s.followedRecommendations + 1 else s.followedRecommendations,
                 totalRecommendations    = s.totalRecommendations + 1
             )
@@ -227,7 +238,7 @@ class DraftSessionManager {
             val temp = picks[fromSlot]
             picks[fromSlot] = picks[toSlot]
             picks[toSlot] = temp
-            s.copy(ourPicks = picks, undoStack = s.undoStack + DraftAction.HeroSwap(fromSlot, toSlot))
+            s.copy(ourPicks = picks, undoStack = s.undoStack.appended(DraftAction.HeroSwap(fromSlot, toSlot)))
         }
     }
 

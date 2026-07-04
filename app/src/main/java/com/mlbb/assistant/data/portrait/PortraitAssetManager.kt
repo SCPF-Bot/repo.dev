@@ -10,6 +10,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -17,6 +19,7 @@ import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,12 +29,19 @@ import javax.inject.Singleton
  * Downloads the official CDN portrait once per hero ([Variant.MAIN]) and derives two
  * smaller, slot-fidelity-matched variants used purely for on-screen detection:
  *
- * - [Variant.MAIN] (256px) — the app's own UI (hero grids, detail screen, etc).
- * - [Variant.PICK] (128px) — matches [com.mlbb.assistant.capture.PortraitNormalizer]'s
- *   working resolution; used to build reference hashes for PICK slots.
- * - [Variant.BAN] (64px) — roughly half of PICK, mirroring the real on-screen ratio
- *   between ban-slot and pick-slot portrait sizes in `draft_ui_map.json`
- *   (ban abs width ≈53px vs pick abs width ≈107px); used for BAN slot reference hashes.
+ * - [Variant.MAIN] (224px) — the app's own UI (hero grids, detail screen, etc). Matches
+ *   `CONFIG['size_main']` in `scripts/train.py`, which is itself
+ *   `MobileNetV3Small`'s expected input resolution (see
+ *   [com.mlbb.assistant.capture.HeroClassifier.INPUT_SIZE]) — keeping the on-device MAIN
+ *   asset at the same resolution the classifier was trained on avoids an extra up/down-scale
+ *   round trip before [HeroClassifier][com.mlbb.assistant.capture.HeroClassifier] resizes it.
+ * - [Variant.PICK] (128px) — matches `CONFIG['size_pick']` in `scripts/train.py` and
+ *   [com.mlbb.assistant.capture.PortraitNormalizer]'s working resolution; used to build
+ *   reference hashes for PICK slots.
+ * - [Variant.BAN] (64px) — matches `CONFIG['size_ban']` in `scripts/train.py`, roughly half
+ *   of PICK, mirroring the real on-screen ratio between ban-slot and pick-slot portrait sizes
+ *   in `draft_ui_map.json` (ban abs width ≈53px vs pick abs width ≈107px); used for BAN slot
+ *   reference hashes.
  *
  * Files live under `filesDir/portraits/{heroId}/hero.{main,pick,ban}.png`. All operations
  * are plain disk + bitmap work — this class holds no in-memory cache, so it is safe to
@@ -46,7 +56,9 @@ class PortraitAssetManager @Inject constructor(
 ) {
 
     enum class Variant(val fileName: String, val maxDimensionPx: Int) {
-        MAIN("hero.main.png", 256),
+        // Sizes mirror CONFIG['size_main'/'size_pick'/'size_ban'] in scripts/train.py so the
+        // on-device assets match the resolutions the TFLite classifier was trained/derived at.
+        MAIN("hero.main.png", 224),
         PICK("hero.pick.png", 128),
         BAN("hero.ban.png", 64),
     }
@@ -71,6 +83,24 @@ class PortraitAssetManager @Inject constructor(
         fun resolveLocalFileOrNull(context: Context, heroId: Int, variant: Variant): File? =
             resolveFile(context, heroId, variant).takeIf { it.exists() && it.length() > 0 }
     }
+
+    /**
+     * Serializes download/optimize operations per hero.
+     *
+     * Without this, two concurrent callers racing on the same missing hero — e.g.
+     * [PortraitPrefetchWorker][com.mlbb.assistant.data.worker.PortraitPrefetchWorker]'s
+     * [downloadAll] running while [com.mlbb.assistant.capture.PortraitMatcher] concurrently
+     * calls [ensureVariants] for the *same* hero during slot-aware hash preloading — could
+     * both pass the `exists()` check, both start a fresh CDN download, and both write to the
+     * identical `hero.main.png.tmp` path in [saveScaled] at once: one write can clobber or
+     * interleave with the other mid-stream, and whichever `renameTo` loses the race then
+     * throws on a tmp file the other coroutine already deleted. Bounded by the hero roster
+     * size (~120 heroes), so no eviction is needed.
+     */
+    private val heroLocks = ConcurrentHashMap<Int, Mutex>()
+
+    private suspend fun <T> withHeroLock(heroId: Int, block: suspend () -> T): T =
+        heroLocks.getOrPut(heroId) { Mutex() }.withLock { block() }
 
     private val rootDir: File by lazy {
         File(context.filesDir, "portraits").apply { mkdirs() }
@@ -123,7 +153,7 @@ class PortraitAssetManager @Inject constructor(
                         async {
                             val url = urlIndex[hero.id]?.takeIf { it.isNotBlank() }
                                 ?: hero.imageUrl
-                            runCatching { downloadMain(hero, url) }
+                            runCatching { withHeroLock(hero.id) { downloadMain(hero, url) } }
                                 .onFailure { e ->
                                     Timber.w(e, "Portrait download failed: ${hero.name} (id=${hero.id}) url=$url")
                                     synchronized(failures) { failures += hero.name }
@@ -149,7 +179,11 @@ class PortraitAssetManager @Inject constructor(
             val total    = heroes.size
             val failures = mutableListOf<String>()
             heroes.forEachIndexed { index, hero ->
-                runCatching { optimizeOne(hero.id) }
+                // Locked for the same reason as ensureVariants(): optimizeOne() also writes
+                // through saveScaled()'s tmp-file-then-rename path, so it must not race with
+                // an ensureVariants() call for the same hero triggered concurrently from
+                // PortraitMatcher's slot-aware hash preloading.
+                runCatching { withHeroLock(hero.id) { optimizeOne(hero.id) } }
                     .onFailure { e ->
                         Timber.w(e, "Portrait optimize failed: ${hero.name} (id=${hero.id})")
                         failures += hero.name
@@ -183,14 +217,20 @@ class PortraitAssetManager @Inject constructor(
         }
     }
 
-    /** Ensures both slot-detection variants exist for a single hero, downloading/optimizing on demand. */
+    /**
+     * Ensures both slot-detection variants exist for a single hero, downloading/optimizing on
+     * demand. Guarded by [withHeroLock] since this can be invoked concurrently with [downloadAll]
+     * / another [ensureVariants] call for the same hero (see [heroLocks] doc).
+     */
     suspend fun ensureVariants(hero: Hero) = withContext(Dispatchers.IO) {
-        if (!exists(hero.id, Variant.MAIN)) {
-            val urlIndex = jsonParser.buildPortraitUrlIndex()
-            val url = urlIndex[hero.id]?.takeIf { it.isNotBlank() } ?: hero.imageUrl
-            downloadMain(hero, url)
+        withHeroLock(hero.id) {
+            if (!exists(hero.id, Variant.MAIN)) {
+                val urlIndex = jsonParser.buildPortraitUrlIndex()
+                val url = urlIndex[hero.id]?.takeIf { it.isNotBlank() } ?: hero.imageUrl
+                downloadMain(hero, url)
+            }
+            if (exists(hero.id, Variant.MAIN) && !isFullyOptimized(hero.id)) optimizeOne(hero.id)
         }
-        if (exists(hero.id, Variant.MAIN) && !isFullyOptimized(hero.id)) optimizeOne(hero.id)
     }
 
     /**

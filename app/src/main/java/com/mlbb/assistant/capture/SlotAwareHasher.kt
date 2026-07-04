@@ -58,6 +58,15 @@ class SlotAwareHasher {
         heroHashes[heroId]?.containsKey(slotType) == true
 
     /**
+     * Drops every cached reference hash. Call when the owning [PortraitMatcher]
+     * is closed (e.g. overlay session stops) so a fresh detection session
+     * doesn't keep serving hashes computed from a previous roster/session,
+     * and so the map's backing memory is released rather than held for the
+     * lifetime of the process.
+     */
+    fun clear() = heroHashes.clear()
+
+    /**
      * Computes a [TripleHash] for [normalizedBitmap] (already [PortraitNormalizer.normalizeForSlot]'d).
      */
     fun computeTripleHash(normalizedBitmap: Bitmap): TripleHash {

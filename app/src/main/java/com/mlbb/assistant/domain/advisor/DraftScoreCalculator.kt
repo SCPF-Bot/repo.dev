@@ -2,6 +2,7 @@ package com.mlbb.assistant.domain.advisor
 
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Tier
+import com.mlbb.assistant.utils.averageOrDefault
 import kotlin.math.roundToInt
 
 /**
@@ -74,12 +75,17 @@ object DraftScoreCalculator {
      * Bug fixed: the previous constant divisor of 4 caused Tier.B (order = 4) to
      * yield exactly 0.0 and Tier.UNKNOWN (order = 5) to yield −0.25, a negative
      * contribution that silently corrupted the overall draft score.
+     *
+     * M-08 fix: replaced `Iterable<Float>.average()` (which throws on an empty
+     * collection and only works on numeric wrapper types) with the explicit
+     * [averageOrDefault] extension, matching the empty-collection guard already
+     * present here and avoiding the implicit `Double` boxing `.average()` does
+     * internally for `Iterable<Float>` collections.
      */
     private fun calcMetaAdherence(picks: List<Hero>): Float {
         if (picks.isEmpty()) return 0f
         return picks
-            .map { 1f - it.tier.order.toFloat() / TIER_MAX_ORDER }
-            .average()
+            .averageOrDefault { 1f - it.tier.order.toFloat() / TIER_MAX_ORDER }
             .toFloat()
             .coerceIn(0f, 1f)
     }

@@ -128,4 +128,98 @@ Each step modifies exactly one file (or creates one new file) to keep diffs atom
 
 ---
 
+## [Execution Log — all 25 steps complete]
+
+Steps 1–23 were applied as straight `MODIFY`/`CREATE` edits per the table above.
+Steps 24 and 25 were `VERIFY` steps; findings below.
+
+### Step 24 — `FloatingBubble.kt` vs `JetOverlay.kt`: **not redundant, no deletion**
+
+Inspected both files: `FloatingBubble.kt` is a pure `@Composable fun FloatingBubble(session, onTap)` —
+it contains no `WindowManager`, no touch listener, and no window lifecycle code. It only renders the
+minimised bubble's Compose UI (icon/badge) and is one of the two render branches
+`DraftOverlayContent` chooses between (`FloatingBubble` vs `MiniWidget`, gated on
+`holder.isExpanded.value`).
+
+`JetOverlay.kt` is the window-management/drag layer: it owns the `WindowManager` window, the
+`ComposeView`, the lifecycle owner, and the touch listener (drag-to-move + fling-to-edge). It renders
+whatever composable `OverlayService` registers via `JetOverlay.initialize { overlayContent { DraftOverlayContent() } }` —
+it has no knowledge of `FloatingBubble` specifically.
+
+These are different layers (visual component vs. OS window plumbing) with no overlapping
+responsibility. No dead code found; no deletion performed.
+
+### Step 25 — `OverlayModule.kt` / `OverlayContentBridge` audit: **bridge is required, no change**
+
+`OverlayContentBridge` (defined in `DraftOverlayContent.kt`, used by `OverlayService.kt`) exists
+because `JetOverlay.initialize()` registers the overlay's `@Composable` content in
+`MLBBApplication.onCreate()` — before the Hilt `SingletonComponent` (and therefore
+`OverlayStateHolder`) is available to inject. The composable lambda is only *invoked* later, from
+`JetOverlay.show()` in `OverlayService.onCreate()`, by which point Hilt injection into the service has
+completed and the bridge fields are populated. `OverlayModule.kt` itself only provides
+`OverlayController` and `ImageLoader` — it does not construct or reference the bridge, and swapping
+the bridge for direct constructor injection into `DraftOverlayContent()` is not possible without also
+changing `JetOverlay`'s Hilt-agnostic initialization timing, which is out of scope for this audit.
+Verified this is a deliberate, documented pattern (see the doc comment on `DraftOverlayContent()`
+explaining "why `OverlayContentBridge` instead of a CompositionLocal or `hiltViewModel()`") rather than
+an accidental anti-pattern. No modification made.
+
+---
+
 *Plan generated from full dependency-aware audit of 178 `.kt` source files. No Gradle, JVM target, NDK, or model-training changes are included.*
+*All 25 execution steps completed and verified against the source tree above.*
+
+---
+
+## [Follow-up pass — hero portrait caching, network, and download logic]
+
+A second, narrower audit was performed specifically on the hero-portrait caching, networking,
+and download pipeline (`PortraitAssetManager`, `PortraitMatcher`, `SlotAwareHasher`,
+`OverlayCaptureCoordinator`, `JsonParser`, `PortraitPrefetchWorker`, `HeroSyncWorker`,
+`NetworkMonitor`). Five concrete issues were found and fixed:
+
+1. **`PortraitMatcher` bypassed DI for its `PortraitAssetManager`.** The constructor
+   default-instantiated a brand-new `PortraitAssetManager(context, OkHttpClient(), JsonParser(context))`
+   instead of using the Hilt singleton — a second `OkHttpClient` (its own connection pool) and a
+   second `JsonParser` were created every time `OverlayCaptureCoordinator.init()` ran. Fixed by
+   requiring the singleton as a constructor parameter and injecting it into
+   `OverlayCaptureCoordinator`, which now passes it through to `PortraitMatcher`.
+
+2. **Concurrent-download race on the same hero.** Neither `PortraitAssetManager.downloadAll()`
+   nor `ensureVariants()` serialized access per hero. Two callers racing for the same missing hero
+   (e.g. `PortraitPrefetchWorker`'s bulk `downloadAll()` running while `PortraitMatcher`'s slot-aware
+   hash preloading concurrently calls `ensureVariants()` for that same hero) could both pass the
+   `exists()` check and write to the identical `hero.main.png.tmp` path at once, corrupting the
+   atomic-rename write. Fixed with a per-hero `Mutex` (`heroLocks`) guarding `downloadMain`,
+   `optimizeOne`, and `ensureVariants`.
+
+3. **TFLite interpreter and hash caches were never released.** `OverlayCaptureCoordinator.stop()`
+   (called from `OverlayService.onDestroy()`) never called `portraitMatcher.close()` — the TFLite
+   interpreter, three 200-entry `LruCache`s (dHash/pHash/histogram), and `SlotAwareHasher`'s
+   reference-hash map stayed resident for the life of the process across every overlay session.
+   Fixed: `stop()` now calls `portraitMatcher.close()`, and `close()` now evicts all three
+   `LruCache`s and calls a new `SlotAwareHasher.clear()`.
+
+4. **Redundant JSON re-parsing on the portrait-download hot path.** `JsonParser.buildPortraitUrlIndex()`
+   re-decoded the full bundled `default_heroes.json` array and rebuilt the URL map on *every* call,
+   including once per hero from `ensureVariants()` during on-demand slot-aware hash preloading.
+   Since the backing resource is immutable APK content, the result is now memoized after the first
+   successful parse (a failed parse is intentionally not cached, so a transient error can retry).
+
+5. **Verified, no change needed:** `HeroSyncWorker` / `PortraitPrefetchWorker` retry policy and
+   `NetworkType.CONNECTED` scheduling constraints (`MLBBApplication.kt`) are correctly wired, and
+   `NetworkMonitor`'s capability-aware connectivity flow correctly reports capability loss via
+   `onLost` for its scoped request. No further action taken on those.
+
+6. **`Variant.MAIN` download size didn't match the training pipeline.** `scripts/train.py`
+   defines the canonical portrait sizes used to build/derive the bundled TFLite classifier and
+   its labels (`CONFIG['size_main'] = 224`, `CONFIG['size_pick'] = 128`, `CONFIG['size_ban'] = 64`,
+   the first of which is also `MobileNetV3Small`'s trained input resolution — see
+   `HeroClassifier.INPUT_SIZE`). `PortraitAssetManager.Variant.PICK`/`BAN` already matched
+   (128 / 64), but `MAIN` was downloading/saving at 256px instead of 224px. Changed `MAIN` to
+   224px so the on-device asset resolution is consistent with `scripts/train.py` end-to-end; all
+   call sites read the size via `Variant.maxDimensionPx`, so no other file needed updating.
+
+*As with the original 25-step pass, no Gradle/JVM/Android toolchain was available in this
+environment to compile-verify these changes; they were verified by careful manual review of every
+call site touched.*

@@ -2,6 +2,8 @@ package com.mlbb.assistant.domain.advisor
 
 import com.mlbb.assistant.domain.model.CoreItem
 import com.mlbb.assistant.domain.model.Hero
+import com.mlbb.assistant.domain.model.HeroRole
+import com.mlbb.assistant.domain.model.roleEnum
 
 /**
  * Recommended emblem for a hero in a given role context.
@@ -74,7 +76,7 @@ object BuildAdvisor {
     // ── Spell recommendation ──────────────────────────────────────────────────
 
     private fun recommendSpell(hero: Hero, enemy: CompositionProfile): Triple<String, String, String> {
-        val isCarry  = hero.role in listOf("Marksman", "Mage")
+        val isCarry  = hero.roleEnum in setOf(HeroRole.MARKSMAN, HeroRole.MAGE)
         val isJungle = hero.lane.name == "JUNGLE"
         val isRoam   = hero.lane.name == "ROAM"
 
@@ -85,9 +87,9 @@ object BuildAdvisor {
                 Triple("Sprint", "Flicker", "Escape enemy high-mobility dive comp")
             isCarry && enemy.physicalPct > BuildThresholds.DAMAGE_HEAVY ->
                 Triple("Inspire", "Flicker", "Maximize DPS output vs physical enemy")
-            hero.role == "Fighter" && enemy.ccLevel == CCLevel.HIGH ->
+            hero.roleEnum == HeroRole.FIGHTER && enemy.ccLevel == CCLevel.HIGH ->
                 Triple("Purify", "Vengeance", "Break free from heavy enemy CC")
-            enemy.ccLevel == CCLevel.HIGH && hero.role in listOf("Assassin", "Mage") ->
+            enemy.ccLevel == CCLevel.HIGH && hero.roleEnum in setOf(HeroRole.ASSASSIN, HeroRole.MAGE) ->
                 Triple("Purify", "Flicker", "Escape CC chains to complete your combo")
             else -> {
                 val primary = hero.recommendedSpells.getOrElse(0) { "Flicker" }
@@ -112,29 +114,29 @@ object BuildAdvisor {
         // ── Defensive situational items ────────────────────────────────────────
 
         if (enemy.physicalPct >= BuildThresholds.DAMAGE_MODERATE) {
-            if (hero.role in listOf("Tank", "Fighter")) {
+            if (hero.roleEnum in setOf(HeroRole.TANK, HeroRole.FIGHTER)) {
                 if (core.none { it.name.contains("Cuirass") || it.name.contains("Dominance") }) {
                     situational.add(CoreItem(9001, "Antique Cuirass", 4))
                 }
                 situational.add(CoreItem(9002, "Dominance Ice", 5))
-            } else if (hero.role in listOf("Marksman", "Mage", "Support")) {
+            } else if (hero.roleEnum in setOf(HeroRole.MARKSMAN, HeroRole.MAGE, HeroRole.SUPPORT)) {
                 situational.add(CoreItem(9003, "Brute Force Breastplate", 4))
             }
         }
         if (enemy.magicPct >= BuildThresholds.DAMAGE_MODERATE) {
-            if (hero.role in listOf("Tank", "Fighter")) {
+            if (hero.roleEnum in setOf(HeroRole.TANK, HeroRole.FIGHTER)) {
                 situational.add(CoreItem(9004, "Athena's Shield", 4))
             } else {
                 situational.add(CoreItem(9005, "Radiant Armor", 4))
             }
         }
-        if (enemy.ccLevel == CCLevel.HIGH && hero.role in listOf("Marksman", "Assassin", "Mage")) {
+        if (enemy.ccLevel == CCLevel.HIGH && hero.roleEnum in setOf(HeroRole.MARKSMAN, HeroRole.ASSASSIN, HeroRole.MAGE)) {
             situational.add(CoreItem(9006, "Immortality", 5))
         }
         if (enemy.sustainLevel == SustainLevel.HIGH) {
             situational.add(CoreItem(9007, "Sea Halberd", 4))
         }
-        if (enemy.mobilityLevel == MobilityLevel.HIGH && hero.role == "Marksman") {
+        if (enemy.mobilityLevel == MobilityLevel.HIGH && hero.roleEnum == HeroRole.MARKSMAN) {
             situational.add(CoreItem(9008, "Wind of Nature", 5))
         }
 
@@ -147,18 +149,18 @@ object BuildAdvisor {
     // ── Emblem recommendation ─────────────────────────────────────────────────
 
     private fun recommendEmblem(hero: Hero, enemy: CompositionProfile): EmblemRecommendation {
-        return when (hero.role) {
-            "Mage" -> EmblemRecommendation(
+        return when (hero.roleEnum) {
+            HeroRole.MAGE -> EmblemRecommendation(
                 name        = "Mage Emblem",
                 tier3Talent = "Impure Rage",
                 reason      = "Reduces mana cost and deals extra damage on skills"
             )
-            "Assassin" -> EmblemRecommendation(
+            HeroRole.ASSASSIN -> EmblemRecommendation(
                 name        = "Assassin Emblem",
                 tier3Talent = "Killing Spree",
                 reason      = "Heal and speed burst after securing a kill — sustain your all-in"
             )
-            "Fighter" -> if (enemy.ccLevel == CCLevel.HIGH)
+            HeroRole.FIGHTER -> if (enemy.ccLevel == CCLevel.HIGH)
                 EmblemRecommendation(
                     name        = "Fighter Emblem",
                     tier3Talent = "Persistence",
@@ -170,17 +172,17 @@ object BuildAdvisor {
                     tier3Talent = "Festival of Blood",
                     reason      = "Spellvamp stacks enable sustained trading in EXP lane"
                 )
-            "Marksman" -> EmblemRecommendation(
+            HeroRole.MARKSMAN -> EmblemRecommendation(
                 name        = "Marksman Emblem",
                 tier3Talent = "Weakness Finder",
                 reason      = "Random slow on basic attacks enhances kiting and chase potential"
             )
-            "Tank" -> EmblemRecommendation(
+            HeroRole.TANK -> EmblemRecommendation(
                 name        = "Tank Emblem",
                 tier3Talent = "Brave Smite",
                 reason      = "Heals roamer on CC skills — sustain in aggressive early rotations"
             )
-            "Support" -> EmblemRecommendation(
+            HeroRole.SUPPORT -> EmblemRecommendation(
                 name        = "Support Emblem",
                 tier3Talent = "Focusing Mark",
                 reason      = "Amplifies ally damage on marked targets — boost carry output"
@@ -199,7 +201,7 @@ object BuildAdvisor {
         if (enemy.physicalPct >= BuildThresholds.DAMAGE_HEAVY) add("Armour items prioritised — enemy is physical-heavy")
         if (enemy.magicPct    >= BuildThresholds.DAMAGE_HEAVY) add("Magic resist items recommended — enemy is magic-heavy")
         if (enemy.mobilityLevel == MobilityLevel.HIGH) add("Slow items help vs high-mobility enemies")
-        if (hero.role == "Marksman") add("Build attack speed early for consistent DPS")
+        if (hero.roleEnum == HeroRole.MARKSMAN) add("Build attack speed early for consistent DPS")
         if (enemy.sustainLevel == SustainLevel.HIGH)   add("Sea Halberd / Necklace of Durance recommended — cut enemy healing")
     }
 

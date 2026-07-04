@@ -7,7 +7,9 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.WindowManager
+import android.view.WindowMetrics
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -32,12 +34,21 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
  */
 object JetOverlay {
 
-    private var application: Application? = null
-    private var overlayContent: (@Composable () -> Unit)? = null
+    // M-09 fix: these fields are written under the @Synchronized show()/hide()
+    // lock, but read from other call sites (e.g. the touch listener's
+    // ACTION_MOVE branch runs on the UI thread and reads `windowManager`
+    // outside that lock). @Volatile guarantees a reader on another thread
+    // sees the latest write instead of a stale/cached value — synchronized
+    // blocks alone only guarantee ordering between threads that both
+    // synchronize on the same monitor.
+    @Volatile private var application: Application? = null
+    @Volatile private var overlayContent: (@Composable () -> Unit)? = null
 
-    private var windowManager: WindowManager? = null
-    private var composeView: ComposeView? = null
-    private var lifecycleOwner: OverlayLifecycleOwner? = null
+    @Volatile private var windowManager: WindowManager? = null
+    @Volatile private var composeView: ComposeView? = null
+    @Volatile private var lifecycleOwner: OverlayLifecycleOwner? = null
+
+    private const val FLING_MIN_VELOCITY_PX_PER_SEC = 800f
 
     fun initialize(app: Application, block: JetOverlayScope.() -> Unit) {
         application = app
@@ -95,6 +106,14 @@ object JetOverlay {
         var initialTouchX = 0f
         var initialTouchY = 0f
 
+        // UX-07: fling-to-edge. A VelocityTracker accumulates ACTION_MOVE
+        // samples between ACTION_DOWN and ACTION_UP; on release, a fast
+        // horizontal fling snaps the bubble to the nearest screen edge in the
+        // direction of the fling instead of leaving it wherever the finger
+        // happened to lift, matching the "docked bubble" behavior users expect
+        // from floating overlays (e.g. Messenger chat heads).
+        var velocityTracker: VelocityTracker? = null
+
         view.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -102,13 +121,38 @@ object JetOverlay {
                     initialY = params.y
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
+                    velocityTracker?.recycle()
+                    velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
                     false
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    velocityTracker?.addMovement(event)
                     params.x = initialX + (event.rawX - initialTouchX).toInt()
                     params.y = initialY + (event.rawY - initialTouchY).toInt()
                     runCatching { wm.updateViewLayout(view, params) }
                     true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val tracker = velocityTracker
+                    if (tracker != null) {
+                        tracker.addMovement(event)
+                        tracker.computeCurrentVelocity(1000)
+                        val vx = tracker.xVelocity
+                        val screenWidth = runCatching { screenWidthPx(app, wm) }.getOrNull()
+                        if (screenWidth != null && kotlin.math.abs(vx) > FLING_MIN_VELOCITY_PX_PER_SEC) {
+                            val viewWidth = if (view.width > 0) view.width else 1
+                            params.x = if (vx > 0) screenWidth - viewWidth else 0
+                            runCatching { wm.updateViewLayout(view, params) }
+                        }
+                        tracker.recycle()
+                        velocityTracker = null
+                    }
+                    false
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+                    false
                 }
                 else -> false
             }
@@ -125,6 +169,18 @@ object JetOverlay {
             composeView = null
             windowManager = null
             lifecycleOwner = null
+        }
+    }
+
+    /** Screen width in px, using the modern WindowMetrics API on R+ and falling back to the deprecated Display API below it. */
+    private fun screenWidthPx(app: Application, wm: WindowManager): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val metrics: WindowMetrics = wm.currentWindowMetrics
+            metrics.bounds.width()
+        } else {
+            val displayMetrics = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION") wm.defaultDisplay.getMetrics(displayMetrics)
+            displayMetrics.widthPixels
         }
     }
 

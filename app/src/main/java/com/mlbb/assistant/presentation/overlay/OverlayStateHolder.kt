@@ -130,13 +130,20 @@ class OverlayStateHolder @Inject constructor(
     private fun loadHeroes(scope: CoroutineScope, coordinator: OverlayCaptureCoordinator) {
         scope.launch {
             getHeroesUseCase().collectLatest { heroes ->
-                allHeroes.clear()
-                allHeroes.addAll(heroes)
+                // H-02: getHeroesUseCase() is a Room/DataStore-backed flow and is not
+                // guaranteed to always emit on Main — wrap the Compose snapshot-state
+                // mutations explicitly in Dispatchers.Main.immediate so allHeroes/
+                // recommendations writes always land on the thread Compose expects,
+                // instead of relying on the caller's ambient dispatcher.
+                withContext(Dispatchers.Main.immediate) {
+                    allHeroes.clear()
+                    allHeroes.addAll(heroes)
+                    refreshRecommendations(draftSessionManager.session.value)
+                }
                 // Preload portrait hashes on IO so the CV pipeline is warm.
                 launch(Dispatchers.IO) {
                     runCatching { coordinator.preloadHashes(heroes) }
                 }
-                refreshRecommendations(draftSessionManager.session.value)
             }
         }
     }
@@ -146,9 +153,13 @@ class OverlayStateHolder @Inject constructor(
     private fun observeSession(scope: CoroutineScope) {
         scope.launch {
             draftSessionManager.session.collectLatest { session ->
-                refreshRecommendations(session)
-                if (session.phase == DraftPhase.BAN_ROUND_1 && !isExpanded.value) {
-                    isExpanded.value = true
+                // H-02: see loadHeroes() above — same rationale for the
+                // recommendations/enemyWarnings/isExpanded snapshot writes.
+                withContext(Dispatchers.Main.immediate) {
+                    refreshRecommendations(session)
+                    if (session.phase == DraftPhase.BAN_ROUND_1 && !isExpanded.value) {
+                        isExpanded.value = true
+                    }
                 }
                 // Persist snapshot on IO to avoid blocking the Main dispatcher.
                 launch(Dispatchers.IO) { saveSessionSnapshotSuspend(session) }
@@ -159,14 +170,18 @@ class OverlayStateHolder @Inject constructor(
     private fun observeScoringConfig(scope: CoroutineScope) {
         scope.launch {
             preferencesDataStore.scoreWeightsFlow.collectLatest { weights ->
-                currentWeights = weights
-                refreshRecommendations(draftSessionManager.session.value)
+                withContext(Dispatchers.Main.immediate) {
+                    currentWeights = weights
+                    refreshRecommendations(draftSessionManager.session.value)
+                }
             }
         }
         scope.launch {
             heroPoolDao.getAll().collectLatest { entities ->
-                poolMap = entities.associate { it.heroId to it.toProficiency() }
-                refreshRecommendations(draftSessionManager.session.value)
+                withContext(Dispatchers.Main.immediate) {
+                    poolMap = entities.associate { it.heroId to it.toProficiency() }
+                    refreshRecommendations(draftSessionManager.session.value)
+                }
             }
         }
     }
@@ -317,7 +332,12 @@ class OverlayStateHolder @Inject constructor(
         val rank         = runCatching { Rank.valueOf(rankName) }.getOrElse { Rank.UNKNOWN }
         val ourTeamFirst = prefs[KEY_SESSION_FIRST] ?: true
 
-        withContext(Dispatchers.Main) {
+        // H-02: Dispatchers.Main.immediate avoids an unnecessary dispatch when
+        // restoreSessionSnapshot() (called from start(), itself launched on the
+        // service's Main-dispatcher scope) is already running on Main — plain
+        // Dispatchers.Main always posts to the message queue even when already
+        // on the main thread, adding a needless frame of latency here.
+        withContext(Dispatchers.Main.immediate) {
             draftSessionManager.initSession(rank, ourTeamFirst = ourTeamFirst)
             when (phase) {
                 DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> draftSessionManager.startBanPhase()

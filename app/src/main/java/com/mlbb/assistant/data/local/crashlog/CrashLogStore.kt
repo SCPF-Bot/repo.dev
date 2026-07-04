@@ -33,14 +33,19 @@ data class LogEntry(
  * Multi-line stack-traces are written as additional lines each prefixed with TAB
  * and collected back onto the preceding entry on read.
  *
- * The file is capped at [MAX_BYTES] to prevent unbounded growth. Thread-safety
- * on [appendSync] is provided by [lock] so concurrent crash-handler calls on
- * different threads cannot interleave bytes.
+ * The file is capped at [MAX_BYTES] to prevent unbounded growth, and rotation
+ * additionally caps the *line count* at [MAX_LOG_LINES] (L-06/UX-06): a burst
+ * of many small single-line entries can stay under the byte cap for a long
+ * time while still holding far more history than [MAX_ENTRIES] ever surfaces
+ * on read, so the line-count cap keeps [rotate] from being byte-cap-starved.
+ * Thread-safety on [appendSync] is provided by [lock] so concurrent
+ * crash-handler calls on different threads cannot interleave bytes.
  */
 object CrashLogStore {
 
     private const val LOG_FILE_NAME = "mlbb_crash_log.txt"
     private const val MAX_BYTES     = 512 * 1024L  // 512 KB
+    private const val MAX_LOG_LINES = 4000          // hard cap independent of byte size
     private const val MAX_ENTRIES   = 500
 
     private val lock = Any()
@@ -54,7 +59,9 @@ object CrashLogStore {
         synchronized(lock) {
             runCatching {
                 val file = logFile(context)
-                if (file.exists() && file.length() > MAX_BYTES) rotate(file)
+                if (file.exists() && (file.length() > MAX_BYTES || file.readLines().size >= MAX_LOG_LINES)) {
+                    rotate(file)
+                }
                 file.appendText(encode(entry))
             }
         }
@@ -124,7 +131,10 @@ object CrashLogStore {
 
     private fun rotate(file: File) {
         val lines = file.readLines()
-        val keep  = lines.takeLast(lines.size / 2)
+        // Halve on byte-cap rotation as before, but never keep more than
+        // MAX_LOG_LINES regardless of how few bytes those lines occupy.
+        val halved = lines.takeLast(lines.size / 2)
+        val keep   = halved.takeLast(MAX_LOG_LINES)
         file.writeText(keep.joinToString("\n") + "\n")
     }
 }

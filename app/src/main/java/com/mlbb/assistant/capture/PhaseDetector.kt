@@ -125,9 +125,16 @@ object PhaseDetector {
         var validSamples = 0
         val hsv = FloatArray(3)
 
+        // C-01 fix: a single bulk getPixels() call reads the whole bitmap into
+        // one int[] in one JNI round-trip. The previous per-pixel getPixel(x, y)
+        // loop made a separate JNI call for every sampled pixel (w/step * h/step
+        // calls per frame), which dominates frame-analysis time at 4 fps capture.
+        val pixels = IntArray(w * h)
+        frame.getPixels(pixels, 0, w, 0, 0, w, h)
+
         for (x in 0 until w step step) {
             for (y in 0 until h step step) {
-                val px = frame.getPixel(x, y)
+                val px = pixels[y * w + x]
                 Color.colorToHSV(px, hsv)
                 val hue = hsv[0]
                 val sat = hsv[1]
@@ -171,10 +178,14 @@ object PhaseDetector {
         var blueScore = 0f
         var samples   = 0
 
+        // C-01 fix: bulk getPixels() read — see detectHsv() above for rationale.
+        val pixels = IntArray(w * h)
+        frame.getPixels(pixels, 0, w, 0, 0, w, h)
+
         val step = 4
         for (x in 0 until w step step) {
             for (y in 0 until h step step) {
-                val px = frame.getPixel(x, y)
+                val px = pixels[y * w + x]
                 val r  = Color.red(px).toFloat()
                 val g  = Color.green(px).toFloat()
                 val b  = Color.blue(px).toFloat()

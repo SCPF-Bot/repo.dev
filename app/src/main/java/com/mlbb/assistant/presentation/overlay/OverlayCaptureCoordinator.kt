@@ -19,6 +19,7 @@ import com.mlbb.assistant.capture.PortraitMatcher
 import com.mlbb.assistant.capture.SlotRegionF
 import com.mlbb.assistant.capture.SlotRegions
 import com.mlbb.assistant.capture.SlotType
+import com.mlbb.assistant.data.portrait.PortraitAssetManager
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.model.Hero
@@ -86,7 +87,8 @@ class OverlayCaptureCoordinator @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val stateHolder:         OverlayStateHolder,
     private val draftSessionManager: DraftSessionManager,
-    private val dataStore:           DataStore<Preferences>
+    private val dataStore:           DataStore<Preferences>,
+    private val portraitAssetManager: PortraitAssetManager,
 ) {
 
     private lateinit var screenCaptureManager: ScreenCaptureManager
@@ -155,7 +157,11 @@ class OverlayCaptureCoordinator @Inject constructor(
 
     fun init(imageLoader: ImageLoader) {
         screenCaptureManager = ScreenCaptureManager(context)
-        portraitMatcher = PortraitMatcher(context, imageLoader)
+        // Reuse the Hilt-provided PortraitAssetManager singleton rather than letting
+        // PortraitMatcher default-construct its own (previously: a second OkHttpClient +
+        // JsonParser instance was spun up here, wasting a connection pool and risking a
+        // disk-cache view that could disagree with the singleton every other caller uses).
+        portraitMatcher = PortraitMatcher(context, imageLoader, portraitAssetManager)
     }
 
     // ── Portrait hash preload (called by OverlayStateHolder when heroes load) ─
@@ -213,6 +219,12 @@ class OverlayCaptureCoordinator @Inject constructor(
         captureJob?.cancel()
         if (::screenCaptureManager.isInitialized) {
             screenCaptureManager.stopCapture()
+        }
+        // Previously never called: the TFLite interpreter and the dHash/pHash/histogram
+        // caches (up to 200 entries each) plus SlotAwareHasher's reference-hash map stayed
+        // resident for the lifetime of the process after every overlay session ended.
+        if (::portraitMatcher.isInitialized) {
+            portraitMatcher.close()
         }
         stateHolder.setCaptureUnavailable(false)
     }
@@ -465,9 +477,17 @@ class OverlayCaptureCoordinator @Inject constructor(
             val step      = 4
             val hsv       = FloatArray(3)
 
-            for (x in 0 until crop.width step step) {
-                for (y in 0 until crop.height step step) {
-                    val px = crop.getPixel(x, y)
+            // L-01 fix: bulk getPixels() read instead of per-pixel getPixel(x, y).
+            // This runs on every scanned slot on every captured frame, so the
+            // per-pixel JNI overhead compounds fast (up to 8 slots x ~4 fps).
+            val w = crop.width
+            val h = crop.height
+            val pixels = IntArray(w * h)
+            crop.getPixels(pixels, 0, w, 0, 0, w, h)
+
+            for (x in 0 until w step step) {
+                for (y in 0 until h step step) {
+                    val px = pixels[y * w + x]
                     val r  = Color.red(px)
                     val g  = Color.green(px)
                     val b  = Color.blue(px)

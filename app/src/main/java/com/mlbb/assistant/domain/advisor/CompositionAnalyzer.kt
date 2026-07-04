@@ -96,10 +96,31 @@ object CompositionAnalyzer {
         return CompositionProfile(physicalPct, magicPct, ccLevel, mobilityLevel, sustainLevel, warnings)
     }
 
+    /**
+     * M-01 fix: assigns heroes to lanes in order of *constraint*, not pick order.
+     *
+     * Previously this walked [picks] in draft order and greedily claimed each
+     * hero's preferred lane. When two heroes both preferred the same lane, the
+     * one picked earlier always won it — even if the earlier hero had other
+     * flexible lanes available and the later hero had none. That's a classic
+     * greedy-order bias: a flexible hero could permanently starve an inflexible
+     * one out of its only viable lane.
+     *
+     * Sorting by ascending flexibility (fewest viable lanes first, i.e.
+     * `1 + flexLanes.size`) assigns the most-constrained heroes first, so a
+     * hero with no flex options gets first claim on its only lane before a
+     * flexible hero (which has fallback options) can take it. Ties keep the
+     * original pick order via a stable sort on index.
+     */
     fun getLanesFilled(picks: List<Hero>): Map<Lane, Hero?> {
         val result   = Lane.entries.associateWith<Lane, Hero?> { null }.toMutableMap()
         val assigned = mutableSetOf<Int>()
-        picks.forEach { hero ->
+
+        val byConstraint = picks.withIndex().sortedWith(
+            compareBy({ (_, hero) -> 1 + hero.flexLanes.size }, { (index, _) -> index })
+        )
+
+        byConstraint.forEach { (_, hero) ->
             if (hero.id !in assigned) {
                 val preferred = hero.lane
                 if (result[preferred] == null) {

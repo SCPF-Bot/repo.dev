@@ -60,7 +60,7 @@ data class MatchResult(
 class PortraitMatcher(
     private val context: Context,
     private val imageLoader: ImageLoader,
-    private val portraitAssetManager: PortraitAssetManager = PortraitAssetManager(context, okhttp3.OkHttpClient(), com.mlbb.assistant.utils.JsonParser(context)),
+    private val portraitAssetManager: PortraitAssetManager,
 ) {
 
     companion object {
@@ -99,8 +99,20 @@ class PortraitMatcher(
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
 
-    /** Release the TFLite interpreter. Call when the owning service stops. */
-    fun close() = classifier.close()
+    /**
+     * Releases the TFLite interpreter and drops every in-memory cache built up during
+     * this detection session (dHash/pHash/histogram LruCaches + [SlotAwareHasher]'s
+     * reference-hash map). Previously only the interpreter was released here, leaving
+     * up to 200 hero entries per cache resident for the lifetime of the process even
+     * after the overlay session ended — call this whenever the owning service stops.
+     */
+    fun close() {
+        classifier.close()
+        dHashCache.evictAll()
+        pHashCache.evictAll()
+        histogramCache.evictAll()
+        slotAwareHasher.clear()
+    }
 
     // ── Preloading ────────────────────────────────────────────────────────
 

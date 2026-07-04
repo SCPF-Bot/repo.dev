@@ -40,12 +40,31 @@ class JsonParser @Inject constructor(
      *
      * Heroes with a blank [HeroDto.imageUrl] are excluded from the result so callers
      * can safely skip them without an extra blank-check.
+     *
+     * Memoized on first successful build. [R.raw.default_heroes] is a bundled, immutable
+     * APK resource, so re-parsing it is pure waste — but this was previously re-parsed on
+     * every call, including once per hero from
+     * [com.mlbb.assistant.data.portrait.PortraitAssetManager.ensureVariants]. During
+     * on-demand slot-aware hash preloading that method can run once per hero per
+     * [com.mlbb.assistant.capture.PortraitMatcher.preloadHashes] pass, so re-decoding the
+     * full JSON array + rebuilding the map each time added needless CPU work on the
+     * portrait-download hot path. A failed parse is intentionally NOT cached (`null`),
+     * so a transient decode error doesn't permanently pin an empty index for the
+     * lifetime of this instance — the next call retries the parse.
      */
-    fun buildPortraitUrlIndex(): Map<Int, String> = runCatching {
-        parseDtos()
-            .filter { it.imageUrl.isNotBlank() }
-            .associate { it.id to it.imageUrl }
-    }.getOrDefault(emptyMap())
+    @Volatile
+    private var cachedPortraitUrlIndex: Map<Int, String>? = null
+
+    fun buildPortraitUrlIndex(): Map<Int, String> {
+        cachedPortraitUrlIndex?.let { return it }
+        val built = runCatching {
+            parseDtos()
+                .filter { it.imageUrl.isNotBlank() }
+                .associate { it.id to it.imageUrl }
+        }.getOrNull()
+        if (built != null) cachedPortraitUrlIndex = built
+        return built ?: emptyMap()
+    }
 
     private fun parseDtos(): List<HeroDto> {
         val text = context.resources.openRawResource(R.raw.default_heroes)
