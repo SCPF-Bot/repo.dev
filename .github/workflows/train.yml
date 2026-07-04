@@ -1,11 +1,11 @@
 name: Train TFLite
 
 on:
-  workflow_dispatch: # Allows you to trigger this manually from the "Actions" tab in GitHub
+  workflow_dispatch:
 
 jobs:
   train-model:
-    name: Train
+    name: Train Models
     runs-on: ubuntu-latest
     
     steps:
@@ -16,30 +16,29 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip' # Caches pip dependencies to speed up subsequent runs
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install requirements. If your requirements.txt is in the root:
           pip install -r scripts/requirements.txt
-          # If you put it in a scripts/ folder, use: pip install -r scripts/requirements.txt
 
-      - name: Run TFLite Training Pipeline
-        run: |
-          # Assuming you placed the script in a 'scripts/' directory. 
-          # Adjust the path if you placed it in the root.
-          python scripts/train.py
+      - name: Train Hero Classifier
+        run: python scripts/train.hero.py
         env:
-          # Optional: Increase TF logging if you need to debug training in the CI logs
           TF_CPP_MIN_LOG_LEVEL: 2 
 
-      - name: Upload TFLite Model and Labels
+      - name: Train UI Detector (YOLOv8)
+        run: python scripts/train.ui.py
+
+      - name: Upload TFLite Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mlbb-hero-classifier-artifacts
+          name: mlbb-tflite-artifacts
           path: |
             app/src/main/assets/mlbb_hero_classifier.tflite
             app/src/main/assets/hero_classifier_labels.txt
-          if-no-files-found: error # Fails the build if the script didn't generate the files
-          retention-days: 90 # Keep artifacts for 90 days
+            runs/detect/mlbb_yolo_v2/weights/best.tflite
+            dataset.yaml
+          if-no-files-found: error
+          retention-days: 90
