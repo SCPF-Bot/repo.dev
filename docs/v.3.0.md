@@ -16,7 +16,7 @@ V2.0 is a complete paradigm shift. We are moving from a reactive, coordinate-bas
 The V1.0 reliance on `SlotRegions` (hardcoded X/Y coordinates) and frame-by-frame analysis is obsolete.
 
 - **Dynamic UI Element Detection (YOLOv8-Nano)**: Replace hardcoded coordinates with a lightweight, custom-trained YOLOv8-Nano object detection model. The model will dynamically identify bounding boxes for `[ban_slot, pick_slot, timer, phase_banner, enemy_hero, ally_hero]`. This makes the app 100% resolution, aspect-ratio, and UI-layout agnostic.
-- **Synthetic Data Generation**: To eliminate the bottleneck of manual screenshot collection, implement a programmatic synthetic data generator that creates 2,000+ annotated training images by procedurally drawing UI elements with randomized jitter. This provides perfect annotations automatically and enables rapid model iteration.
+- **Synthetic-First Data Pipeline**: To eliminate the bottleneck of manual screenshot collection, implement a programmatic synthetic data generator. This script procedurally generates 2,000+ annotated training images by pasting real CDN hero portraits into randomized UI layouts with screen-capture artifacts.
 - **Temporal Action Localization (Frame-Buffer Voting)**: MLBB features "hero reveal" animations that cause false positives in frame-by-frame CV. Implement a temporal buffer (e.g., a 15-frame sliding window) that requires a hero detection to achieve a >80% consensus over 0.5 seconds before locking it into the draft state.
 - **Hardware-Accelerated Inference**: Mandate the use of TFLite GPU Delegates (or Hexagon DSP for Snapdragon) to drop inference latency from ~40ms to <5ms, eliminating battery drain and overlay stutter.
 
@@ -75,23 +75,18 @@ The V1.0 testing strategy was limited to pure-Kotlin domain unit tests.
 
 **ADR**: See `docs/ADR-001-phase1-modularization.md` for architecture decisions and trade-offs.
 
-### Phase 2: The CV Revolution (YOLO & Temporal) 🚧 IN PROGRESS
+### Phase 2: The CV Revolution (YOLO & Temporal)  IN PROGRESS
 
-**Goal**: Eradicate hardcoded coordinates and animation false-positives.
+**Goal**: Eradicate hardcoded coordinates, unify the ML pipeline, and automate model generation.
 
-- 🔄 **Synthetic Dataset Generation**: Implement `scripts/generate_synthetic_dataset.py` to procedurally generate 2,000+ annotated training images with randomized UI element positions, eliminating the need for manual screenshot collection. Dataset stored in `scripts/temp/{images,labels}`.
-- 🔄 **YOLOv8-Nano Training**: Create `scripts/train.ui.py` to train YOLOv8-Nano on synthetic data with heavy augmentation (brightness, rotation, scale, jitter). Export to INT8 quantized TFLite format for mobile deployment.
-- 🔄 **GitHub Actions Integration**: Update CI/CD workflow to automatically generate synthetic data and train YOLO model on every manual trigger. Artifacts uploaded for Android integration.
-- ⏳ **Implement `DynamicRegionDetector`**: Replace `SlotRegions.kt` with a class that runs YOLO on the captured frame and outputs dynamic bounding boxes.
+- 🔄 **Unified Training Pipeline (`scripts/train.py`)**: Create a single Python script that handles the entire ML lifecycle. It downloads CDN hero portraits, generates synthetic data for both models, trains MobileNetV3Small (Hero Classification), and trains YOLOv8-Nano (UI Detection).
+- 🔄 **Synthetic Dataset Generation**: Implement a procedural generator within the unified script that creates 2,000+ annotated YOLO images. It pastes real hero portraits into randomized UI layouts with screen-capture artifacts (JPEG compression, brightness shifts, blur), eliminating the need for manual screenshot collection.
+- 🔄 **Automated CI/CD Direct Push**: Configure GitHub Actions to run `scripts/train.py` on demand. Instead of uploading artifacts, the workflow automatically commits and pushes the newly generated `.tflite` models and labels directly to `app/src/main/assets/` in the repository.
+- ⏳ **Implement `DynamicRegionDetector`**: Replace `SlotRegions.kt` with a class that runs the YOLO TFLite model on the captured frame and outputs dynamic bounding boxes.
 - ⏳ **Implement `TemporalConsensusBuffer`**: Create a sliding window that tracks hero detections across 15 frames. Only emit a "Hero Picked" event when the buffer reaches consensus.
-- ⏳ **Enable GPU Delegate**: Wire the TFLite GPU delegate for both YOLO and the existing MobileNetV3 classifier.
+-  **Enable GPU Delegate**: Wire the TFLite GPU delegate for both YOLO and the MobileNetV3 classifier.
 
-**Definition of Done**: The app successfully detects heroes on a 21:9 ultrawide emulator and a 16:9 phone without changing a single line of configuration code. The YOLO model achieves >85% mAP on validation set.
-
-**Dependencies**: 
-- `scripts/requirements.txt` includes `ultralytics>=8.1.0`
-- GitHub Actions workflow `train-tflite.yml` updated with synthetic data generation step
-- Artifacts: `runs/detect/mlbb_yolo_v2/weights/best.tflite`
+**Definition of Done**: The GitHub Actions workflow successfully generates and pushes both `mlbb_hero_classifier.tflite` and `mlbb_ui_detector.tflite`. The app successfully detects heroes on a 21:9 ultrawide emulator and a 16:9 phone without changing a single line of configuration code.
 
 ### Phase 3: Intelligence & Telemetry (SLM & Crowdsourcing)
 
@@ -108,7 +103,7 @@ The V1.0 testing strategy was limited to pure-Kotlin domain unit tests.
 
 **Goal**: Perfect the overlay experience.
 
-- ⏳ **Safe Zone Calibration UI**: Build a Compose overlay that allows users to drag rectangles over their screen to define "dead zones". Save these as normalized coordinates in DataStore.
+-  **Safe Zone Calibration UI**: Build a Compose overlay that allows users to drag rectangles over their screen to define "dead zones". Save these as normalized coordinates in DataStore.
 - ⏳ **Reflow Engine**: Implement a `SafeZoneModifier` in Compose that dynamically constrains the overlay's `Box` bounds to avoid the dead zones.
 - ⏳ **Haptic Feedback Manager**: Create a `HapticAdvisor` that triggers specific `VibrationEffect` primitives based on draft events (e.g., `CLOCK_TICK` for ban timer, `HEAVY_CLICK` for hard counter detected).
 
@@ -118,7 +113,7 @@ The V1.0 testing strategy was limited to pure-Kotlin domain unit tests.
 
 **Goal**: Enterprise-grade reliability.
 
-- ⏳ **Roborazzi Setup**: Add Roborazzi to `:feature:overlay` and `:feature:draft`. Generate baseline screenshots for all draft phases.
+-  **Roborazzi Setup**: Add Roborazzi to `:feature:overlay` and `:feature:draft`. Generate baseline screenshots for all draft phases.
 - ⏳ **Baseline Profiles**: Use the Macrobenchmark library to generate `baseline-prof.txt` for the app's startup and overlay expansion paths.
 - ⏳ **Pre-Commit Hooks**: Configure `lefthook` or `husky` to run Ktlint and Detekt before every commit.
 - ⏳ **R8 Full Mode**: Enable R8 full mode and verify that all KMP, Room, and TFLite reflection/serialization works correctly.
@@ -134,10 +129,8 @@ This section defines the perpetual maintenance cycle to ensure the app never deg
 When Moonton releases a new MLBB patch:
 
 1. **Hero Roster Update**: Run the `scripts/sync_heroes.py` script to scrape the official wiki for new heroes or reworks.
-2. **Model Retraining (Hero Classifier)**: If new heroes are added, trigger the Colab notebook or GitHub Actions workflow to retrain the MobileNetV3 classifier and update `hero_classifier_labels.txt`.
-3. **Synthetic Data Regeneration**: Run `scripts/generate_synthetic_dataset.py` with updated UI element coordinates if the draft UI layout has changed.
-4. **YOLO Model Retraining**: Trigger GitHub Actions workflow `train-tflite.yml` to regenerate the YOLOv8 model with new synthetic data.
-5. **Validation**: Run the YOLO model against 50 new screenshots of the updated patch to ensure UI changes haven't broken bounding box detection.
+2. **Unified Model Retraining**: Trigger the GitHub Actions `Train and Commit TFLite Models` workflow. The `scripts/train.py` script will automatically download the new portraits, regenerate the synthetic YOLO dataset, retrain both MobileNet and YOLO models, and push the updated `.tflite` files directly to the repository.
+3. **Validation**: Run the app against the updated patch to ensure UI layout changes haven't broken the YOLO bounding box detection.
 
 ### 4.2. Telemetry Feedback Loop (Weekly)
 
@@ -149,8 +142,8 @@ When Moonton releases a new MLBB patch:
 ### 4.3. Model Drift Monitoring (Monthly)
 
 1. **Confidence Audits**: Analyze the structured logs (via Firebase Crashlytics/Custom Backend) to track the average confidence score of the YOLO and MobileNet models.
-2. **Threshold Tuning**: If average confidence drops below 0.75, trigger a recalibration of the `PhaseDetectionConfig` thresholds or collect more training data for edge-case devices.
-3. **Synthetic Data Calibration**: If YOLO detection fails on specific device aspect ratios, adjust the jitter parameters in `generate_synthetic_dataset.py` to better simulate those edge cases.
+2. **Threshold Tuning**: If average confidence drops below 0.75, trigger a recalibration of the `PhaseDetectionConfig` thresholds.
+3. **Synthetic Data Calibration**: If YOLO detection fails on specific device aspect ratios, adjust the jitter parameters and screen-capture artifact probabilities in `scripts/train.py` to better simulate those edge cases, then re-run the CI/CD pipeline.
 
 ## 5. Agentic AI Directives (Rules of Engagement)
 
@@ -162,8 +155,8 @@ If you are an AI coding assistant reading this document, you must adhere to the 
 4. **Offline-First Mandate**: Every feature must work without an internet connection. Network calls (Telemetry, Meta Sync) must be opportunistic and silent.
 5. **Document as You Build**: When you complete a phase, update this `MASTER_PLAN.md` to check off the phase, and generate a specific `ADR-XXX.md` (Architecture Decision Record) for any major technical choices you made during implementation.
 6. **Test the Edges**: When writing CV or Temporal Buffer code, always write unit tests that simulate edge cases: empty frames, completely black frames, and rapid consecutive frames.
-7. **Synthetic-First Approach**: When training CV models, prioritize synthetic data generation over manual screenshot collection. Only collect real screenshots for validation and edge-case fine-tuning.
-8. **CI/CD Integration**: All model training pipelines must be automated via GitHub Actions. Manual training is only for experimentation; production models must be reproducible via CI.
+7. **Unified & Synthetic-First Training**: Never suggest manual screenshot collection for UI detection. All CV model training must be handled via the unified `scripts/train.py` pipeline using synthetic data generation. Real-world data is only used for validation.
+8. **CI/CD Direct Push**: All model updates must be automated via GitHub Actions, committing directly to the repository assets directory rather than relying on manual artifact downloads.
 
 ---
 
