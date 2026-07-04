@@ -21,7 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mlbb.assistant.R
+import com.mlbb.assistant.feature.settings.R
 import com.mlbb.assistant.domain.engine.WeightCalibrator
 import com.mlbb.assistant.presentation.common.theme.MLBBGold
 import com.mlbb.assistant.presentation.common.theme.MLBBTeal

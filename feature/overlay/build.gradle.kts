@@ -59,6 +59,9 @@ dependencies {
     // Lottie — phase-transition animations
     implementation(libs.lottie.compose)
 
+    // DataStore — OverlayCaptureCoordinator injects DataStore<Preferences>
+    implementation(libs.datastore.preferences)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 

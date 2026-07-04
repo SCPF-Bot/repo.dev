@@ -33,6 +33,7 @@ kotlin {
 dependencies {
     implementation(project(":core:scoring"))
     implementation(project(":core:data"))
+    implementation(project(":core:cv"))
     implementation(project(":core:designsystem"))
 
     // Compose

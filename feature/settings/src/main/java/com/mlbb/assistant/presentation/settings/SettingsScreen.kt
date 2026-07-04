@@ -49,7 +49,7 @@ import com.mlbb.assistant.presentation.common.theme.SurfaceDark
 import com.mlbb.assistant.presentation.common.theme.SurfaceMid
 import com.mlbb.assistant.presentation.common.theme.TextPrimary
 import com.mlbb.assistant.presentation.common.theme.TextSecondary
-import com.mlbb.assistant.presentation.logviewer.LogViewerActivity
+// LogViewerActivity lives in :app — imported by class name to avoid reverse dep
 import com.mlbb.assistant.presentation.settings.components.AspectRatioSection
 import com.mlbb.assistant.presentation.settings.components.BanCountRow
 import com.mlbb.assistant.presentation.settings.components.CalibrationSection
@@ -217,8 +217,10 @@ fun SettingsScreen(
 
                 TextButton(onClick = {
                     context.startActivity(
-                        Intent(context, LogViewerActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        Intent().apply {
+                            setClassName(context.packageName, "com.mlbb.assistant.presentation.logviewer.LogViewerActivity")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
                     )
                 }) {
                     Text("Open log viewer", color = MLBBGold, fontSize = 12.sp)
