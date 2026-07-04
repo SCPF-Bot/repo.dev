@@ -12,7 +12,7 @@ import android.os.IBinder
 import android.provider.Settings as SystemSettings
 import androidx.core.app.NotificationCompat
 
-import com.mlbb.assistant.R
+import com.mlbb.assistant.feature.overlay.R
 import com.mlbb.assistant.domain.engine.DraftSessionManager
 
 import dagger.hilt.android.AndroidEntryPoint

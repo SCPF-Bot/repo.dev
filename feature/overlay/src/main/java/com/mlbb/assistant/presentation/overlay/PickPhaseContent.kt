@@ -19,7 +19,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.mlbb.assistant.R
+import com.mlbb.assistant.feature.overlay.R
 import com.mlbb.assistant.domain.engine.DraftSession
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.scoring.HeroScore

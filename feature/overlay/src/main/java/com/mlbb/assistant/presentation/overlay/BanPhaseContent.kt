@@ -21,7 +21,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.mlbb.assistant.R
+import com.mlbb.assistant.feature.overlay.R
 import com.mlbb.assistant.domain.advisor.BanSuggestion
 import com.mlbb.assistant.domain.engine.BanStructure
 import com.mlbb.assistant.domain.engine.DraftPhase
