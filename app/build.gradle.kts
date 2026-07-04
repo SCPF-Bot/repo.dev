@@ -101,7 +101,18 @@ detekt {
 }
 
 dependencies {
-    // Core
+    // ── Multi-module dependencies ─────────────────────────────────────────────
+    // :app is the composition root. It depends on all modules for DI wiring and
+    // hosts the navigation graph that ties feature modules together.
+    implementation(project(":core:scoring"))
+    implementation(project(":core:data"))
+    implementation(project(":core:cv"))
+    implementation(project(":core:designsystem"))
+    implementation(project(":feature:overlay"))
+    implementation(project(":feature:draft"))
+    implementation(project(":feature:settings"))
+
+    // ── Core ──────────────────────────────────────────────────────────────────
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -109,7 +120,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Compose BOM + modules
+    // ── Compose BOM + modules ─────────────────────────────────────────────────
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
@@ -120,12 +131,13 @@ dependencies {
     implementation(libs.navigation.compose)
     debugImplementation(libs.compose.ui.tooling)
 
-    // Room
+    // ── Room ──────────────────────────────────────────────────────────────────
+    // Kept here so :app can reference AppDatabase for DatabaseModule migrations.
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
-    // Hilt
+    // ── Hilt ──────────────────────────────────────────────────────────────────
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
@@ -134,40 +146,34 @@ dependencies {
     implementation(libs.hilt.work)
     ksp(libs.hilt.work.compiler)
 
-    // WorkManager — periodic background hero-data sync (TD-13)
+    // ── WorkManager ───────────────────────────────────────────────────────────
     implementation(libs.work.runtime)
 
-    // Network
+    // ── Network ───────────────────────────────────────────────────────────────
+    // Kept for NetworkModule.kt (BuildConfig.META_API_BASE_URL reference).
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
-
-    // kotlinx.serialization runtime — P3-01; full migration from Gson complete
     implementation(libs.kotlinx.serialization.json)
-    // Retrofit kotlinx.serialization converter — replaces GsonConverterFactory
     implementation(libs.retrofit.kotlinx.converter)
 
-    // Coil 3 — image loading
+    // ── Image loading ─────────────────────────────────────────────────────────
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
 
-    // DataStore
+    // ── DataStore ─────────────────────────────────────────────────────────────
     implementation(libs.datastore.preferences)
 
-    // Paging 3 (TD-10: smooth hero grid scrolling on large datasets)
+    // ── Paging ────────────────────────────────────────────────────────────────
     implementation(libs.paging.runtime)
     implementation(libs.room.paging)
-    // Paging 3 Compose — collectAsLazyPagingItems for HeroListScreen paged grid
     implementation(libs.paging.compose)
 
-    // Logging
+    // ── Logging ───────────────────────────────────────────────────────────────
     implementation(libs.timber)
 
-    // ── Pluto — embedded debug companion (floating bubble + inspector panel) ──
-    // Appears in debug builds as a persistent bubble; no Play Store dependency.
-    // Release builds use no-op stubs — compile-time only, zero runtime overhead.
-    // Plugins: exceptions, Timber log viewer, OkHttp network, Room DB, DataStore, SharedPrefs.
+    // ── Pluto — embedded debug companion ─────────────────────────────────────
     debugImplementation(libs.pluto)
     releaseImplementation(libs.pluto.no.op)
     debugImplementation(libs.pluto.plugin.exceptions)
@@ -183,41 +189,26 @@ dependencies {
     debugImplementation(libs.pluto.plugin.prefs)
     releaseImplementation(libs.pluto.plugin.prefs.no.op)
 
-    // ── UI Enhancement Libraries ──────────────────────────────────────────────
-    // compose-shimmer: loading skeleton for HeroList, MetaBoard, History screens
+    // ── UI Enhancement ────────────────────────────────────────────────────────
     implementation(libs.compose.shimmer)
-
-    // ComposeCharts: animated pie chart for ScoreExplanationSheet score breakdown
     implementation(libs.compose.charts)
-
-    // Lottie: phase-transition animations in overlay (scanning, pick-success, ban-warning)
     implementation(libs.lottie.compose)
 
-    // ML Kit Text Recognition: on-device OCR for PhaseOcrDetector
+    // ── ML / CV ───────────────────────────────────────────────────────────────
     implementation(libs.mlkit.text.recognition)
-
-    // ML Kit Object Detection removed (2026-07-03): unused dependency — HeroPortraitObjectDetector
-    // is a stub with no trained model and never calls the ML Kit API. Re-add when RA-05 ships.
-
-    // TFLite runtime — direct Interpreter for HeroClassifier portrait classification (misc.md §13)
-    // Model: assets/mlbb_hero_classifier.tflite  Labels: assets/hero_classifier_labels.txt
     implementation(libs.tensorflow.lite)
 
-    // JImageHash intentionally NOT declared here: it uses java.awt (unavailable on Android)
-    // and JitPack does not publish a usable AAR. PortraitMatcher loads it via reflection
-    // with runCatching, so the dHash fallback engages automatically on device.
-
-    // AutoStarter: OEM auto-start settings deep-link in PermissionWizardScreen
+    // ── OEM utilities ─────────────────────────────────────────────────────────
     implementation(libs.autostarter)
 
-    // Unit tests
+    // ── Unit tests ────────────────────────────────────────────────────────────
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
 
-    // Instrumented tests
+    // ── Instrumented tests ────────────────────────────────────────────────────
     androidTestImplementation(libs.junit.ext)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))

@@ -1,10 +1,11 @@
 plugins {
     alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.library)     apply false
     // kotlin.android removed: AGP 9.x auto-applies it; see app/build.gradle.kts note.
-    alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.kotlin.compose)      apply false
     alias(libs.plugins.kotlin.serialization) apply false
-    alias(libs.plugins.ksp) apply false
-    alias(libs.plugins.hilt) apply false
+    alias(libs.plugins.ksp)                 apply false
+    alias(libs.plugins.hilt)                apply false
 
     // detekt static analysis — P3-03 (recommendations.md §5.1).
     // Configured with a baseline so CI catches NEW violations without forcing

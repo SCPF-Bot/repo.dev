@@ -61,14 +61,15 @@ The V1.0 codebase successfully proved the concept of an autonomous, overlay-base
 
 *Instructions for Agentic AI: Execute these phases sequentially. Do not begin Phase N+1 until Phase N is fully merged, tested, and verified.*
 
-### Phase 1: The Foundation (Modularization & KMP)
+### Phase 1: The Foundation (Modularization & KMP) ✅ COMPLETE (2026-07-04)
 **Goal:** Dismantle the monolith and establish the NiA multi-module architecture.
-1.  **Scaffold Modules:** Create the `:feature:*` and `:core:*` modules. Configure `settings.gradle.kts` and version catalogs.
-2.  **Extract Domain & Scoring:** Move `DraftScorer`, `DraftSessionManager`, `CompositionAnalyzer`, and all models into `:core:scoring`. **Constraint:** Zero `android.*` imports allowed.
-3.  **Extract Data Layer:** Move Room, DataStore, and Retrofit into `:core:data`. Implement the Repository pattern to bridge `:core:data` and `:core:scoring`.
-4.  **Extract CV Layer:** Move `MediaProjection`, `FrameProcessor`, and TFLite wrappers into `:core:cv`.
-5.  **Wire DI:** Implement Hilt (or Koin) across module boundaries.
+1.  ✅ **Scaffold Modules:** Created `:core:scoring`, `:core:data`, `:core:cv`, `:core:designsystem`, `:feature:overlay`, `:feature:draft`, `:feature:settings`. Configured `settings.gradle.kts`, version catalog (`android-library` plugin alias), and root `build.gradle.kts`.
+2.  ✅ **Extract Domain & Scoring:** Moved `DraftScorer`, `DraftSessionManager`, `CompositionAnalyzer`, all domain models, advisors, repository interfaces, and use cases into `:core:scoring`. Zero `android.*` imports in source.
+3.  ✅ **Extract Data Layer:** Moved Room (`AppDatabase`, DAOs, Entities), DataStore (`AppDataStore`, `PreferencesDataStore`), Retrofit (`MetaApi`, `MetaSnapshotDto`), and repository implementations into `:core:data`. Repository pattern bridges `:core:data` → `:core:scoring` via `api()` dependency.
+4.  ✅ **Extract CV Layer:** Moved `FrameProcessor`, `SlotRegions`, `HeroClassifier`, `PortraitMatcher`, and all CV components into `:core:cv`. Moved `ScreenCaptureManager` and `MLBBAccessibilityService` into `:core:cv`.
+5.  ✅ **Wire DI:** All Hilt `@Module` classes remain in `:app` (composition root) providing cross-module bindings. See ADR-001 for rationale.
 *   **Definition of Done:** `./gradlew build` passes. The app runs exactly as V1.0, but code is strictly separated.
+*   **ADR:** See `docs/ADR-001-phase1-modularization.md` for architecture decisions and trade-offs.
 
 ### Phase 2: The CV Revolution (YOLO & Temporal)
 **Goal:** Eradicate hardcoded coordinates and animation false-positives.
