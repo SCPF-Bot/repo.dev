@@ -1,12 +1,14 @@
-name: Train TFLite
+name: Train
 
 on:
   workflow_dispatch:
 
 jobs:
-  train-model:
-    name: Train Models
+  train-and-commit:
+    name: Train & Commit Models
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout repository
@@ -23,22 +25,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r scripts/requirements.txt
 
-      - name: Train Hero Classifier
-        run: python scripts/train.hero.py
+      - name: Train All Models (Unified Pipeline)
+        run: python scripts/train.py
         env:
           TF_CPP_MIN_LOG_LEVEL: 2 
 
-      - name: Train UI Detector (YOLOv8)
-        run: python scripts/train.ui.py
-
-      - name: Upload TFLite Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: mlbb-tflite-artifacts
-          path: |
-            app/src/main/assets/mlbb_hero_classifier.tflite
-            app/src/main/assets/hero_classifier_labels.txt
-            runs/detect/mlbb_yolo_v2/weights/best.tflite
-            dataset.yaml
-          if-no-files-found: error
-          retention-days: 90
+      - name: Commit and Push Models
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git add app/src/main/assets/mlbb_hero_classifier.tflite
+          git add app/src/main/assets/hero_classifier_labels.txt
+          git add app/src/main/assets/mlbb_ui_detector.tflite
+          
+          if git diff --staged --quiet; then
+            echo "No changes detected in models. Skipping commit."
+          else
+            git commit -m "chore(ci): retrain and update TFLite models [skip ci]"
+            git push
+          fi
