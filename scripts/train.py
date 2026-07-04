@@ -9,9 +9,12 @@ MLBB Unified Training Pipeline (All-in-One)
 5. Trains MobileNetV3Small for Hero Classification and exports to TFLite.
 """
 
-# CRITICAL: Prevent thread oversubscription and segfaults on GitHub Actions CI
+# ==============================================================================
+# CRITICAL CI/CD FIXES: Prevent thread oversubscription and CUDA segfaults
 # Must be set BEFORE importing torch, tensorflow, or ultralytics
+# ==============================================================================
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"       # Hide GPUs to prevent CUDA stub segfaults
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -47,17 +50,17 @@ CONFIG = {
     'portraits_dir': 'app/src/main/assets/portraits',
     'yolo_temp_dir': 'scripts/temp',
     
-    # MobileNet Config
+    # MobileNet Config (Reduced to prevent OOM on 7GB CI runners)
     'size_main': 224,
-    'epochs_mobilenet': 60,
-    'batch_size_mobilenet': 16,
+    'epochs_mobilenet': 30,       # Reduced from 60
+    'batch_size_mobilenet': 8,    # Reduced from 16
     'lr_mobilenet': 0.0005,
     'augmentation_factor': 20,
     
-    # YOLO Config
+    # YOLO Config (Reduced to strictly prevent OOM segfaults)
     'num_yolo_images': 2000,
-    'epochs_yolo': 100,
-    'imgsz_yolo': 640,
+    'epochs_yolo': 50,            # Reduced from 100
+    'imgsz_yolo': 416,            # Reduced from 640 to 416
     
     # TFLite Outputs
     'mobilenet_tflite': 'mlbb_hero_classifier.tflite',
@@ -198,12 +201,12 @@ def generate_and_train_yolo(valid_heroes):
     # CRITICAL FIXES FOR GITHUB ACTIONS:
     # workers=0 -> Disables multiprocessing to prevent /dev/shm segfaults
     # device='cpu' -> Explicitly force CPU to avoid CUDA fallback warnings/errors
-    # batch=8 -> Reduced batch size to prevent RAM OOM on CI runners
+    # batch=4 -> Reduced batch size to strictly prevent RAM OOM on 7GB CI runners
     yolo_model.train(
         data=str(dataset_yaml),
         epochs=CONFIG['epochs_yolo'],
         imgsz=CONFIG['imgsz_yolo'],
-        batch=8,       
+        batch=4,       
         workers=0,     
         device='cpu',  
         project=str(yolo_dir),
