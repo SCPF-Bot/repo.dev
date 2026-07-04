@@ -4,12 +4,11 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
-import com.mlbb.assistant.presentation.overlay.OverlayService
 
 /**
  * Watches for MLBB coming to the foreground via window-state change events.
- * When detected, starts [OverlayService] (floating bubble).
- * When MLBB loses focus, signals the overlay to idle.
+ * When detected, starts OverlayService (floating bubble) by class name to
+ * avoid a circular module dependency (:core:cv ← :feature:overlay ← :core:cv).
  *
  * ## What this service does NOT do
  *
@@ -19,7 +18,7 @@ import com.mlbb.assistant.presentation.overlay.OverlayService
  * - Interact with the MLBB UI in any way.
  *
  * Screen capture and all computer-vision work (ban/pick slot detection,
- * portrait matching) is owned exclusively by [OverlayCaptureCoordinator],
+ * portrait matching) is owned exclusively by OverlayCaptureCoordinator,
  * which requires a separate MediaProjection permission granted by the user.
  * These are two distinct permission flows (ideas.md §5).
  */
@@ -28,6 +27,12 @@ class MLBBAccessibilityService : AccessibilityService() {
     companion object {
         private const val MLBB_PACKAGE     = "com.mobile.legends"
         private const val MLBB_PACKAGE_ALT = "com.mobilelegends.mi"
+
+        // Full class name avoids importing :feature:overlay into :core:cv,
+        // which would create a circular Gradle module dependency.
+        private const val OVERLAY_SERVICE_CLASS =
+            "com.mlbb.assistant.presentation.overlay.OverlayService"
+
         @Volatile private var isMLBBForeground = false
     }
 
@@ -47,7 +52,7 @@ class MLBBAccessibilityService : AccessibilityService() {
         when {
             isMLBB && !isMLBBForeground -> {
                 isMLBBForeground = true
-                OverlayService.start(applicationContext)
+                startOverlayService()
             }
             !isMLBB && isMLBBForeground && pkg != packageName -> {
                 isMLBBForeground = false
@@ -58,8 +63,14 @@ class MLBBAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
-    override fun onDestroy() {
-        super.onDestroy()
-        isMLBBForeground = false
+    /**
+     * Starts OverlayService by explicit class name so :core:cv does not need
+     * to import :feature:overlay (which itself depends on :core:cv).
+     */
+    private fun startOverlayService() {
+        val intent = Intent().apply {
+            setClassName(applicationContext.packageName, OVERLAY_SERVICE_CLASS)
+        }
+        runCatching { applicationContext.startForegroundService(intent) }
     }
 }
