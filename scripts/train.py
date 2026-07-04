@@ -9,7 +9,15 @@ MLBB Unified Training Pipeline (All-in-One)
 5. Trains MobileNetV3Small for Hero Classification and exports to TFLite.
 """
 
+# CRITICAL: Prevent thread oversubscription and segfaults on GitHub Actions CI
+# Must be set BEFORE importing torch, tensorflow, or ultralytics
 import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import io
 import json
 import random
@@ -186,11 +194,18 @@ def generate_and_train_yolo(valid_heroes):
     # Train YOLO
     print("Training YOLOv8-Nano...")
     yolo_model = YOLO('yolov8n.pt')
+    
+    # CRITICAL FIXES FOR GITHUB ACTIONS:
+    # workers=0 -> Disables multiprocessing to prevent /dev/shm segfaults
+    # device='cpu' -> Explicitly force CPU to avoid CUDA fallback warnings/errors
+    # batch=8 -> Reduced batch size to prevent RAM OOM on CI runners
     yolo_model.train(
         data=str(dataset_yaml),
         epochs=CONFIG['epochs_yolo'],
         imgsz=CONFIG['imgsz_yolo'],
-        batch=16,
+        batch=8,       
+        workers=0,     
+        device='cpu',  
         project=str(yolo_dir),
         name='yolo_train',
         exist_ok=True,
