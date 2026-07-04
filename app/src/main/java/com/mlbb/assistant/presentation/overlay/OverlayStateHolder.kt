@@ -423,7 +423,7 @@ class OverlayStateHolder @Inject constructor(
         accessibilityOff.value = off
     }
 
-    /** Called once hero data has loaded, from the timestamp used by [com.mlbb.assistant.data.sync.HeroSyncWorker]. */
+    /** Called once hero data has loaded. */
     fun setMetaStaleDays(days: Int?) {
         metaStaleDays.value = days
     }

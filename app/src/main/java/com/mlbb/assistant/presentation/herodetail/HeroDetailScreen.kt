@@ -31,13 +31,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
+
 import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.model.Tier
 import com.mlbb.assistant.presentation.common.components.BackButton
@@ -79,9 +79,7 @@ fun HeroDetailScreen(
         // ── Hero banner ────────────────────────────────────────────────────
         Box(Modifier.fillMaxWidth().height(180.dp)) {
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(hero.imageUrl)
-                    .build(),
+                model              = android.net.Uri.parse("file:///android_asset/portraits/${hero.id}.webp"),
                 contentDescription = "${hero.name} splash art",
                 contentScale       = ContentScale.Crop,
                 modifier           = Modifier.fillMaxSize()

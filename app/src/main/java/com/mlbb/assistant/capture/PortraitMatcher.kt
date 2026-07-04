@@ -4,11 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
-import coil3.ImageLoader
-import coil3.request.ImageRequest
-import coil3.request.SuccessResult
-import coil3.toBitmap
-import com.mlbb.assistant.data.portrait.PortraitAssetManager
 import com.mlbb.assistant.domain.model.Hero
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -59,8 +54,6 @@ data class MatchResult(
  */
 class PortraitMatcher(
     private val context: Context,
-    private val imageLoader: ImageLoader,
-    private val portraitAssetManager: PortraitAssetManager,
 ) {
 
     companion object {
@@ -134,13 +127,11 @@ class PortraitMatcher(
                 batch.forEach { hero ->
                     launch {
                         if (pHashCache.get(hero.id) == null) {
-                            // Prefer the already-downloaded local asset (hero.main.png) over a
-                            // network fetch — avoids redundant CDN traffic when PortraitAssetManager
-                            // has already cached the portrait on disk.
-                            val bmp = portraitAssetManager.localFileOrNull(hero.id, PortraitAssetManager.Variant.MAIN)
-                                ?.let { runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull() }
-                                ?: fetchPortrait(hero.imageUrl)
-                                ?: return@launch
+                            // Load bundled asset portrait (portraits/{heroId}.webp) — fully offline.
+                            val bmp = runCatching {
+                                context.assets.open("portraits/${hero.id}.webp")
+                                    .use { BitmapFactory.decodeStream(it) }
+                            }.getOrNull() ?: return@launch
                             dHashCache.put(hero.id, PerceptualHash.compute(bmp))
                             pHashCache.put(hero.id, PerceptualHash.computePHash(bmp))
                             histogramCache.put(hero.id, computeHistogram(bmp))
@@ -161,29 +152,33 @@ class PortraitMatcher(
 
     /**
      * Builds and caches the PICK/BAN reference hashes for [hero] from the
-     * [PortraitAssetManager]-managed, size-matched local assets (`hero.pick.png` /
+     * Bundled portrait assets scaled to size-matched variants (`portrait/{id}.webp` /
      * `hero.ban.png`), downloading/optimizing them on demand if not already cached
      * on disk. Reference portraits carry no ban-slash/name-strip occlusion, so a
      * CENTER-style normalization (no masking) is the correct baseline to hash
      * against — the slot-side crop is normalized per its own SlotType at match time.
      */
+    /**
+     * Builds PICK (128 px) and BAN (64 px) reference hashes from the bundled MAIN
+     * asset (portraits/{heroId}.webp, 224 px). The MAIN bitmap is loaded once and
+     * scaled down for each slot variant so no extra assets are needed.
+     */
     private suspend fun cacheSlotAwareHashes(hero: Hero) {
-        runCatching { portraitAssetManager.ensureVariants(hero) }
-            .onFailure { Timber.w(it, "$TAG: failed to prepare portrait assets for hero ${hero.id}") }
+        val mainBmp = runCatching {
+            context.assets.open("portraits/${hero.id}.webp")
+                .use { BitmapFactory.decodeStream(it) }
+        }.getOrNull() ?: return
 
-        val variantsBySlot = listOf(
-            PortraitAssetManager.Variant.PICK to SlotType.PICK,
-            PortraitAssetManager.Variant.BAN to SlotType.BAN,
-        )
-        for ((variant, slotType) in variantsBySlot) {
+        val variantsBySlot = listOf(128 to SlotType.PICK, 64 to SlotType.BAN)
+        for ((dim, slotType) in variantsBySlot) {
             if (slotAwareHasher.hasCached(hero.id, slotType)) continue
-            val file = portraitAssetManager.localFileOrNull(hero.id, variant) ?: continue
-            val bmp = runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull() ?: continue
-            val normalized = PortraitNormalizer.normalizeForSlot(bmp, SlotType.CENTER)
+            val scaled = android.graphics.Bitmap.createScaledBitmap(mainBmp, dim, dim, true)
+            val normalized = PortraitNormalizer.normalizeForSlot(scaled, SlotType.CENTER)
             slotAwareHasher.cacheHero(hero.id, slotType, normalized)
             normalized.recycle()
-            bmp.recycle()
+            if (scaled !== mainBmp) scaled.recycle()
         }
+        mainBmp.recycle()
     }
 
     /** Reset per-slot confirmation counters (call at session start / phase change). */
@@ -445,11 +440,4 @@ class PortraitMatcher(
         return (totalBc / 3f).coerceIn(0f, 1f)
     }
 
-    // ── Network ───────────────────────────────────────────────────────────
-
-    private suspend fun fetchPortrait(url: String): Bitmap? = runCatching {
-        val req = ImageRequest.Builder(context).data(url).build()
-        val res = imageLoader.execute(req)
-        (res as? SuccessResult)?.image?.toBitmap()
-    }.getOrNull()
 }

@@ -40,7 +40,7 @@ class SlotAwareHasher {
 
     // heroId -> (slotType -> cached TripleHash), populated by PortraitMatcher.preloadHashes.
     //
-    // Keyed per SlotType (not just heroId) because PortraitAssetManager now produces
+    // Keyed per SlotType (not just heroId) because bundled portrait assets are
     // differently-sized reference assets per slot (hero.pick.png / hero.ban.png) that
     // better match the resolution of what's actually captured on-screen for that slot
     // type, rather than hashing one shared full-size portrait for every slot.

@@ -19,11 +19,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -60,7 +58,6 @@ import com.mlbb.assistant.presentation.settings.components.InfoRow
 import com.mlbb.assistant.presentation.settings.components.PermissionRow
 import com.mlbb.assistant.presentation.settings.components.ScreenMappingDialog
 import com.mlbb.assistant.presentation.settings.components.SectionDivider
-import com.mlbb.assistant.presentation.settings.components.PortraitAssetsSection
 import com.mlbb.assistant.presentation.settings.components.ScoringWeightsSection
 import com.mlbb.assistant.presentation.settings.components.SettingsSection
 import com.mlbb.assistant.presentation.settings.components.SliderRow
@@ -213,31 +210,6 @@ fun SettingsScreen(
                 onOpenMapping     = { showMappingDialog = true },
                 onClearMapping    = { viewModel.setScreenMapping("") }
             )
-
-            // ── Data ──────────────────────────────────────────────────────
-            SettingsSection(icon = Icons.Rounded.Sync, title = "DATA") {
-                ToggleRow("Auto-sync meta data", state.autoSync) { viewModel.setAutoSync(it) }
-                SectionDivider()
-                InfoRow("Last synced", state.lastSyncedLabel)
-                TextButton(onClick = { viewModel.syncNow() }) {
-                    Text("Sync now", color = MLBBGold, fontSize = 12.sp)
-                }
-            }
-
-            // ── Portrait assets ───────────────────────────────────────────
-            SettingsSection(
-                icon     = Icons.Rounded.Image,
-                title    = "PORTRAIT ASSETS",
-                subtitle = "hero.main / hero.pick / hero.ban — used for UI and slot detection"
-            ) {
-                PortraitAssetsSection(
-                    state         = state,
-                    onDownload    = { viewModel.downloadPortraits() },
-                    onOptimize    = { viewModel.optimizePortraits() },
-                    onRefresh     = { viewModel.refreshPortraits() },
-                    onClearError  = { viewModel.clearPortraitTaskError() }
-                )
-            }
 
             // ── Logs ──────────────────────────────────────────────────────
             SettingsSection(

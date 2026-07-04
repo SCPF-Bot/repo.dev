@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings as SystemSettings
 import androidx.core.app.NotificationCompat
-import coil3.ImageLoader
+
 import com.mlbb.assistant.R
 import com.mlbb.assistant.domain.engine.DraftSessionManager
 
@@ -62,7 +62,7 @@ class OverlayService : Service() {
     @Inject lateinit var stateHolder:         OverlayStateHolder
     @Inject lateinit var captureCoordinator:  OverlayCaptureCoordinator
     @Inject lateinit var draftSessionManager: DraftSessionManager
-    @Inject lateinit var imageLoader:         ImageLoader
+
 
     // ── Service coroutine scope ───────────────────────────────────────────────
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -103,7 +103,7 @@ class OverlayService : Service() {
         OverlayContentBridge.stopServiceCallback = { stopSelf() }
 
         // 2. Initialise capture dependencies (ScreenCaptureManager + PortraitMatcher).
-        captureCoordinator.init(imageLoader)
+        captureCoordinator.init()
 
         // 3. Start hero loading, session observation, and scoring config watchers.
         stateHolder.start(serviceScope, captureCoordinator)

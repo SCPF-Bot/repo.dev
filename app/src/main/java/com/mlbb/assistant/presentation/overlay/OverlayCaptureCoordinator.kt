@@ -7,7 +7,6 @@ import android.graphics.Color
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import coil3.ImageLoader
 import com.mlbb.assistant.capture.AspectRatioPreset
 import com.mlbb.assistant.capture.BanDraftType
 import com.mlbb.assistant.capture.BanSlotTemplates
@@ -19,7 +18,6 @@ import com.mlbb.assistant.capture.PortraitMatcher
 import com.mlbb.assistant.capture.SlotRegionF
 import com.mlbb.assistant.capture.SlotRegions
 import com.mlbb.assistant.capture.SlotType
-import com.mlbb.assistant.data.portrait.PortraitAssetManager
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.model.Hero
@@ -88,7 +86,6 @@ class OverlayCaptureCoordinator @Inject constructor(
     private val stateHolder:         OverlayStateHolder,
     private val draftSessionManager: DraftSessionManager,
     private val dataStore:           DataStore<Preferences>,
-    private val portraitAssetManager: PortraitAssetManager,
 ) {
 
     private lateinit var screenCaptureManager: ScreenCaptureManager
@@ -155,13 +152,11 @@ class OverlayCaptureCoordinator @Inject constructor(
 
     // ── Initialise capture dependencies (called by OverlayService.onCreate) ───
 
-    fun init(imageLoader: ImageLoader) {
+    fun init() {
         screenCaptureManager = ScreenCaptureManager(context)
-        // Reuse the Hilt-provided PortraitAssetManager singleton rather than letting
-        // PortraitMatcher default-construct its own (previously: a second OkHttpClient +
-        // JsonParser instance was spun up here, wasting a connection pool and risking a
-        // disk-cache view that could disagree with the singleton every other caller uses).
-        portraitMatcher = PortraitMatcher(context, imageLoader, portraitAssetManager)
+        // PortraitMatcher loads hero portraits from bundled assets (portraits/{id}.webp)
+        // — no network or disk-cache dependencies needed.
+        portraitMatcher = PortraitMatcher(context)
     }
 
     // ── Portrait hash preload (called by OverlayStateHolder when heroes load) ─

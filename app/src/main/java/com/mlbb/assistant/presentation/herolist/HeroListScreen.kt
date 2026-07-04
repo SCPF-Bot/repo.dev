@@ -261,7 +261,7 @@ private fun HeroPagedCell(hero: Hero, onTap: () -> Unit) {
                 .clip(RoundedCornerShape(8.dp))
         ) {
             AsyncImage(
-                model              = hero.imageUrl,
+                model              = android.net.Uri.parse("file:///android_asset/portraits/${hero.id}.webp"),
                 contentDescription = hero.name,
                 contentScale       = ContentScale.Crop,
                 modifier           = Modifier.fillMaxSize()

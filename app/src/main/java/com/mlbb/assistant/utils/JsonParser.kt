@@ -44,7 +44,7 @@ class JsonParser @Inject constructor(
      * Memoized on first successful build. [R.raw.default_heroes] is a bundled, immutable
      * APK resource, so re-parsing it is pure waste — but this was previously re-parsed on
      * every call, including once per hero from
-     * [com.mlbb.assistant.data.portrait.PortraitAssetManager.ensureVariants]. During
+     * Previously called during portrait asset preparation. During
      * on-demand slot-aware hash preloading that method can run once per hero per
      * [com.mlbb.assistant.capture.PortraitMatcher.preloadHashes] pass, so re-decoding the
      * full JSON array + rebuilding the map each time added needless CPU work on the

@@ -78,7 +78,7 @@ private fun LaneSlotIndicator(lane: Lane, hero: Hero?, missing: Boolean) {
         ) {
             if (hero != null) {
                 AsyncImage(
-                    model              = hero.imageUrl,
+                    model              = android.net.Uri.parse("file:///android_asset/portraits/${hero.id}.webp"),
                     contentDescription = null,   // parent semantics covers this
                     modifier           = Modifier.fillMaxSize(),
                     contentScale       = ContentScale.Crop

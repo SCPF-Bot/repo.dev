@@ -12,14 +12,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mlbb.assistant.capture.AspectRatioPreset
-import com.mlbb.assistant.data.portrait.PortraitAssetManager
 import com.mlbb.assistant.domain.engine.WeightCalibrator
-import com.mlbb.assistant.domain.model.Hero
 import com.mlbb.assistant.domain.scoring.ScoreWeights
 import com.mlbb.assistant.domain.usecase.GetDraftHistoryUseCase
-import com.mlbb.assistant.domain.usecase.GetHeroesUseCase
-import com.mlbb.assistant.domain.usecase.SyncHeroesUseCase
-import com.mlbb.assistant.utils.DateFormatter
 import com.mlbb.assistant.utils.DevModeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,10 +29,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    private val syncHeroesUseCase: SyncHeroesUseCase,
     private val getDraftHistoryUseCase: GetDraftHistoryUseCase,
-    private val getHeroesUseCase: GetHeroesUseCase,
-    private val portraitAssetManager: PortraitAssetManager,
     @param:ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -48,8 +40,6 @@ class SettingsViewModel @Inject constructor(
         val KEY_OPACITY       = floatPreferencesKey("overlay_opacity")
         val KEY_AUTO_SHOW     = booleanPreferencesKey("auto_show_overlay")
         val KEY_VOICE         = booleanPreferencesKey("voice_alerts")
-        val KEY_AUTO_SYNC     = booleanPreferencesKey("auto_sync")
-        val KEY_LAST_SYNCED   = stringPreferencesKey("last_synced")
         val KEY_DEFAULT_RANK  = stringPreferencesKey("default_rank")
         val KEY_BAN_SCREENSHOT_URI = stringPreferencesKey("ban_screenshot_uri")
         val KEY_SCREEN_MAPPING     = stringPreferencesKey("screen_mapping")
@@ -74,8 +64,6 @@ class SettingsViewModel @Inject constructor(
                         overlayOpacity        = prefs[KEY_OPACITY] ?: 0.87f,
                         autoShowOverlay       = prefs[KEY_AUTO_SHOW] ?: true,
                         voiceAlertsEnabled    = prefs[KEY_VOICE] ?: false,
-                        autoSync              = prefs[KEY_AUTO_SYNC] ?: true,
-                        lastSyncedLabel       = prefs[KEY_LAST_SYNCED] ?: "Never",
                         defaultRank           = prefs[KEY_DEFAULT_RANK] ?: "6 bans (Epic)",
                         overlayGranted        = Settings.canDrawOverlays(context),
                         accessibilityGranted  = isAccessibilityEnabled(),
@@ -89,68 +77,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
         runCalibration()
-        refreshPortraitCounts()
     }
-
-    // ── Portrait asset pipeline (hero.main/pick/ban.png) ────────────────────
-
-    private fun refreshPortraitCounts() = viewModelScope.launch {
-        val heroes = getHeroesUseCase().first()
-        _state.update {
-            it.copy(
-                portraitTotalHeroes     = heroes.size,
-                portraitDownloadedCount = portraitAssetManager.downloadedCount(heroes),
-                portraitOptimizedCount  = portraitAssetManager.optimizedCount(heroes)
-            )
-        }
-    }
-
-    /** Downloads (or redownloads any missing) `hero.main.png` originals from the CDN. */
-    fun downloadPortraits() = runPortraitTask("Downloading portraits\u2026") { heroes, onProgress ->
-        portraitAssetManager.downloadAll(heroes) { p -> onProgress(p.processed, p.total) }
-    }
-
-    /** Converts already-downloaded originals into the `hero.pick.png` / `hero.ban.png` variants. */
-    fun optimizePortraits() = runPortraitTask("Optimizing portraits\u2026") { heroes, onProgress ->
-        portraitAssetManager.optimizeAll(heroes) { p -> onProgress(p.processed, p.total) }
-    }
-
-    /** Deletes every cached portrait asset, then redownloads and reoptimizes from scratch. */
-    fun refreshPortraits() = runPortraitTask("Refreshing portraits\u2026") { heroes, onProgress ->
-        portraitAssetManager.refreshAll(heroes) { p -> onProgress(p.processed, p.total) }
-    }
-
-    private fun runPortraitTask(
-        label: String,
-        block: suspend (heroes: List<Hero>, onProgress: (processed: Int, total: Int) -> Unit) -> Unit
-    ) = viewModelScope.launch {
-        if (_state.value.portraitTaskRunning) return@launch
-        _state.update {
-            it.copy(
-                portraitTaskRunning = true,
-                portraitTaskLabel   = label,
-                portraitTaskProgress = 0f,
-                portraitTaskError   = null   // clear any previous error on new task start
-            )
-        }
-        val error: String? = runCatching {
-            val heroes = getHeroesUseCase().first()
-            block(heroes) { processed, total ->
-                val fraction = if (total > 0) processed.toFloat() / total else 0f
-                _state.update { it.copy(portraitTaskProgress = fraction) }
-            }
-        }.onFailure { e ->
-            // CancellationException must not be swallowed — it signals the
-            // coroutine should terminate (e.g. ViewModel cleared mid-task).
-            // Rethrowing it allows the coroutine machinery to cancel cleanly.
-            if (e is kotlinx.coroutines.CancellationException) throw e
-        }.exceptionOrNull()?.localizedMessage
-        _state.update { it.copy(portraitTaskRunning = false, portraitTaskLabel = "", portraitTaskError = error) }
-        refreshPortraitCounts()
-    }
-
-    /** Clears the portrait task error banner after the user has acknowledged it. */
-    fun clearPortraitTaskError() = _state.update { it.copy(portraitTaskError = null) }
 
     fun setMetaWeight(v: Float)    = save { it[KEY_META]    = v }
     fun setCounterWeight(v: Float) = save { it[KEY_COUNTER] = v }
@@ -158,7 +85,6 @@ class SettingsViewModel @Inject constructor(
     fun setOpacity(v: Float)       = save { it[KEY_OPACITY] = v }
     fun setAutoShow(v: Boolean)    = save { it[KEY_AUTO_SHOW] = v }
     fun setVoiceAlerts(v: Boolean) = save { it[KEY_VOICE]    = v }
-    fun setAutoSync(v: Boolean)    = save { it[KEY_AUTO_SYNC] = v }
 
     fun resetWeights() = viewModelScope.launch {
         dataStore.edit {
@@ -166,12 +92,6 @@ class SettingsViewModel @Inject constructor(
             it[KEY_COUNTER] = 0.30f
             it[KEY_SYNERGY] = 0.30f
         }
-    }
-
-    fun syncNow() = viewModelScope.launch {
-        syncHeroesUseCase()
-        val label = DateFormatter.formatFull(System.currentTimeMillis())
-        dataStore.edit { it[KEY_LAST_SYNCED] = label }
     }
 
     /**
