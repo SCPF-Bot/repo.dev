@@ -3,6 +3,7 @@ package com.mlbb.assistant.utils
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import timber.log.Timber
 
 /**
  * Manages the Developer mode toggle that controls whether the [LogViewerActivity]
@@ -64,6 +65,11 @@ object DevModeManager {
                 state,
                 PackageManager.DONT_KILL_APP
             )
+        }.onFailure { e ->
+            // SecurityException can occur on certain custom ROMs that restrict
+            // setComponentEnabledSetting even for the app's own components.
+            // Log so it is surfaced in crash reports rather than silently ignored.
+            Timber.e(e, "DevModeManager: failed to update launcher alias state (enabled=$enabled)")
         }
     }
 

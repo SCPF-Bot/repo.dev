@@ -41,6 +41,11 @@ class HeroSyncWorker @AssistedInject constructor(
             syncHeroesUseCase()
             Timber.i("HeroSyncWorker: sync completed successfully")
             Result.success()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Rethrow CancellationException so WorkManager can cancel the worker
+            // cooperatively. Swallowing it prevents the coroutine from terminating
+            // cleanly when the work is cancelled by the OS or by WorkManager itself.
+            throw e
         } catch (e: Exception) {
             Timber.w(e, "HeroSyncWorker: sync failed on attempt ${runAttemptCount + 1}")
             if (runAttemptCount < MAX_RETRY_ATTEMPTS) Result.retry() else Result.failure()

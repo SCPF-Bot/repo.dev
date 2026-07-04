@@ -102,15 +102,16 @@ object BanRecommender {
 
         val pool = availableHeroes.filter { it.id !in bannedIds && it.id !in pickedIds }
 
-        // Infer enemy archetype for urgency calculations (may be null with < 2 picks)
-        val enemyProfile = if (enemyPicks.size >= 2) {
-            CompositionAnalyzer.analyze(enemyPicks)
-        } else null
-        val enemyArchetype = if (enemyPicks.size >= 2) {
+        // Infer enemy archetype for urgency calculations (may be null with < 2 picks).
+        // enemyProfile is computed once and reused for enemyArchetype via let — this
+        // eliminates the previous `enemyProfile!!` non-null assert (L-02) which, while
+        // technically safe behind the size guard, was misleading to readers.
+        val enemyProfile = if (enemyPicks.size >= 2) CompositionAnalyzer.analyze(enemyPicks) else null
+        val enemyArchetype = enemyProfile?.let { profile ->
             val roles    = enemyPicks.map { it.role }
             val ccUltCnt = enemyPicks.count { it.hasCCUlt }
-            CompositionArchetype.detect(enemyProfile!!, roles, ccUltCnt)
-        } else null
+            CompositionArchetype.detect(profile, roles, ccUltCnt)
+        }
 
         val scored = pool.map { hero ->
             // A4: Split into value (context-free) + urgency (context-sensitive)
@@ -133,11 +134,11 @@ object BanRecommender {
                 score      = totalScore,
                 reason     = buildBanReason(hero, alliedPicks, enemyPicks),
                 badgeLabel = when {
-                    hero.isToxicMechanic -> "Toxic"
-                    hero.isOP            -> "OP Meta"
-                    hero.banRate > 0.25  -> "High Ban"
-                    isReactive           -> "Counter Ban"
-                    else                 -> "Situational"
+                    hero.isToxicMechanic                      -> "Toxic"
+                    hero.isOP                                 -> "OP Meta"
+                    hero.banRate > BanThresholds.HIGH_BAN_RATE -> "High Ban"
+                    isReactive                                -> "Counter Ban"
+                    else                                      -> "Situational"
                 },
                 category = category
             )
@@ -161,9 +162,9 @@ object BanRecommender {
                 "OP in current meta — %.0f%% ban rate".format(hero.banRate * 100)
             hero.isOP ->
                 "Strong pick — %.0f%% win rate this patch".format(hero.winRate * 100)
-            hero.banRate >= 0.40 ->
+            hero.banRate >= BanThresholds.CONSENSUS_BAN_RATE ->
                 "Community consensus ban — %.0f%% ban rate".format(hero.banRate * 100)
-            hero.banRate > 0.20 ->
+            hero.banRate > BanThresholds.NOTABLE_BAN_RATE ->
                 "High community ban pressure — %.0f%% ban rate".format(hero.banRate * 100)
             else ->
                 "Counters common team compositions"

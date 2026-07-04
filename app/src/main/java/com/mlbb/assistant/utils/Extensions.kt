@@ -46,9 +46,12 @@ inline fun <T> List<T>.partitionBy(predicate: (T) -> Boolean): Pair<List<T>, Lis
 /**
  * Capitalises the first character and lower-cases the rest, like
  * "MARKSMAN" → "Marksman".  Safe on empty strings.
+ *
+ * Uses [Locale.ROOT] to avoid locale-sensitive case-mapping bugs
+ * (e.g. Turkish 'i' → 'İ' instead of 'I').
  */
 fun String.toTitleCase(): String =
-    if (isEmpty()) this else this[0].uppercaseChar() + substring(1).lowercase()
+    if (isEmpty()) this else replaceFirstChar { it.titlecase(java.util.Locale.ROOT) }
 
 /**
  * Returns `null` when the string is blank, or the trimmed string otherwise.

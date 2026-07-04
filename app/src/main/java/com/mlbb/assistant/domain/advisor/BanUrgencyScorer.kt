@@ -61,7 +61,12 @@ object BanUrgencyScorer {
             urgency += ARCHETYPE_ENABLER_BONUS
         }
 
-        return urgency
+        // Clamp at source so intermediate urgency values are always in [0, 1].
+        // Previously the score could exceed 1.0 when all three urgency sources
+        // fired simultaneously (e.g. 0.25 + 0.20 + 0.10 = 0.55 is fine, but
+        // multiple counter threats — 3× COUNTER_THREAT_BONUS = 0.75 — combined
+        // with synergy and archetype bonuses can push the total above 1.0).
+        return urgency.coerceIn(0f, 1f)
     }
 
     /**

@@ -131,29 +131,42 @@ class HeroClassifier(context: Context) : Closeable {
      * @param bitmap The cropped slot image — any size; resized to [INPUT_SIZE]×[INPUT_SIZE] internally.
      * @param topK   Maximum number of results to return (default 3).
      */
-    fun classify(bitmap: Bitmap, topK: Int = 3): List<ClassificationResult> {
-        if (!isAvailable) return emptyList()
-        val interp = interpreter ?: return emptyList()
+    /**
+     * Lock guarding the TFLite [Interpreter]. [Interpreter] is documented as NOT
+     * thread-safe; without synchronisation, concurrent calls from two coroutines
+     * on [kotlinx.coroutines.Dispatchers.Default] (which uses a thread pool) can
+     * corrupt the native inference context and produce garbage outputs or a crash.
+     *
+     * [PortraitMatcher] already serialises calls through a single
+     * `withContext(Dispatchers.Default)` block, but this lock provides a safety net
+     * if any future caller bypasses that convention.
+     */
+    private val classifyLock = Any()
 
-        val resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true)
-        val inputTensor = preprocessBitmap(resized)
-        if (resized !== bitmap) resized.recycle()
+    fun classify(bitmap: Bitmap, topK: Int = 3): List<ClassificationResult> =
+        synchronized(classifyLock) {
+            if (!isAvailable) return@synchronized emptyList()
+            val interp = interpreter ?: return@synchronized emptyList()
 
-        val outputTensor = Array(1) { FloatArray(outputSize) }
-        return runCatching {
-            interp.run(inputTensor, outputTensor)
-            val scores = outputTensor[0]
-            buildList {
-                scores.forEachIndexed { idx, score ->
-                    if (idx < heroIds.size) add(ClassificationResult(heroIds[idx], score))
+            val resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true)
+            val inputTensor = preprocessBitmap(resized)
+            if (resized !== bitmap) resized.recycle()
+
+            val outputTensor = Array(1) { FloatArray(outputSize) }
+            runCatching {
+                interp.run(inputTensor, outputTensor)
+                val scores = outputTensor[0]
+                buildList {
+                    scores.forEachIndexed { idx, score ->
+                        if (idx < heroIds.size) add(ClassificationResult(heroIds[idx], score))
+                    }
                 }
-            }
-                .sortedByDescending { it.confidence }
-                .take(topK)
-        }.onFailure { e ->
-            Timber.w(e, "$TAG: inference failed — falling back to pHash")
-        }.getOrDefault(emptyList())
-    }
+                    .sortedByDescending { it.confidence }
+                    .take(topK)
+            }.onFailure { e ->
+                Timber.w(e, "$TAG: inference failed — falling back to pHash")
+            }.getOrDefault(emptyList())
+        }
 
     override fun close() {
         interpreter?.close()

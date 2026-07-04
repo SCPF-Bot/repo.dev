@@ -33,7 +33,11 @@ class NetworkMonitor @Inject constructor(@param:ApplicationContext private val c
             cm.getNetworkCapabilities(network)
                 ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
         } ?: false
-        trySend(isCurrentlyConnected)
+        // Guard against silent drop if the collector hasn't started draining the channel yet.
+        val result = trySend(isCurrentlyConnected)
+        if (!result.isSuccess) {
+            android.util.Log.w("NetworkMonitor", "Initial connectivity state delivery failed — collector may not be ready")
+        }
 
         awaitClose { cm.unregisterNetworkCallback(callback) }
     }

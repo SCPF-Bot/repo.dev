@@ -139,6 +139,11 @@ class SettingsViewModel @Inject constructor(
                 val fraction = if (total > 0) processed.toFloat() / total else 0f
                 _state.update { it.copy(portraitTaskProgress = fraction) }
             }
+        }.onFailure { e ->
+            // CancellationException must not be swallowed — it signals the
+            // coroutine should terminate (e.g. ViewModel cleared mid-task).
+            // Rethrowing it allows the coroutine machinery to cancel cleanly.
+            if (e is kotlinx.coroutines.CancellationException) throw e
         }.exceptionOrNull()?.localizedMessage
         _state.update { it.copy(portraitTaskRunning = false, portraitTaskLabel = "", portraitTaskError = error) }
         refreshPortraitCounts()
