@@ -85,7 +85,7 @@ object DraftScoreCalculator {
     private fun calcMetaAdherence(picks: List<Hero>): Float {
         if (picks.isEmpty()) return 0f
         return picks
-            .averageOrDefault { 1f - it.tier.order.toFloat() / TIER_MAX_ORDER }
+            .averageOrDefault { (1f - it.tier.order.toFloat() / TIER_MAX_ORDER).toDouble() }
             .toFloat()
             .coerceIn(0f, 1f)
     }
