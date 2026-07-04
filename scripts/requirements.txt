@@ -1,12 +1,18 @@
-# --- Core Utilities ---
-numpy>=1.24.0
-Pillow>=10.0.0
-requests>=2.31.0
-tqdm>=4.66.0
-scikit-learn>=1.0.0
+# CRITICAL: Force CPU-only PyTorch to prevent CUDA segfaults on GitHub Actions
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
 
-# --- Hero Classifier (Phase 1: MobileNet) ---
+# Ultralytics (YOLO)
+ultralytics
+
+# TensorFlow (MobileNet)
 tensorflow>=2.16.0
 
-# --- UI Detector (Phase 2: YOLOv8) ---
-ultralytics>=8.1.0
+# Utilities
+Pillow>=10.0.0
+requests>=2.31.0
+numpy>=1.24.0
+tqdm>=4.66.0
+scikit-learn>=1.0.0
+pyyaml
