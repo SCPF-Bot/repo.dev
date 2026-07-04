@@ -1,4 +1,1 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Component declarations (OverlayService, OverlayPermissionActivity) live in
-     the :app manifest to avoid merge conflicts. -->
-<manifest package="com.mlbb.assistant.feature.overlay" />
+<?xml version="1.0" encoding="utf-8"?><manifest />

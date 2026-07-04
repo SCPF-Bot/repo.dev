@@ -1,4 +1,1 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Component declarations live in the :app manifest to avoid merge conflicts.
-     This library manifest exists solely for the module namespace. -->
-<manifest package="com.mlbb.assistant.core.cv" />
+<?xml version="1.0" encoding="utf-8"?><manifest />
