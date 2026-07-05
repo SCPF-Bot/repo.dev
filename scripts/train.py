@@ -184,17 +184,19 @@ def generate_and_train_yolo(valid_heroes):
         verbose=False
     )
     
-    # FIX: Get the exact path to the best weights directly from the trainer object.
-    # This completely bypasses Ultralytics' internal 'runs_dir' path resolution quirks.
+    # FIX 1: Get the exact path to the best weights directly from the trainer object.
     best_pt = yolo_model.trainer.best
     print(f"✓ Training complete. Best model located at: {best_pt}")
     
     # Load the best model and export to TFLite
     yolo_model = YOLO(str(best_pt))
-    yolo_model.export(format='tflite', int8=True)
     
-    # The .tflite file is generated in the exact same directory as the .pt file
-    generated_tflite = Path(str(best_pt)).with_suffix('.tflite')
+    # FIX 2: The export() method actually RETURNS the exact path to the generated file!
+    # This completely eliminates guessing where Ultralytics puts the .tflite file.
+    exported_file = yolo_model.export(format='tflite', int8=True)
+    generated_tflite = Path(exported_file)
+    print(f"✓ Export complete. TFLite located at: {generated_tflite}")
+    
     final_yolo_path = Path(CONFIG['output_dir']) / CONFIG['yolo_tflite']
     
     # Ensure the final output directory exists before moving the file
