@@ -11,8 +11,12 @@ MLBB Unified Training Pipeline (Focused)
 4. Generates MobileNet dataset and trains Hero Classifier.
 """
 
+# ==============================================================================
+# CRITICAL CI/CD FIXES: Prevent thread oversubscription and CUDA segfaults
+# Must be set BEFORE importing torch, tensorflow, or ultralytics
+# ==============================================================================
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"       # Hide GPUs to prevent CUDA stub segfaults
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -85,7 +89,7 @@ def download_portraits(heroes):
                 img.save(main_path)
             valid_heroes.append({'id': hero_id, 'name': hero_name})
         except Exception as e:
-            print(f"\n Failed {hero_name}: {e}")
+            print(f"\n✗ Failed {hero_name}: {e}")
             
     print(f"✓ Prepared {len(valid_heroes)} heroes")
     return valid_heroes
@@ -180,14 +184,24 @@ def generate_and_train_yolo(valid_heroes):
         verbose=False
     )
     
-    best_pt = yolo_dir / 'yolo_train' / 'weights' / 'best.pt'
+    # FIX: Get the exact path to the best weights directly from the trainer object.
+    # This completely bypasses Ultralytics' internal 'runs_dir' path resolution quirks.
+    best_pt = yolo_model.trainer.best
+    print(f"✓ Training complete. Best model located at: {best_pt}")
+    
+    # Load the best model and export to TFLite
     yolo_model = YOLO(str(best_pt))
     yolo_model.export(format='tflite', int8=True)
     
-    generated_tflite = best_pt.with_suffix('.tflite')
+    # The .tflite file is generated in the exact same directory as the .pt file
+    generated_tflite = Path(str(best_pt)).with_suffix('.tflite')
     final_yolo_path = Path(CONFIG['output_dir']) / CONFIG['yolo_tflite']
+    
+    # Ensure the final output directory exists before moving the file
+    final_yolo_path.parent.mkdir(parents=True, exist_ok=True)
+    
     generated_tflite.rename(final_yolo_path)
-    print(f"✓ YOLO TFLite saved to {final_yolo_path}")
+    print(f"✓ YOLO TFLite successfully moved to {final_yolo_path}")
 
 def create_ban_overlay(img):
     img = img.copy()
