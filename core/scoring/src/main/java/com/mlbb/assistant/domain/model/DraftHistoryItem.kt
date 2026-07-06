@@ -24,5 +24,14 @@ data class DraftHistoryItem(
      * Used by the home screen to compute the most-picked hero insight.
      * Defaults to empty list so legacy callers that don't populate it are unaffected.
      */
-    val yourPickIds: List<Int> = emptyList()
+    val yourPickIds: List<Int> = emptyList(),
+    /**
+     * ROADMAP 4.8: full draft timeline, added so the replay/export screens no
+     * longer need to bypass the domain layer to read raw entity columns.
+     * Slot values of -1 represent unfilled/unavailable ban or pick slots.
+     */
+    val ourTeamFirst: Boolean = true,
+    val enemyBanIds: List<Int> = emptyList(),
+    val yourBanIds: List<Int> = emptyList(),
+    val enemyPickIds: List<Int> = emptyList()
 )

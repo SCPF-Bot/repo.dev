@@ -249,6 +249,37 @@ object PhaseDetectionConfig {
     /** Minimum votes within the window required to confirm a slot's winning hero. */
     const val CONSENSUS_MIN_AGREEMENT: Int = 2
 
+    // ── YOLO hero-region detector (HeroPortraitObjectDetector / master plan Phase 2) ──
+
+    /**
+     * Minimum per-class confidence for a raw YOLO detection to be kept before NMS.
+     * `scripts/train.py` trains 3 classes (`banned_hero`, `ally_hero`, `enemy_hero`)
+     * at imgsz=416, int8-quantized. Tuned conservatively — raise if false-positive
+     * boxes appear on empty slots; lower if real portraits are missed early in the
+     * reveal animation.
+     */
+    const val YOLO_CONFIDENCE_THRESHOLD: Float = 0.45f
+
+    /** IoU threshold above which two overlapping boxes are collapsed by NMS. */
+    const val YOLO_NMS_IOU_THRESHOLD: Float = 0.45f
+
+    /**
+     * Rolling window size (frames) for [TemporalConsensusBuffer], gating YOLO
+     * slot-fill decisions. Master plan Phase 2 spec: "15-frame sliding window".
+     */
+    const val YOLO_CONSENSUS_WINDOW_SIZE: Int = 15
+
+    /**
+     * Time-based cap on [TemporalConsensusBuffer]'s window, alongside the frame-count
+     * cap above — at [CAPTURE_THROTTLE_ACTIVE_MS] (250 ms/frame) 15 frames would span
+     * ~3.75 s, far longer than the plan's "0.5 s" target, so both a count and a time
+     * bound are enforced and the buffer trims to whichever is stricter.
+     */
+    const val YOLO_CONSENSUS_WINDOW_MS: Long = 500L
+
+    /** Fraction of samples in the window that must agree for a slot to be confirmed filled. */
+    const val YOLO_CONSENSUS_MIN_RATIO: Float = 0.80f
+
     // ── Accessibility watchdog ────────────────────────────────────────────────
 
     /** How often the service checks that its accessibility permission is still active. */

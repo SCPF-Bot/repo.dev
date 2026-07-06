@@ -17,6 +17,9 @@ interface DraftSessionRepository {
     /** Observe the [limit] most recent sessions. */
     fun getRecentSessions(limit: Int = 20): Flow<List<DraftHistoryItem>>
 
+    /** Fetch a single session by [id], or null if it doesn't exist. */
+    suspend fun getSessionById(id: Int): DraftHistoryItem?
+
     /** Persist a completed draft session. Returns the row id of the inserted record. */
     suspend fun saveSession(item: DraftHistoryItem): Long
 

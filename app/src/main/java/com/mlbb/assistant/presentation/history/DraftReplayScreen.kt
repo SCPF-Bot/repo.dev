@@ -37,9 +37,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.mlbb.assistant.R
-import com.mlbb.assistant.data.local.database.DraftSessionDao
-import com.mlbb.assistant.data.local.database.DraftSessionEntity
+import com.mlbb.assistant.domain.model.DraftHistoryItem
 import com.mlbb.assistant.domain.model.DraftOutcome
+import com.mlbb.assistant.domain.repository.DraftSessionRepository
 import com.mlbb.assistant.presentation.common.theme.ErrorRed
 import com.mlbb.assistant.presentation.common.theme.MLBBGold
 import com.mlbb.assistant.presentation.common.theme.MLBBRed
@@ -59,22 +59,20 @@ import javax.inject.Inject
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
 data class DraftReplayState(
-    val session:   DraftSessionEntity? = null,
+    val session:   DraftHistoryItem? = null,
     val isLoading: Boolean = true
 )
 
 /**
  * ViewModel for the Draft Replay detail screen.
  *
- * Note: this ViewModel injects [DraftSessionDao] directly because the detail
- * screen requires fields (ban IDs, enemy pick IDs, `ourTeamFirst`) that are
- * not yet modelled in [com.mlbb.assistant.domain.model.DraftHistoryItem].
- * Once ROADMAP item 4.8 (expand `DraftHistoryItem` with full entity fields)
- * is completed, this should be refactored to use a domain use case.
+ * ROADMAP 4.8: [DraftHistoryItem] now carries the full draft timeline (ban IDs,
+ * enemy pick IDs, `ourTeamFirst`), so this screen goes through the domain-layer
+ * [DraftSessionRepository] instead of injecting the Room DAO directly.
  */
 @HiltViewModel
 class DraftReplayViewModel @Inject constructor(
-    private val dao: DraftSessionDao
+    private val repository: DraftSessionRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DraftReplayState())
@@ -82,8 +80,8 @@ class DraftReplayViewModel @Inject constructor(
 
     fun load(sessionId: Int) {
         viewModelScope.launch {
-            val entity = dao.getSessionById(sessionId)
-            _state.value = DraftReplayState(session = entity, isLoading = false)
+            val session = repository.getSessionById(sessionId)
+            _state.value = DraftReplayState(session = session, isLoading = false)
         }
     }
 }
@@ -184,8 +182,8 @@ fun DraftReplayScreen(
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 @Composable
-private fun ReplaySummaryCard(session: DraftSessionEntity) {
-    val outcome = DraftOutcome.fromString(session.outcome)
+private fun ReplaySummaryCard(session: DraftHistoryItem) {
+    val outcome = session.outcome
 
     Box(
         Modifier
@@ -275,7 +273,7 @@ private fun ReplaySlotRow(label: String, heroId: Int, color: Color) {
 }
 
 @Composable
-private fun ScoreSummaryCard(session: DraftSessionEntity) {
+private fun ScoreSummaryCard(session: DraftHistoryItem) {
     val advisedPct = if (session.totalRecommendations > 0)
         session.followedRecommendations * 100 / session.totalRecommendations
     else 0

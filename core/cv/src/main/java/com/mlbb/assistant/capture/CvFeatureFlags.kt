@@ -58,12 +58,29 @@ object CvFeatureFlags {
     var enableOcr: Boolean = true
         private set
 
+    /**
+     * Master switch for the [HeroPortraitObjectDetector] (YOLO) slot-fill signal
+     * inside [com.mlbb.assistant.presentation.overlay.OverlayCaptureCoordinator]
+     * (master plan Phase 2, "No Hardcoded Coordinates").
+     *
+     * When enabled and the detector loaded successfully, YOLO bounding boxes —
+     * gated through [TemporalConsensusBuffer] — become the primary "is this slot
+     * filled" signal, and the coordinate-only luminance/saturation heuristic in
+     * [SlotRegions] becomes a fallback used only while the detector's consensus
+     * window is still warming up or the model failed to load. Disabling this flag
+     * reverts to the pre-Phase-2 behaviour of trusting [SlotRegions] alone.
+     */
+    @Volatile
+    var enableYoloDetection: Boolean = true
+        private set
+
     /** Resets every flag to its default (all cascade tiers enabled). */
     fun resetToDefaults() {
         useSlotAwareHash = PhaseDetectionConfig.USE_SLOT_AWARE_HASH
         enableTemporalConsensus = true
         tfliteFallbackEnabled = true
         enableOcr = true
+        enableYoloDetection = true
     }
 
     fun setUseSlotAwareHash(enabled: Boolean) {
@@ -80,5 +97,9 @@ object CvFeatureFlags {
 
     fun setEnableOcr(enabled: Boolean) {
         enableOcr = enabled
+    }
+
+    fun setEnableYoloDetection(enabled: Boolean) {
+        enableYoloDetection = enabled
     }
 }

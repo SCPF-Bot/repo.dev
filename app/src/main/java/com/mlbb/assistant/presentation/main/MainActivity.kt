@@ -1,6 +1,8 @@
 package com.mlbb.assistant.presentation.main
 
+import android.content.Intent
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -63,14 +65,24 @@ class MainActivity : ComponentActivity() {
      * Called when the user taps "Start Draft".
      *
      * Steps:
-     * 1. Verify overlay permission — if missing, open the system settings page.
+     * 1. Verify overlay permission — if missing, open the system settings page
+     *    so the user can grant it, instead of silently starting a service that
+     *    will just stop itself (previous behavior: [OverlayService] guards its
+     *    own `onStartCommand()`/`onCreate()` on `canDrawOverlays()` and calls
+     *    `stopSelf()` when the permission is absent, so calling `start()`
+     *    without permission was a no-op with no feedback to the user).
      * 2. Start OverlayService immediately (bubble appears).
      * 3. Request screen-capture permission so autonomous detection can start.
      *    The result flows back through [projectionLauncher] → OverlayService.
      */
     private fun startOverlay() {
         if (!Settings.canDrawOverlays(this)) {
-            OverlayService.start(this)
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+            )
             return
         }
         OverlayService.start(this)

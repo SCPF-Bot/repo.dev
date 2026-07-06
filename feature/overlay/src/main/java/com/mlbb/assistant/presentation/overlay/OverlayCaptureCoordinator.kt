@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.RectF
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -11,7 +12,9 @@ import com.mlbb.assistant.capture.AspectRatioPreset
 import com.mlbb.assistant.capture.BanDraftType
 import com.mlbb.assistant.capture.BanSlotTemplates
 import com.mlbb.assistant.capture.CvFeatureFlags
+import com.mlbb.assistant.capture.DetectedPortrait
 import com.mlbb.assistant.capture.FirstPickDetector
+import com.mlbb.assistant.capture.HeroPortraitObjectDetector
 import com.mlbb.assistant.capture.PhaseDetectionConfig
 import com.mlbb.assistant.capture.PhaseDetector
 import com.mlbb.assistant.capture.PhaseOcrDetector
@@ -19,6 +22,7 @@ import com.mlbb.assistant.capture.PortraitMatcher
 import com.mlbb.assistant.capture.SlotRegionF
 import com.mlbb.assistant.capture.SlotRegions
 import com.mlbb.assistant.capture.SlotType
+import com.mlbb.assistant.capture.TemporalConsensusBuffer
 import com.mlbb.assistant.domain.engine.DraftPhase
 import com.mlbb.assistant.domain.engine.DraftSessionManager
 import com.mlbb.assistant.domain.model.Hero
@@ -91,7 +95,16 @@ class OverlayCaptureCoordinator @Inject constructor(
 
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private lateinit var portraitMatcher: PortraitMatcher
+    private lateinit var objectDetector: HeroPortraitObjectDetector
     private var captureJob: Job? = null
+
+    /**
+     * Phase 2 ("No Hardcoded Coordinates"): per-slot 15-frame/500ms consensus over
+     * [objectDetector]'s raw bounding boxes. Filters reveal-animation flicker before
+     * a slot is trusted as "filled" by the YOLO signal. See [TemporalConsensusBuffer]
+     * and [isSlotFilledFused].
+     */
+    private val yoloConsensus = TemporalConsensusBuffer()
 
     // Frame counter for OCR stride — reset on session start.
     private val frameCounter = AtomicInteger(0)
@@ -158,6 +171,10 @@ class OverlayCaptureCoordinator @Inject constructor(
         // PortraitMatcher loads hero portraits from bundled assets (portraits/{id}.webp)
         // — no network or disk-cache dependencies needed.
         portraitMatcher = PortraitMatcher(context)
+        // Phase 2: loads mlbb_ui_detector.tflite. isAvailable=false (model missing/load
+        // failure) degrades gracefully — every call site below falls back to the
+        // pre-Phase-2 SlotRegions luminance/saturation heuristic.
+        objectDetector = HeroPortraitObjectDetector(context)
     }
 
     // ── Portrait hash preload (called by OverlayStateHolder when heroes load) ─
@@ -222,6 +239,10 @@ class OverlayCaptureCoordinator @Inject constructor(
         if (::portraitMatcher.isInitialized) {
             portraitMatcher.close()
         }
+        if (::objectDetector.isInitialized) {
+            objectDetector.close()
+        }
+        yoloConsensus.clearAll()
         stateHolder.setCaptureUnavailable(false)
     }
 
@@ -348,11 +369,24 @@ class OverlayCaptureCoordinator @Inject constructor(
         // the centre would cause false portrait matches in the pick slots.
         if (ocrResult.isPickAnimation) return
 
+        // ── Phase 2 YOLO detection pass ────────────────────────────────────────
+        // Run once per frame (not per slot) — mlbb_ui_detector.tflite sees the
+        // whole frame and returns every banned_hero/ally_hero/enemy_hero box at
+        // once. Empty when the flag is off, the model failed to load, or
+        // inference errors — callers below treat that as "no signal" and defer
+        // to the [isSlotFilled] coordinate heuristic (now the fallback path).
+        val yoloBoxes: List<DetectedPortrait> =
+            if (CvFeatureFlags.enableYoloDetection && ::objectDetector.isInitialized && objectDetector.isAvailable) {
+                runCatching { objectDetector.detectPortraitRegions(frame) }.getOrDefault(emptyList())
+            } else {
+                emptyList()
+            }
+
         val session = stateHolder.sessionValue()
         when (session.phase) {
             DraftPhase.BAN_ROUND_1, DraftPhase.BAN_ROUND_2 -> {
                 val round = if (session.phase == DraftPhase.BAN_ROUND_2) 2 else 1
-                scanAndRecordBans(frame, round)
+                scanAndRecordBans(frame, round, yoloBoxes)
             }
             DraftPhase.PICK -> {
                 if (!stateHolder.banCatchUpDone) {
@@ -362,9 +396,9 @@ class OverlayCaptureCoordinator @Inject constructor(
                     val anyBanMissed =
                         stateHolder.filledEnemyBanSlots.size < slotsPerTeam ||
                         stateHolder.filledOurBanSlots.size   < slotsPerTeam
-                    if (anyBanMissed) scanAndRecordBans(frame, round = 1)
+                    if (anyBanMissed) scanAndRecordBans(frame, round = 1, yoloBoxes)
                 }
-                scanAndRecordPicks(frame)
+                scanAndRecordPicks(frame, yoloBoxes)
             }
             else -> {}
         }
@@ -379,7 +413,7 @@ class OverlayCaptureCoordinator @Inject constructor(
      * slots 3 and 4 are never scanned at Epic rank — those screen positions
      * contain unrelated UI elements that would otherwise produce false positives.
      */
-    private suspend fun scanAndRecordBans(frame: Bitmap, round: Int) {
+    private suspend fun scanAndRecordBans(frame: Bitmap, round: Int, yoloBoxes: List<DetectedPortrait>) {
         val session  = stateHolder.sessionValue()
         val template = BanSlotTemplates.forRank(session.rank)
 
@@ -387,8 +421,12 @@ class OverlayCaptureCoordinator @Inject constructor(
         // content area on pillarboxed ultra-wide screens.
         template.enemyBanSlots.forEachIndexed { i, region ->
             val adjusted = region.adjusted()
-            if (i !in stateHolder.filledEnemyBanSlots && isSlotFilled(frame, adjusted)) {
-                val hero = matchPortrait(frame, adjusted, 0.45f, "enemyBan$i")
+            val slotKey  = "enemyBan$i"
+            val yoloMatch = matchYoloBox(yoloBoxes, "banned_hero", adjusted)
+            recordYoloObservation(slotKey, yoloMatch)
+            if (i !in stateHolder.filledEnemyBanSlots && isSlotFilledFused(frame, adjusted, slotKey)) {
+                val cropRegion = yoloMatch?.boundingBox?.toSlotRegion() ?: adjusted
+                val hero = matchPortrait(frame, cropRegion, 0.45f, slotKey)
                 if (hero != null) {
                     stateHolder.filledEnemyBanSlots.add(i)
                     withContext(Dispatchers.Main) {
@@ -399,8 +437,12 @@ class OverlayCaptureCoordinator @Inject constructor(
         }
         template.ourBanSlots.forEachIndexed { i, region ->
             val adjusted = region.adjusted()
-            if (i !in stateHolder.filledOurBanSlots && isSlotFilled(frame, adjusted)) {
-                val hero = matchPortrait(frame, adjusted, 0.45f, "ourBan$i")
+            val slotKey  = "ourBan$i"
+            val yoloMatch = matchYoloBox(yoloBoxes, "banned_hero", adjusted)
+            recordYoloObservation(slotKey, yoloMatch)
+            if (i !in stateHolder.filledOurBanSlots && isSlotFilledFused(frame, adjusted, slotKey)) {
+                val cropRegion = yoloMatch?.boundingBox?.toSlotRegion() ?: adjusted
+                val hero = matchPortrait(frame, cropRegion, 0.45f, slotKey)
                 if (hero != null) {
                     stateHolder.filledOurBanSlots.add(i)
                     withContext(Dispatchers.Main) {
@@ -411,11 +453,15 @@ class OverlayCaptureCoordinator @Inject constructor(
         }
     }
 
-    private suspend fun scanAndRecordPicks(frame: Bitmap) {
+    private suspend fun scanAndRecordPicks(frame: Bitmap, yoloBoxes: List<DetectedPortrait>) {
         SlotRegions.enemyPickSlots.forEachIndexed { i, region ->
             val adjusted = region.adjusted()
-            if (i !in stateHolder.filledEnemyPickSlots && isSlotFilled(frame, adjusted)) {
-                val hero = matchPortrait(frame, adjusted, 0.55f, "enemyPick$i") ?: return@forEachIndexed
+            val slotKey  = "enemyPick$i"
+            val yoloMatch = matchYoloBox(yoloBoxes, "enemy_hero", adjusted)
+            recordYoloObservation(slotKey, yoloMatch)
+            if (i !in stateHolder.filledEnemyPickSlots && isSlotFilledFused(frame, adjusted, slotKey)) {
+                val cropRegion = yoloMatch?.boundingBox?.toSlotRegion() ?: adjusted
+                val hero = matchPortrait(frame, cropRegion, 0.55f, slotKey) ?: return@forEachIndexed
                 stateHolder.filledEnemyPickSlots.add(i)
                 withContext(Dispatchers.Main) {
                     draftSessionManager.recordEnemyPick(hero, i)
@@ -424,8 +470,12 @@ class OverlayCaptureCoordinator @Inject constructor(
         }
         SlotRegions.ourPickSlots.forEachIndexed { i, region ->
             val adjusted = region.adjusted()
-            if (i !in stateHolder.filledOurPickSlots && isSlotFilled(frame, adjusted)) {
-                val hero = matchPortrait(frame, adjusted, 0.55f, "ourPick$i") ?: return@forEachIndexed
+            val slotKey  = "ourPick$i"
+            val yoloMatch = matchYoloBox(yoloBoxes, "ally_hero", adjusted)
+            recordYoloObservation(slotKey, yoloMatch)
+            if (i !in stateHolder.filledOurPickSlots && isSlotFilledFused(frame, adjusted, slotKey)) {
+                val cropRegion = yoloMatch?.boundingBox?.toSlotRegion() ?: adjusted
+                val hero = matchPortrait(frame, cropRegion, 0.55f, slotKey) ?: return@forEachIndexed
                 stateHolder.filledOurPickSlots.add(i)
                 val topId = stateHolder.recommendations.firstOrNull()?.hero?.id
                 withContext(Dispatchers.Main) {
@@ -434,6 +484,80 @@ class OverlayCaptureCoordinator @Inject constructor(
             }
         }
     }
+
+    // ── Phase 2 YOLO ↔ slot-grid matching ───────────────────────────────────
+
+    /**
+     * Finds the [DetectedPortrait] with label [label] whose box centre is closest
+     * to [region]'s centre, within [region]'s own diagonal as a distance cap.
+     *
+     * The cap matters because `banned_hero` boxes are emitted for *both* teams —
+     * without a proximity limit, a box on the enemy side could otherwise "win"
+     * against an empty ally slot simply for having no closer competitor. Since
+     * [SlotRegions] still defines the grid geometry (Phase 2 demotes it to a
+     * *fallback signal*, it does not remove it — the grid itself is a fixed
+     * property of the MLBB UI layout, only "is this grid cell filled" needed to
+     * stop depending solely on colour heuristics), this stays a cheap, reliable
+     * disambiguator between ally/enemy slots sharing one detection class.
+     */
+    private fun matchYoloBox(
+        boxes: List<DetectedPortrait>,
+        label: String,
+        region: SlotRegionF,
+    ): DetectedPortrait? {
+        if (boxes.isEmpty()) return null
+        val regionCx = (region.left + region.right) / 2f
+        val regionCy = (region.top + region.bottom) / 2f
+        val maxDist = kotlin.math.hypot(
+            (region.right - region.left).toDouble(),
+            (region.bottom - region.top).toDouble()
+        ).toFloat()
+
+        return boxes
+            .asSequence()
+            .filter { it.label == label }
+            .map { box ->
+                val bx = (box.boundingBox.left + box.boundingBox.right) / 2f
+                val by = (box.boundingBox.top + box.boundingBox.bottom) / 2f
+                val dist = kotlin.math.hypot((bx - regionCx).toDouble(), (by - regionCy).toDouble()).toFloat()
+                box to dist
+            }
+            .filter { (_, dist) -> dist <= maxDist }
+            .minByOrNull { (_, dist) -> dist }
+            ?.first
+    }
+
+    /** Feeds this frame's match (or lack thereof) into [yoloConsensus] for [slotKey]. */
+    private fun recordYoloObservation(slotKey: String, match: DetectedPortrait?) {
+        if (!::objectDetector.isInitialized || !objectDetector.isAvailable) return
+        yoloConsensus.record(
+            slotKey,
+            if (match != null) TemporalConsensusBuffer.LABEL_FILLED else TemporalConsensusBuffer.LABEL_EMPTY
+        )
+    }
+
+    /**
+     * Fused slot-fill decision — Phase 2 primary/fallback ordering:
+     *
+     * 1. If [CvFeatureFlags.enableYoloDetection] and [yoloConsensus] has reached
+     *    >80% agreement for [slotKey] within its 15-frame/500ms window, trust it
+     *    directly (both the "confidently filled" and "confidently empty" cases —
+     *    the latter lets YOLO consensus *suppress* a heuristic false-positive).
+     * 2. Otherwise (no consensus yet, detector unavailable, or flag off), fall
+     *    back to the original [isSlotFilled] luminance/saturation heuristic.
+     */
+    private fun isSlotFilledFused(frame: Bitmap, region: SlotRegionF, slotKey: String): Boolean {
+        if (CvFeatureFlags.enableYoloDetection) {
+            when (yoloConsensus.consensus(slotKey)) {
+                TemporalConsensusBuffer.LABEL_FILLED -> return true
+                TemporalConsensusBuffer.LABEL_EMPTY  -> return false
+                else -> Unit // no consensus yet — fall through to the heuristic
+            }
+        }
+        return isSlotFilled(frame, region)
+    }
+
+    private fun RectF.toSlotRegion(): SlotRegionF = SlotRegionF(left, top, right, bottom)
 
     // ── Frame utilities ───────────────────────────────────────────────────────
 

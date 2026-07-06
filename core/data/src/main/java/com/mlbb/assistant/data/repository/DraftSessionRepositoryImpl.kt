@@ -19,6 +19,9 @@ class DraftSessionRepositoryImpl @Inject constructor(
     override fun getRecentSessions(limit: Int): Flow<List<DraftHistoryItem>> =
         dao.getRecentSessions(limit).map { it.map(DraftSessionEntity::toDomain) }
 
+    override suspend fun getSessionById(id: Int): DraftHistoryItem? =
+        dao.getSessionById(id)?.toDomain()
+
     override suspend fun saveSession(item: DraftHistoryItem): Long =
         dao.insert(item.toEntity())
 
@@ -43,19 +46,23 @@ private fun DraftSessionEntity.toDomain() = DraftHistoryItem(
     totalRecommendations    = totalRecommendations,
     outcome                 = DraftOutcome.fromString(outcome),
     isSimulation            = isSimulation,
-    yourPickIds             = yourPickIds
+    yourPickIds             = yourPickIds,
+    ourTeamFirst            = ourTeamFirst,
+    enemyBanIds             = enemyBanIds,
+    yourBanIds              = yourBanIds,
+    enemyPickIds            = enemyPickIds
 )
 
 private fun DraftHistoryItem.toEntity() = DraftSessionEntity(
     id                      = id,
     timestamp               = timestamp,
     rank                    = rank,
-    banTotal                = 0,
-    enemyBanIds             = emptyList(),
-    yourBanIds              = emptyList(),
-    enemyPickIds            = emptyList(),
+    banTotal                = enemyBanIds.count { it >= 0 } + yourBanIds.count { it >= 0 },
+    enemyBanIds             = enemyBanIds,
+    yourBanIds              = yourBanIds,
+    enemyPickIds            = enemyPickIds,
     yourPickIds             = yourPickIds,
-    ourTeamFirst            = true,
+    ourTeamFirst            = ourTeamFirst,
     draftScore              = draftScore,
     metaScore               = metaScore,
     counterScore            = counterScore,
